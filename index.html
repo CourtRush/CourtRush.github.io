@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PickleHub — Rising Club Companion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --court:#0E5F58;
+    --court-deep:#0A3F3A;
+    --court-light:#12786F;
+    --ink:#0B2321;
+    --bg:#EDF5F2;
+    --panel:#FFFFFF;
+    --ball:#D6E62B;
+    --ball-deep:#A9B818;
+    --coral:#EF6351;
+    --line:#D7E5E0;
+    --muted:#5B7A74;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  #root{max-width:1180px;margin:0 auto;padding:0 20px 80px;}
+  h1,h2,h3{font-family:'Bebas Neue',sans-serif;letter-spacing:0.02em;margin:0;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  a{color:inherit;}
+  button{font-family:'Inter',sans-serif;cursor:pointer;}
+
+  /* ---------- Header ---------- */
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:22px 0 14px;
+  }
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand-mark{
+    width:42px;height:42px;border-radius:10px;background:var(--court);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    box-shadow:0 3px 0 var(--court-deep);
+  }
+  .brand-name{font-size:30px;line-height:1;color:var(--court-deep);}
+  .brand-sub{font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-top:2px;}
+
+  nav.tabs{display:flex;gap:6px;flex-wrap:wrap;padding:6px;background:var(--panel);border-radius:12px;border:1px solid var(--line);}
+  nav.tabs button{
+    border:none;background:transparent;padding:9px 14px;border-radius:8px;
+    font-weight:600;font-size:13.5px;color:var(--muted);transition:all .15s ease;
+  }
+  nav.tabs button.active{background:var(--court);color:#fff;}
+  nav.tabs button:not(.active):hover{background:var(--bg);color:var(--ink);}
+
+  /* ---------- Cards / panels ---------- */
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px;}
+  .panel + .panel{margin-top:16px;}
+  .section-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap;}
+  .section-title h2{font-size:22px;color:var(--court-deep);}
+  .eyebrow{font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:4px;}
+
+  /* ---------- Hero / scoreboard ---------- */
+  .hero{
+    background:linear-gradient(135deg,var(--court) 0%,var(--court-deep) 100%);
+    border-radius:20px;padding:30px 28px;color:#fff;position:relative;overflow:hidden;
+  }
+  .hero::after{
+    content:"";position:absolute;right:-60px;top:-60px;width:260px;height:260px;border-radius:50%;
+    background:radial-gradient(circle,rgba(214,230,43,0.18) 0%,rgba(214,230,43,0) 70%);
+  }
+  .hero-top{position:relative;z-index:1;}
+  .hero h1{font-size:38px;color:#fff;}
+  .hero p{margin:6px 0 0;color:rgba(255,255,255,0.75);font-size:14.5px;max-width:520px;}
+  .score-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:22px;position:relative;z-index:1;}
+  .score-tile{background:rgba(0,0,0,0.18);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:14px 16px;}
+  .score-tile .num{font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:700;color:var(--ball);}
+  .score-tile .lbl{font-size:11.5px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin-top:2px;}
+
+  /* ---------- Leaderboard ---------- */
+  .board-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;}
+  @media(max-width:760px){.board-grid{grid-template-columns:1fr;}}
+  .board-row{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line);}
+  .board-row:last-child{border-bottom:none;}
+  .rank{width:22px;font-family:'IBM Plex Mono',monospace;color:var(--muted);font-size:13px;}
+  .board-name{flex:1;font-weight:600;font-size:14px;}
+  .board-sub{font-size:11.5px;color:var(--muted);}
+  .diff-pill{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:13px;padding:3px 9px;border-radius:20px;}
+  .diff-pos{background:rgba(14,95,88,0.1);color:var(--court);}
+  .diff-neg{background:rgba(239,99,81,0.1);color:var(--coral);}
+  .diff-zero{background:var(--bg);color:var(--muted);}
+
+  /* ---------- Buttons ---------- */
+  .btn{border-radius:9px;padding:10px 16px;font-weight:700;font-size:13.5px;border:none;transition:transform .1s ease;}
+  .btn:active{transform:scale(0.97);}
+  .btn-primary{background:var(--court);color:#fff;}
+  .btn-primary:hover{background:var(--court-light);}
+  .btn-ball{background:var(--ball);color:var(--court-deep);}
+  .btn-ball:hover{background:#c3d322;}
+  .btn-ghost{background:transparent;color:var(--court);border:1.5px solid var(--line);}
+  .btn-ghost:hover{border-color:var(--court);}
+  .btn-danger{background:transparent;color:var(--coral);border:1.5px solid rgba(239,99,81,0.3);}
+  .btn-danger:hover{background:rgba(239,99,81,0.08);}
+  .btn-sm{padding:6px 11px;font-size:12px;border-radius:7px;}
+  .btn:disabled{opacity:0.4;cursor:not-allowed;}
+
+  /* ---------- Forms ---------- */
+  label{display:block;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:5px;}
+  input[type=text],input[type=date],input[type=number],select{
+    width:100%;padding:10px 11px;border-radius:8px;border:1.5px solid var(--line);
+    font-family:'Inter',sans-serif;font-size:14px;background:#fff;color:var(--ink);
+  }
+  input:focus,select:focus{outline:2px solid var(--court-light);outline-offset:1px;border-color:var(--court-light);}
+  .field{margin-bottom:14px;}
+  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .inline-row{display:flex;gap:10px;align-items:flex-end;}
+  .inline-row .field{flex:1;margin-bottom:0;}
+
+  /* ---------- Roster table ---------- */
+  table{width:100%;border-collapse:collapse;}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);padding:8px 10px;border-bottom:2px solid var(--line);}
+  td{padding:11px 10px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:middle;}
+  tr.clickable{cursor:pointer;}
+  tr.clickable:hover td{background:var(--bg);}
+  .name-cell{font-weight:700;}
+  .guest-tag{font-size:10px;background:var(--bg);color:var(--muted);padding:2px 7px;border-radius:20px;margin-left:6px;font-weight:700;text-transform:uppercase;}
+
+  /* ---------- Empty state ---------- */
+  .empty{text-align:center;padding:40px 20px;color:var(--muted);}
+  .empty h3{color:var(--ink);font-size:20px;margin-bottom:6px;}
+  .empty p{font-size:14px;margin:0 0 16px;}
+
+  /* ---------- Paddle icon / stack (signature element) ---------- */
+  .paddle{display:inline-flex;vertical-align:middle;}
+  .paddle-stack{display:flex;flex-direction:column;gap:8px;}
+  .paddle-row{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg);border-radius:9px;border:1px solid var(--line);}
+  .paddle-row .p-order{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);width:18px;}
+  .paddle-row .p-name{font-weight:600;font-size:13.5px;flex:1;}
+
+  /* ---------- Court diagram ---------- */
+  .court-card{border:1.5px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:14px;}
+  .court-head{background:var(--court-deep);color:#fff;padding:8px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;letter-spacing:0.05em;display:flex;justify-content:space-between;align-items:center;}
+  .court-body{background:linear-gradient(180deg,var(--court) 0%,var(--court-light) 100%);padding:16px 14px;}
+  .team-row{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.12);border-radius:9px;padding:10px 12px;color:#fff;font-weight:600;font-size:14px;}
+  .team-row + .team-row{margin-top:0;}
+  .net-line{display:flex;align-items:center;gap:8px;margin:8px 0;color:rgba(255,255,255,0.6);font-size:10px;text-transform:uppercase;letter-spacing:0.18em;font-weight:700;}
+  .net-line::before,.net-line::after{content:"";flex:1;height:1px;background:repeating-linear-gradient(90deg,rgba(255,255,255,0.5) 0 6px,transparent 6px 12px);}
+  .score-inputs{display:flex;gap:8px;align-items:center;margin-top:12px;}
+  .score-inputs input{width:64px;text-align:center;font-family:'IBM Plex Mono',monospace;font-weight:700;}
+  .score-vs{color:rgba(255,255,255,0.6);font-size:12px;font-weight:700;}
+  .recorded-badge{background:var(--ball);color:var(--court-deep);font-size:11px;font-weight:800;padding:4px 10px;border-radius:20px;}
+
+  /* ---------- Modal ---------- */
+  .modal-overlay{position:fixed;inset:0;background:rgba(10,30,27,0.55);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;z-index:50;}
+  .modal{background:var(--panel);border-radius:16px;max-width:640px;width:100%;padding:24px;position:relative;}
+  .modal-close{position:absolute;top:16px;right:16px;background:var(--bg);border:none;width:30px;height:30px;border-radius:50%;font-size:16px;color:var(--muted);font-weight:700;}
+  .modal-close:hover{background:var(--line);}
+
+  /* ---------- Chips / checkboxes ---------- */
+  .chip-grid{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{border:1.5px solid var(--line);border-radius:20px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;user-select:none;background:#fff;}
+  .chip.on{background:var(--court);border-color:var(--court);color:#fff;}
+  .chip .cnt{opacity:0.7;font-size:11px;margin-left:4px;}
+
+  /* ---------- Toast ---------- */
+  #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:11px 20px;border-radius:9px;font-size:13.5px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s ease;z-index:100;box-shadow:0 6px 20px rgba(0,0,0,0.2);}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  .muted{color:var(--muted);}
+  .small{font-size:12.5px;}
+  .flex-between{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+  .divider{height:1px;background:var(--line);margin:16px 0;}
+  .round-label{display:inline-flex;align-items:center;gap:6px;font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--court-deep);letter-spacing:0.03em;margin:22px 0 10px;}
+  .round-label:first-child{margin-top:4px;}
+  .link-btn{background:none;border:none;color:var(--court);font-weight:700;font-size:13px;padding:0;text-decoration:underline;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+/* ============================= FIREBASE ============================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyBHvV4GTdsjbdc09gJOx-exuT5IaNOf92w",
+  authDomain: "picklehub-10acc.firebaseapp.com",
+  projectId: "picklehub-10acc",
+  storageBucket: "picklehub-10acc.firebasestorage.app",
+  messagingSenderId: "677766385806",
+  appId: "1:677766385806:web:aa085bb295937b79e279df"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const PLAYERS_COL = db.collection('players');
+const MATCHES_COL = db.collection('matches');
+const SCHEDULE_DOC = db.collection('meta').doc('schedule');
+
+/* ============================= STATE ============================= */
+let state = {
+  loading: true,
+  connected: true,
+  tab: 'dashboard',
+  players: [],
+  matches: [],
+  schedule: null,
+  playerModalId: null,
+  showAddPlayer: false,
+  scheduleSelection: new Set(),
+};
+
+/* ============================= REALTIME SYNC ============================= */
+function startSync(){
+  PLAYERS_COL.onSnapshot(snap=>{
+    state.players = snap.docs.map(d=>d.data());
+    state.connected = true;
+    render();
+  }, err=>{ console.error(err); state.connected=false; toast('Sync error — check your connection'); render(); });
+
+  MATCHES_COL.onSnapshot(snap=>{
+    state.matches = snap.docs.map(d=>d.data());
+    render();
+  }, err=>{ console.error(err); });
+
+  SCHEDULE_DOC.onSnapshot(doc=>{
+    state.schedule = doc.exists ? doc.data() : null;
+    render();
+  }, err=>{ console.error(err); });
+}
+
+
+/* ============================= HELPERS ============================= */
+function uid(p){ return p+'_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function todayStr(){ const d=new Date(); return d.toISOString().slice(0,10); }
+function fmtDate(s){ const d=new Date(s+'T00:00:00'); return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+function shuffle(arr){ const a=[...arr]; for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function playerName(id){ const p = state.players.find(x=>x.id===id); return p ? p.name : 'Former player'; }
+function esc(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function diffPill(n, decimals){
+  decimals = decimals===undefined?0:decimals;
+  const cls = n>0?'diff-pos':(n<0?'diff-neg':'diff-zero');
+  const sign = n>0?'+':'';
+  return `<span class="diff-pill ${cls}">${sign}${n.toFixed(decimals)}</span>`;
+}
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(window.__toastT);
+  window.__toastT = setTimeout(()=> el.classList.remove('show'), 2200);
+}
+function paddleSVG(color){
+  color = color || 'var(--court)';
+  return `<svg class="paddle" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="12" cy="9" rx="7" ry="8.5" fill="${color}"/>
+    <rect x="10.5" y="16" width="3" height="7" rx="1.3" fill="${color}"/>
+  </svg>`;
+}
+
+/* ============================= STATS ============================= */
+function playerMatches(pid){
+  return state.matches.filter(m=> m.team1.includes(pid) || m.team2.includes(pid));
+}
+function computePlayerStats(pid){
+  const ms = playerMatches(pid);
+  let wins=0, losses=0, diffSum=0;
+  const dateSet = new Set();
+  ms.forEach(m=>{
+    const onT1 = m.team1.includes(pid);
+    const my = onT1 ? m.score1 : m.score2;
+    const opp = onT1 ? m.score2 : m.score1;
+    diffSum += (my-opp);
+    if(my>opp) wins++; else if(my<opp) losses++;
+    dateSet.add(m.date);
+  });
+  const gamesPlayed = ms.length;
+  const avgDiff = gamesPlayed ? diffSum/gamesPlayed : 0;
+  const dates = Array.from(dateSet).sort();
+  let avgDaysPerWeek = 0;
+  if(dates.length){
+    const first = new Date(dates[0]+'T00:00:00');
+    const last = new Date(dates[dates.length-1]+'T00:00:00');
+    const weeksSpan = Math.max(1, Math.round((last-first)/(7*86400000))+1);
+    avgDaysPerWeek = dates.length/weeksSpan;
+  }
+  return { gamesPlayed, wins, losses, diffSum, avgDiff, avgDaysPerWeek, uniqueDays:dates.length };
+}
+function computeMatchupMatrix(pid){
+  const map = {};
+  state.matches.forEach(m=>{
+    const onT1 = m.team1.includes(pid), onT2 = m.team2.includes(pid);
+    if(!onT1 && !onT2) return;
+    const myTeam = onT1 ? m.team1 : m.team2;
+    const oppTeam = onT1 ? m.team2 : m.team1;
+    const myScore = onT1 ? m.score1 : m.score2;
+    const oppScore = onT1 ? m.score2 : m.score1;
+    const diff = myScore - oppScore;
+    myTeam.forEach(other=>{
+      if(other===pid) return;
+      map[other] = map[other] || {gamesWith:0,diffWith:0,gamesAgainst:0,diffAgainst:0};
+      map[other].gamesWith++; map[other].diffWith += diff;
+    });
+    oppTeam.forEach(other=>{
+      map[other] = map[other] || {gamesWith:0,diffWith:0,gamesAgainst:0,diffAgainst:0};
+      map[other].gamesAgainst++; map[other].diffAgainst += diff;
+    });
+  });
+  return map;
+}
+
+/* ============================= SCHEDULE ALGORITHM ============================= */
+function generateSchedule({playerIds, courts, format, rounds}){
+  const capacityPerCourt = format==='singles' ? 2 : 4;
+  const usableCourts = Math.max(1, Math.min(courts, Math.floor(playerIds.length/capacityPerCourt)));
+  const capacity = usableCourts*capacityPerCourt;
+  const sitOutCount = {}; playerIds.forEach(id=> sitOutCount[id]=0);
+  const key = (a,b)=> [a,b].sort().join('|');
+  const partnerCount = {}, opponentCount = {};
+  playerIds.forEach(a=> playerIds.forEach(b=>{ if(a!==b){ partnerCount[key(a,b)]=0; opponentCount[key(a,b)]=0; } }));
+  const roundsOut = [];
+  for(let r=1; r<=rounds; r++){
+    const numSitOut = playerIds.length - capacity;
+    const order = [...playerIds].sort((a,b)=> sitOutCount[a]-sitOutCount[b] || (Math.random()-0.5));
+    const sitOuts = numSitOut>0 ? order.slice(0, numSitOut) : [];
+    sitOuts.forEach(id=> sitOutCount[id]++);
+    let pool = shuffle(playerIds.filter(id=> !sitOuts.includes(id)));
+    const courtsArr = [];
+    for(let c=1; c<=usableCourts; c++){
+      if(format==='singles'){
+        const a = pool.shift();
+        pool.sort((x,y)=> opponentCount[key(a,x)]-opponentCount[key(a,y)]);
+        const b = pool.shift();
+        opponentCount[key(a,b)]++;
+        courtsArr.push({court:c, team1:[a], team2:[b]});
+      } else {
+        const a = pool.shift();
+        pool.sort((x,y)=> partnerCount[key(a,x)]-partnerCount[key(a,y)]);
+        const b = pool.shift();
+        partnerCount[key(a,b)]++;
+        pool.sort((x,y)=>{
+          const sx = opponentCount[key(a,x)]+opponentCount[key(b,x)];
+          const sy = opponentCount[key(a,y)]+opponentCount[key(b,y)];
+          return sx-sy;
+        });
+        const c1 = pool.shift();
+        pool.sort((x,y)=>{
+          const sx = partnerCount[key(c1,x)]*2 + opponentCount[key(a,x)] + opponentCount[key(b,x)];
+          const sy = partnerCount[key(c1,y)]*2 + opponentCount[key(a,y)] + opponentCount[key(b,y)];
+          return sx-sy;
+        });
+        const d1 = pool.shift();
+        partnerCount[key(c1,d1)]++;
+        [a,b].forEach(p1=> [c1,d1].forEach(p2=> opponentCount[key(p1,p2)]++));
+        courtsArr.push({court:c, team1:[a,b], team2:[c1,d1]});
+      }
+    }
+    roundsOut.push({round:r, sitOuts, courts:courtsArr});
+  }
+  return roundsOut;
+}
+
+/* ============================= ACTIONS ============================= */
+async function addPlayer(name, guest){
+  name = name.trim();
+  if(!name) return null;
+  const p = { id: uid('pl'), name, guest: !!guest, createdAt: new Date().toISOString() };
+  try{ await PLAYERS_COL.doc(p.id).set(p); }
+  catch(e){ toast('Could not save — check your connection'); return null; }
+  return p;
+}
+async function deletePlayer(id){
+  if(!confirm('Remove this player from the roster? Past match history stays intact.')) return;
+  try{ await PLAYERS_COL.doc(id).delete(); }
+  catch(e){ toast('Could not remove — try again'); return; }
+  state.playerModalId = null;
+  render();
+  toast('Player removed');
+}
+async function submitAddPlayerForm(ev){
+  ev.preventDefault();
+  const name = document.getElementById('newPlayerName').value;
+  if(!name.trim()){ toast('Enter a name first'); return; }
+  const p = await addPlayer(name, false);
+  if(!p) return;
+  state.showAddPlayer = false;
+  render();
+  toast('Player added to roster');
+}
+async function deleteMatch(id){
+  if(!confirm("Delete this match record? This can't be undone.")) return;
+  try{ await MATCHES_COL.doc(id).delete(); }
+  catch(e){ toast('Could not delete — try again'); return; }
+  toast('Match deleted');
+}
+function toggleScheduleSelect(id){
+  if(state.scheduleSelection.has(id)) state.scheduleSelection.delete(id);
+  else state.scheduleSelection.add(id);
+  render();
+}
+async function addGuestForSchedule(){
+  const input = document.getElementById('guestQuickAdd');
+  const name = input.value;
+  if(!name.trim()) return;
+  const p = await addPlayer(name, true);
+  if(p) state.scheduleSelection.add(p.id);
+  render();
+}
+async function doGenerateSchedule(){
+  const ids = Array.from(state.scheduleSelection);
+  const courts = Math.max(1, parseInt(document.getElementById('sg_courts').value,10) || 1);
+  const rounds = Math.max(1, parseInt(document.getElementById('sg_rounds').value,10) || 1);
+  const format = document.getElementById('sg_format').value;
+  const date = document.getElementById('sg_date').value || todayStr();
+  const minNeeded = format==='singles' ? 2 : 4;
+  if(ids.length < minNeeded){ toast(`Pick at least ${minNeeded} players`); return; }
+  const roundsData = generateSchedule({playerIds:ids, courts, format, rounds});
+  const schedule = { id: uid('sched'), date, format, courts, rounds: roundsData, recorded:{} };
+  try{ await SCHEDULE_DOC.set(schedule); }
+  catch(e){ toast('Could not save schedule — try again'); return; }
+  toast('Schedule generated');
+}
+async function clearSchedule(){
+  if(!confirm('Clear the current generated schedule?')) return;
+  try{ await SCHEDULE_DOC.delete(); }
+  catch(e){ toast('Could not clear — try again'); return; }
+}
+async function recordCourtResult(round, court){
+  const s1 = parseInt(document.getElementById(`res_${round}_${court}_1`).value, 10);
+  const s2 = parseInt(document.getElementById(`res_${round}_${court}_2`).value, 10);
+  if(isNaN(s1) || isNaN(s2)){ toast('Enter both scores'); return; }
+  const rd = state.schedule.rounds.find(r=>r.round===round);
+  const ct = rd.courts.find(c=>c.court===court);
+  const m = { id: uid('m'), date: state.schedule.date, court: String(ct.court), format: state.schedule.format,
+    team1: ct.team1, team2: ct.team2, score1:s1, score2:s2, round: round };
+  try{
+    await MATCHES_COL.doc(m.id).set(m);
+    const recorded = { ...state.schedule.recorded, [`${round}_${court}`]: m.id };
+    await SCHEDULE_DOC.set({ ...state.schedule, recorded });
+  }catch(e){ toast('Could not save result — try again'); return; }
+  toast(`Court ${court} result saved`);
+}
+
+/* ============================= RENDER: SHELL ============================= */
+function setTab(t){ state.tab = t; render(); }
+
+function render(){
+  const root = document.getElementById('root');
+  if(state.loading){
+    root.innerHTML = `<div style="padding:80px 0;text-align:center;color:var(--muted);">Loading the club…</div>`;
+    return;
+  }
+  root.innerHTML = `
+    ${renderTopbar()}
+    <div id="tabBody">${renderTabBody()}</div>
+    ${state.playerModalId ? renderPlayerModal() : ''}
+    ${state.showAddPlayer ? renderAddPlayerModal() : ''}
+  `;
+  wireTabBodyEvents();
+}
+
+function renderTopbar(){
+  const tabs = [
+    ['dashboard','Dashboard'],['roster','Roster'],['schedule','Schedule'],
+    ['history','History']
+  ];
+  return `
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">${paddleSVG('#D6E62B')}</div>
+      <div>
+        <div class="brand-name">PickleHub</div>
+        <div class="brand-sub">Rising Club Companion</div>
+      </div>
+    </div>
+    <nav class="tabs">
+      ${tabs.map(([k,l])=> `<button class="${state.tab===k?'active':''}" onclick="setTab('${k}')">${l}</button>`).join('')}
+    </nav>
+  </div>`;
+}
+
+function renderTabBody(){
+  if(state.tab==='dashboard') return renderDashboard();
+  if(state.tab==='roster') return renderRoster();
+  if(state.tab==='schedule') return renderSchedule();
+  if(state.tab==='history') return renderHistory();
+  return '';
+}
+
+/* ============================= DASHBOARD ============================= */
+function renderDashboard(){
+  const totalPlayers = state.players.length;
+  const totalMatches = state.matches.length;
+  const allDates = new Set(state.matches.map(m=>m.date));
+  const stats = state.players.map(p=> ({p, s: computePlayerStats(p.id)}));
+  const withGames = stats.filter(x=> x.s.gamesPlayed>0);
+  const hot = [...withGames].sort((a,b)=> b.s.avgDiff - a.s.avgDiff).slice(0,5);
+  const active = [...withGames].sort((a,b)=> b.s.gamesPlayed - a.s.gamesPlayed).slice(0,5);
+  const clubAvgDaysWeek = withGames.length ? (withGames.reduce((s,x)=> s+x.s.avgDaysPerWeek,0)/withGames.length) : 0;
+
+  if(totalPlayers===0){
+    return `
+    <div class="hero">
+      <div class="hero-top">
+        <h1>Welcome to the club.</h1>
+        <p>Add your first players to start tracking games, +/- and who plays well with whom.</p>
+      </div>
+      <div style="position:relative;z-index:1;margin-top:20px;">
+        <button class="btn btn-ball" onclick="setTab('roster')">Build your roster</button>
+      </div>
+    </div>`;
+  }
+
+  return `
+  <div class="hero">
+    <div class="hero-top">
+      <h1>Rising Club Companion</h1>
+      <p>Every rally counted. Track who's playing, how they're performing, and who to put on the same side of the net next.</p>
+    </div>
+    <div class="score-tiles">
+      <div class="score-tile"><div class="num">${totalPlayers}</div><div class="lbl">Players</div></div>
+      <div class="score-tile"><div class="num">${totalMatches}</div><div class="lbl">Games logged</div></div>
+      <div class="score-tile"><div class="num">${allDates.size}</div><div class="lbl">Play days</div></div>
+      <div class="score-tile"><div class="num">${clubAvgDaysWeek.toFixed(1)}</div><div class="lbl">Avg days/week</div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="section-title"><h2>Leaderboard</h2><span class="small muted">Minimum 1 game played</span></div>
+    ${withGames.length===0 ? `<div class="empty"><p>No games logged yet — run the schedule generator and save results once the first games wrap up.</p></div>` : `
+    <div class="board-grid">
+      <div>
+        <div class="eyebrow">Hot paddles · by avg +/-</div>
+        ${hot.map((x,i)=> `
+          <div class="board-row">
+            <span class="rank">${i+1}</span>
+            <span class="board-name">${esc(x.p.name)}<div class="board-sub">${x.s.gamesPlayed} games</div></span>
+            ${diffPill(x.s.avgDiff,1)}
+          </div>`).join('')}
+      </div>
+      <div>
+        <div class="eyebrow">Most active · by games played</div>
+        ${active.map((x,i)=> `
+          <div class="board-row">
+            <span class="rank">${i+1}</span>
+            <span class="board-name">${esc(x.p.name)}<div class="board-sub">${x.s.avgDaysPerWeek.toFixed(1)} days/week</div></span>
+            <span class="mono small muted">${x.s.gamesPlayed}g</span>
+          </div>`).join('')}
+      </div>
+    </div>`}
+  </div>
+
+  <div class="panel">
+    <div class="section-title"><h2>Quick actions</h2></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="setTab('schedule')">Generate today's schedule</button>
+      <button class="btn btn-ghost" onclick="setTab('roster')">Manage roster</button>
+      <button class="btn btn-ghost" onclick="setTab('history')">View match history</button>
+    </div>
+  </div>
+  `;
+}
+
+/* ============================= ROSTER ============================= */
+function renderRoster(){
+  const rows = [...state.players].sort((a,b)=> a.name.localeCompare(b.name));
+  return `
+  <div class="panel">
+    <div class="section-title">
+      <h2>Roster</h2>
+      <button class="btn btn-primary btn-sm" onclick="state.showAddPlayer=true; render();">+ Add player</button>
+    </div>
+    ${rows.length===0 ? `
+      <div class="empty">
+        <h3>No players yet</h3>
+        <p>Add your regulars to start tracking stats and building schedules.</p>
+        <button class="btn btn-ball" onclick="state.showAddPlayer=true; render();">Add your first player</button>
+      </div>` : `
+    <table>
+      <thead><tr>
+        <th>Name</th><th>Games</th><th>W&nbsp;-&nbsp;L</th><th>+/- Total</th><th>Avg +/-</th><th>Days/Week</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(p=>{
+          const s = computePlayerStats(p.id);
+          return `<tr class="clickable" onclick="state.playerModalId='${p.id}'; render();">
+            <td class="name-cell">${esc(p.name)}${p.guest?'<span class="guest-tag">Guest</span>':''}</td>
+            <td class="mono">${s.gamesPlayed}</td>
+            <td class="mono">${s.wins}-${s.losses}</td>
+            <td>${diffPill(s.diffSum,0)}</td>
+            <td>${diffPill(s.avgDiff,1)}</td>
+            <td class="mono">${s.avgDaysPerWeek.toFixed(1)}</td>
+            <td onclick="event.stopPropagation();"><button class="btn btn-danger btn-sm" onclick="deletePlayer('${p.id}')">Remove</button></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`}
+  </div>`;
+}
+
+function renderAddPlayerModal(){
+  return `
+  <div class="modal-overlay" onclick="if(event.target===this){state.showAddPlayer=false; render();}">
+    <div class="modal" style="max-width:400px;">
+      <button class="modal-close" onclick="state.showAddPlayer=false; render();">&times;</button>
+      <h2 style="font-size:24px;color:var(--court-deep);margin-bottom:14px;">Add a player</h2>
+      <form onsubmit="submitAddPlayerForm(event)">
+        <div class="field">
+          <label>Full name</label>
+          <input type="text" id="newPlayerName" placeholder="e.g. Jamie Cruz" autofocus />
+        </div>
+        <button class="btn btn-primary" type="submit" style="width:100%;">Add to roster</button>
+      </form>
+    </div>
+  </div>`;
+}
+
+function renderPlayerModal(){
+  const p = state.players.find(x=>x.id===state.playerModalId);
+  if(!p) return '';
+  const s = computePlayerStats(p.id);
+  const matrix = computeMatchupMatrix(p.id);
+  const rows = Object.keys(matrix).map(otherId=>{
+    const m = matrix[otherId];
+    return { name: playerName(otherId), ...m };
+  }).sort((a,b)=> (b.gamesWith+b.gamesAgainst) - (a.gamesWith+a.gamesAgainst));
+
+  return `
+  <div class="modal-overlay" onclick="if(event.target===this){state.playerModalId=null; render();}">
+    <div class="modal">
+      <button class="modal-close" onclick="state.playerModalId=null; render();">&times;</button>
+      <div class="eyebrow">Player profile</div>
+      <h2 style="font-size:28px;color:var(--court-deep);">${esc(p.name)}${p.guest?'<span class="guest-tag">Guest</span>':''}</h2>
+
+      <div class="score-tiles" style="margin-top:16px;">
+        <div class="score-tile" style="background:var(--bg);border-color:var(--line);">
+          <div class="num" style="color:var(--court);">${s.gamesPlayed}</div><div class="lbl" style="color:var(--muted);">Games</div>
+        </div>
+        <div class="score-tile" style="background:var(--bg);border-color:var(--line);">
+          <div class="num" style="color:var(--court);">${s.wins}-${s.losses}</div><div class="lbl" style="color:var(--muted);">W - L</div>
+        </div>
+        <div class="score-tile" style="background:var(--bg);border-color:var(--line);">
+          <div class="num" style="color:var(--court);">${s.diffSum>0?'+':''}${s.diffSum}</div><div class="lbl" style="color:var(--muted);">Total +/-</div>
+        </div>
+        <div class="score-tile" style="background:var(--bg);border-color:var(--line);">
+          <div class="num" style="color:var(--court);">${s.avgDaysPerWeek.toFixed(1)}</div><div class="lbl" style="color:var(--muted);">Days/week</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="eyebrow">Match history — teammates &amp; opponents</div>
+      ${rows.length===0 ? `<p class="small muted">No games logged with this player yet.</p>` : `
+      <table>
+        <thead><tr><th>Player</th><th>As teammate</th><th>As opponent</th></tr></thead>
+        <tbody>
+          ${rows.map(r=> `
+            <tr>
+              <td class="name-cell">${esc(r.name)}</td>
+              <td>${r.gamesWith>0 ? `${diffPill(r.diffWith,0)} <span class="small muted">/ ${r.gamesWith}g</span>` : '<span class="small muted">—</span>'}</td>
+              <td>${r.gamesAgainst>0 ? `${diffPill(r.diffAgainst,0)} <span class="small muted">/ ${r.gamesAgainst}g</span>` : '<span class="small muted">—</span>'}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`}
+    </div>
+  </div>`;
+}
+
+/* ============================= SCHEDULE ============================= */
+function renderSchedule(){
+  const roster = [...state.players].sort((a,b)=> a.name.localeCompare(b.name));
+  const selCount = state.scheduleSelection.size;
+
+  return `
+  <div class="panel">
+    <div class="section-title"><h2>Schedule generator</h2></div>
+    <p class="small muted" style="margin-top:-6px;">Pick who's on deck today, set your courts and format, and PickleHub rotates partners and opponents round by round.</p>
+
+    <div class="field-row" style="margin-top:16px;">
+      <div class="field"><label>Game day</label><input type="date" id="sg_date" value="${state.schedule ? state.schedule.date : todayStr()}"/></div>
+      <div class="field"><label>Format</label>
+        <select id="sg_format">
+          <option value="doubles" ${state.schedule && state.schedule.format==='doubles'?'selected':''}>Doubles (2v2)</option>
+          <option value="singles" ${state.schedule && state.schedule.format==='singles'?'selected':''}>Singles (1v1)</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Courts available</label><input type="number" id="sg_courts" min="1" value="${state.schedule ? state.schedule.courts : Math.max(1,Math.floor(roster.length/4))||1}"/></div>
+      <div class="field"><label>Rounds</label><input type="number" id="sg_rounds" min="1" value="4"/></div>
+    </div>
+
+    <div class="field">
+      <div class="flex-between"><label style="margin-bottom:0;">Who's playing (${selCount} selected)</label>
+        <button class="link-btn" onclick="event.preventDefault(); ${roster.length? "state.scheduleSelection.size===state.players.length ? state.scheduleSelection.clear() : state.players.forEach(p=>state.scheduleSelection.add(p.id)); render();" : ''}">Select all / none</button>
+      </div>
+      ${roster.length===0 ? `<p class="small muted">Add players in the Roster tab first.</p>` : `
+      <div class="chip-grid">
+        ${roster.map(p=> `<div class="chip ${state.scheduleSelection.has(p.id)?'on':''}" onclick="toggleScheduleSelect('${p.id}')">${esc(p.name)}</div>`).join('')}
+      </div>`}
+      <div class="inline-row" style="margin-top:10px;">
+        <div class="field"><label>Walk-in / guest</label><input type="text" id="guestQuickAdd" placeholder="Add a guest for today"/></div>
+        <button class="btn btn-ghost btn-sm" onclick="addGuestForSchedule()">Add &amp; select</button>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-primary" onclick="doGenerateSchedule()">Generate schedule</button>
+      ${state.schedule ? `<button class="btn btn-danger" onclick="clearSchedule()">Clear schedule</button>` : ''}
+    </div>
+  </div>
+
+  ${state.schedule ? renderScheduleResult() : ''}
+  `;
+}
+
+function renderScheduleResult(){
+  const sch = state.schedule;
+  return `
+  <div class="panel">
+    <div class="section-title">
+      <h2>${fmtDate(sch.date)} — ${sch.rounds.length} rounds, ${sch.courts} court${sch.courts>1?'s':''}</h2>
+    </div>
+    ${sch.rounds.map(rd=> `
+      <div class="round-label">${paddleSVG('var(--court)')} Round ${rd.round}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;">
+        ${rd.courts.map(ct=>{
+          const recKey = `${rd.round}_${ct.court}`;
+          const recordedId = sch.recorded[recKey];
+          const recordedMatch = recordedId ? state.matches.find(m=>m.id===recordedId) : null;
+          return `
+          <div class="court-card">
+            <div class="court-head"><span>COURT ${ct.court}</span>${recordedMatch ? `<span class="recorded-badge">Saved</span>`:''}</div>
+            <div class="court-body">
+              <div class="team-row">${paddleSVG('#fff')} ${ct.team1.map(playerName).map(esc).join(' &amp; ')}</div>
+              <div class="net-line">net</div>
+              <div class="team-row">${paddleSVG('#fff')} ${ct.team2.map(playerName).map(esc).join(' &amp; ')}</div>
+              ${recordedMatch ? `
+                <div class="score-inputs"><span style="color:#fff;font-family:'IBM Plex Mono',monospace;font-weight:700;">${recordedMatch.score1} <span class="score-vs">–</span> ${recordedMatch.score2}</span></div>
+              ` : `
+                <div class="score-inputs">
+                  <input type="number" id="res_${rd.round}_${ct.court}_1" placeholder="0"/>
+                  <span class="score-vs">VS</span>
+                  <input type="number" id="res_${rd.round}_${ct.court}_2" placeholder="0"/>
+                  <button class="btn btn-ball btn-sm" onclick="recordCourtResult(${rd.round},${ct.court})">Save</button>
+                </div>
+              `}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+      ${rd.sitOuts.length ? `
+        <div style="margin-top:10px;">
+          <div class="eyebrow">Sitting out this round</div>
+          <div class="paddle-stack">
+            ${rd.sitOuts.map((id,i)=> `<div class="paddle-row"><span class="p-order">${i+1}</span>${paddleSVG('var(--court)')}<span class="p-name">${esc(playerName(id))}</span></div>`).join('')}
+          </div>
+        </div>` : ''}
+    `).join('')}
+  </div>`;
+}
+
+
+/* ============================= HISTORY ============================= */
+function renderHistory(){
+  const ms = [...state.matches].sort((a,b)=> b.date.localeCompare(a.date) || 0);
+  if(ms.length===0){
+    return `<div class="panel"><div class="empty"><h3>No matches logged yet</h3><p>Games are recorded straight from the schedule generator — build today's rounds, then save each court's score as it wraps up.</p><button class="btn btn-ball" onclick="setTab('schedule')">Go to schedule generator</button></div></div>`;
+  }
+  return `
+  <div class="panel">
+    <div class="section-title"><h2>Match history</h2><span class="small muted">${ms.length} game${ms.length>1?'s':''} logged</span></div>
+    <table>
+      <thead><tr><th>Date</th><th>Court</th><th>Team 1</th><th>Team 2</th><th>Score</th><th></th></tr></thead>
+      <tbody>
+        ${ms.map(m=> `
+          <tr>
+            <td class="mono small">${fmtDate(m.date)}</td>
+            <td class="mono small">${esc(m.court||'—')}</td>
+            <td>${m.team1.map(playerName).map(esc).join(' &amp; ')}</td>
+            <td>${m.team2.map(playerName).map(esc).join(' &amp; ')}</td>
+            <td class="mono">${m.score1} – ${m.score2}</td>
+            <td><button class="btn btn-danger btn-sm" onclick="deleteMatch('${m.id}')">Delete</button></td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+/* ============================= MISC WIRING ============================= */
+function wireTabBodyEvents(){ /* reserved for future direct DOM listeners */ }
+
+/* ============================= INIT ============================= */
+(function init(){
+  state.loading = false;
+  render();
+  startSync();
+})();
+</script>
+</body>
+</html>
