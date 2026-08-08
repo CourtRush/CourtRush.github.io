@@ -1,0 +1,1673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PickleHub — Rising Club Companion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --court:#0E5F58;
+    --court-deep:#0A3F3A;
+    --court-light:#12786F;
+    --ink:#0B2321;
+    --bg:#EDF5F2;
+    --panel:#FFFFFF;
+    --ball:#D6E62B;
+    --ball-deep:#A9B818;
+    --coral:#EF6351;
+    --line:#D7E5E0;
+    --muted:#5B7A74;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  #root{max-width:1180px;margin:0 auto;padding:0 20px 80px;}
+  h1,h2,h3{font-family:'Bebas Neue',sans-serif;letter-spacing:0.02em;margin:0;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  a{color:inherit;}
+  button{font-family:'Inter',sans-serif;cursor:pointer;}
+
+  /* ---------- Header ---------- */
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:22px 0 14px;
+  }
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand-mark{
+    width:42px;height:42px;border-radius:10px;background:var(--court);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    box-shadow:0 3px 0 var(--court-deep);
+  }
+  .brand-name{font-size:30px;line-height:1;color:var(--court-deep);}
+  .brand-sub{font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-top:2px;}
+  .topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .account-chip{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:5px 10px 5px 5px;cursor:pointer;}
+  .account-chip:hover{border-color:var(--court);}
+
+  nav.tabs{display:flex;gap:6px;flex-wrap:wrap;padding:6px;background:var(--panel);border-radius:12px;border:1px solid var(--line);}
+  nav.tabs button{
+    border:none;background:transparent;padding:9px 14px;border-radius:8px;
+    font-weight:600;font-size:13.5px;color:var(--muted);transition:all .15s ease;
+  }
+  nav.tabs button.active{background:var(--court);color:#fff;}
+  nav.tabs button:not(.active):hover{background:var(--bg);color:var(--ink);}
+
+  /* ---------- Cards / panels ---------- */
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px;}
+  .panel + .panel{margin-top:16px;}
+  .section-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap;}
+  .section-title h2{font-size:22px;color:var(--court-deep);}
+  .eyebrow{font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:4px;}
+
+  /* ---------- Hero / scoreboard ---------- */
+  .hero{
+    background:linear-gradient(135deg,var(--court) 0%,var(--court-deep) 100%);
+    border-radius:20px;padding:30px 28px;color:#fff;position:relative;overflow:hidden;
+  }
+  .hero::after{
+    content:"";position:absolute;right:-60px;top:-60px;width:260px;height:260px;border-radius:50%;
+    background:radial-gradient(circle,rgba(214,230,43,0.18) 0%,rgba(214,230,43,0) 70%);
+  }
+  .hero-top{position:relative;z-index:1;}
+  .hero h1{font-size:38px;color:#fff;}
+  .hero p{margin:6px 0 0;color:rgba(255,255,255,0.75);font-size:14.5px;max-width:520px;}
+  .score-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:22px;position:relative;z-index:1;}
+  .score-tile{background:rgba(0,0,0,0.18);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:14px 16px;}
+  .score-tile .num{font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:700;color:var(--ball);}
+  .score-tile .lbl{font-size:11.5px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin-top:2px;}
+
+  /* ---------- Leaderboard ---------- */
+  .board-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;}
+  @media(max-width:760px){.board-grid{grid-template-columns:1fr;}}
+  .board-row{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line);}
+  .board-row:last-child{border-bottom:none;}
+  .rank{width:22px;font-family:'IBM Plex Mono',monospace;color:var(--muted);font-size:13px;}
+  .board-name{flex:1;font-weight:600;font-size:14px;}
+  .board-sub{font-size:11.5px;color:var(--muted);}
+  .diff-pill{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:13px;padding:3px 9px;border-radius:20px;}
+  .diff-pos{background:rgba(14,95,88,0.1);color:var(--court);}
+  .diff-neg{background:rgba(239,99,81,0.1);color:var(--coral);}
+  .diff-zero{background:var(--bg);color:var(--muted);}
+
+  /* ---------- Buttons ---------- */
+  .btn{border-radius:9px;padding:10px 16px;font-weight:700;font-size:13.5px;border:none;transition:transform .1s ease;}
+  .btn:active{transform:scale(0.97);}
+  .btn-primary{background:var(--court);color:#fff;}
+  .btn-primary:hover{background:var(--court-light);}
+  .btn-ball{background:var(--ball);color:var(--court-deep);}
+  .btn-ball:hover{background:#c3d322;}
+  .btn-ghost{background:transparent;color:var(--court);border:1.5px solid var(--line);}
+  .btn-ghost:hover{border-color:var(--court);}
+  .btn-danger{background:transparent;color:var(--coral);border:1.5px solid rgba(239,99,81,0.3);}
+  .btn-danger:hover{background:rgba(239,99,81,0.08);}
+  .btn-sm{padding:6px 11px;font-size:12px;border-radius:7px;}
+  .btn:disabled{opacity:0.4;cursor:not-allowed;}
+
+  /* ---------- Forms ---------- */
+  label{display:block;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:5px;}
+  input[type=text],input[type=date],input[type=number],input[type=password],select{
+    width:100%;padding:10px 11px;border-radius:8px;border:1.5px solid var(--line);
+    font-family:'Inter',sans-serif;font-size:14px;background:#fff;color:var(--ink);
+  }
+  input[type=file]{
+    width:100%;padding:9px;border-radius:8px;border:1.5px dashed var(--line);
+    font-family:'Inter',sans-serif;font-size:13px;background:var(--bg);color:var(--muted);
+  }
+  input:focus,select:focus{outline:2px solid var(--court-light);outline-offset:1px;border-color:var(--court-light);}
+  .field{margin-bottom:14px;}
+  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .inline-row{display:flex;gap:10px;align-items:flex-end;}
+  .inline-row .field{flex:1;margin-bottom:0;}
+
+  /* ---------- Roster table ---------- */
+  table{width:100%;border-collapse:collapse;}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);padding:8px 10px;border-bottom:2px solid var(--line);}
+  td{padding:11px 10px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:middle;}
+  tr.clickable{cursor:pointer;}
+  tr.clickable:hover td{background:var(--bg);}
+  .name-cell{font-weight:700;}
+  .guest-tag{font-size:10px;background:var(--bg);color:var(--muted);padding:2px 7px;border-radius:20px;margin-left:6px;font-weight:700;text-transform:uppercase;}
+
+  /* ---------- Empty state ---------- */
+  .empty{text-align:center;padding:40px 20px;color:var(--muted);}
+  .empty h3{color:var(--ink);font-size:20px;margin-bottom:6px;}
+  .empty p{font-size:14px;margin:0 0 16px;}
+
+  /* ---------- Paddle icon / stack (signature element) ---------- */
+  .paddle{display:inline-flex;vertical-align:middle;}
+  .paddle-stack{display:flex;flex-direction:column;gap:8px;}
+  .paddle-row{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg);border-radius:9px;border:1px solid var(--line);}
+  .paddle-row .p-order{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);width:18px;}
+  .paddle-row .p-name{font-weight:600;font-size:13.5px;flex:1;}
+
+  /* ---------- Court diagram ---------- */
+  .court-card{border:1.5px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:14px;}
+  .court-head{background:var(--court-deep);color:#fff;padding:8px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;letter-spacing:0.05em;display:flex;justify-content:space-between;align-items:center;}
+  .court-body{background:linear-gradient(180deg,var(--court) 0%,var(--court-light) 100%);padding:16px 14px;}
+  .team-row{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.12);border-radius:9px;padding:10px 12px;color:#fff;font-weight:600;font-size:14px;}
+  .team-row + .team-row{margin-top:0;}
+  .net-line{display:flex;align-items:center;gap:8px;margin:8px 0;color:rgba(255,255,255,0.6);font-size:10px;text-transform:uppercase;letter-spacing:0.18em;font-weight:700;}
+  .net-line::before,.net-line::after{content:"";flex:1;height:1px;background:repeating-linear-gradient(90deg,rgba(255,255,255,0.5) 0 6px,transparent 6px 12px);}
+  .score-inputs{display:flex;gap:8px;align-items:center;margin-top:12px;}
+  .score-inputs input{width:64px;text-align:center;font-family:'IBM Plex Mono',monospace;font-weight:700;}
+  .score-vs{color:rgba(255,255,255,0.6);font-size:12px;font-weight:700;}
+  .recorded-badge{background:var(--ball);color:var(--court-deep);font-size:11px;font-weight:800;padding:4px 10px;border-radius:20px;}
+
+  /* ---------- Modal ---------- */
+  .modal-overlay{position:fixed;inset:0;background:rgba(10,30,27,0.55);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;z-index:50;}
+  .modal{background:var(--panel);border-radius:16px;max-width:640px;width:100%;padding:24px;position:relative;}
+  .modal-close{position:absolute;top:16px;right:16px;background:var(--bg);border:none;width:30px;height:30px;border-radius:50%;font-size:16px;color:var(--muted);font-weight:700;}
+  .modal-close:hover{background:var(--line);}
+
+  /* ---------- Chips / checkboxes ---------- */
+  .chip-grid{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{border:1.5px solid var(--line);border-radius:20px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;user-select:none;background:#fff;}
+  .chip.on{background:var(--court);border-color:var(--court);color:#fff;}
+  .chip .cnt{opacity:0.7;font-size:11px;margin-left:4px;}
+
+  /* ---------- Toast ---------- */
+  #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:11px 20px;border-radius:9px;font-size:13.5px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s ease;z-index:100;box-shadow:0 6px 20px rgba(0,0,0,0.2);}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  .muted{color:var(--muted);}
+  .small{font-size:12.5px;}
+  .flex-between{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+  .divider{height:1px;background:var(--line);margin:16px 0;}
+  .round-label{display:inline-flex;align-items:center;gap:6px;font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--court-deep);letter-spacing:0.03em;margin:22px 0 10px;}
+  .round-label:first-child{margin-top:4px;}
+  .link-btn{background:none;border:none;color:var(--court);font-weight:700;font-size:13px;padding:0;text-decoration:underline;}
+
+  /* ---------- Play mode picker ---------- */
+  .mode-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;}
+  .mode-card{border:1.5px solid var(--line);border-radius:14px;padding:18px;text-align:left;background:#fff;cursor:pointer;transition:all .15s ease;}
+  .mode-card:hover{border-color:var(--court);transform:translateY(-1px);}
+  .mode-card .mtitle{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--court-deep);letter-spacing:0.02em;}
+  .mode-card .mdesc{font-size:12.5px;color:var(--muted);margin-top:5px;line-height:1.4;}
+  .mode-badge{display:inline-flex;align-items:center;gap:6px;background:var(--court-deep);color:#fff;font-size:11px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;padding:5px 12px;border-radius:20px;}
+  .team-stage-row{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg);border-radius:9px;border:1px solid var(--line);font-size:13.5px;font-weight:600;}
+  .team-stage-row + .team-stage-row{margin-top:6px;}
+
+  /* ---------- Play History (vibes) ---------- */
+  .vibes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;}
+  .vibes-card{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;}
+  .vibes-card img{width:100%;aspect-ratio:1/1;object-fit:cover;display:block;background:var(--bg);}
+  .vibes-meta{padding:8px 10px;}
+  .vibes-caption{font-size:12.5px;font-weight:600;margin-bottom:4px;}
+  .vibes-by{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+
+  /* ---------- Mobile ---------- */
+  @media (max-width: 700px){
+    #root{padding:0 12px 70px;}
+    .topbar{flex-direction:column;align-items:stretch;gap:12px;padding:16px 0 10px;}
+    .topbar-right{justify-content:space-between;}
+    nav.tabs{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;}
+    nav.tabs::-webkit-scrollbar{display:none;}
+    nav.tabs button{flex:0 0 auto;}
+    .hero{padding:22px 18px;border-radius:16px;}
+    .hero h1{font-size:28px;}
+    .hero p{font-size:13px;}
+    .score-tiles{grid-template-columns:repeat(2,1fr);}
+    .board-grid{grid-template-columns:1fr;}
+    .field-row{grid-template-columns:1fr;}
+    .mode-grid{grid-template-columns:1fr;}
+    .modal-overlay{padding:0;align-items:stretch;}
+    .modal{max-width:100%;width:100%;min-height:100%;border-radius:0;padding:18px 16px 32px;}
+    table{display:block;width:100%;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;}
+    .inline-row{flex-direction:column;align-items:stretch;}
+    .vibes-grid{grid-template-columns:repeat(2,1fr);}
+    .brand-name{font-size:26px;}
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script>
+/* ============================= FIREBASE ============================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyBHvV4GTdsjbdc09gJOx-exuT5IaNOf92w",
+  authDomain: "picklehub-10acc.firebaseapp.com",
+  projectId: "picklehub-10acc",
+  storageBucket: "picklehub-10acc.firebasestorage.app",
+  messagingSenderId: "677766385806",
+  appId: "1:677766385806:web:aa085bb295937b79e279df"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+const storage = firebase.storage();
+const PLAYERS_COL = db.collection('players');
+const MATCHES_COL = db.collection('matches');
+const SCHEDULES_COL = db.collection('schedules'); // doc id = date string 'YYYY-MM-DD'
+const PLAYHISTORY_COL = db.collection('playHistory');
+
+/* ============================= STATE ============================= */
+let state = {
+  loading: true,
+  connected: true,
+  tab: 'dashboard',
+  players: [],
+  matches: [],
+  schedules: {},        // { 'YYYY-MM-DD': scheduleObj }
+  playHistory: [],       // game-day photo feed
+  scheduleDate: null,    // currently viewed date in the Schedule tab (set on first render)
+  scheduleMode: null,    // 'open' | 'tournament' | 'dupr' — chosen before generating a new schedule
+  tournamentTeams: null, // [[p1,p2], ...] staged teams for tournament mode, before generating
+  tournamentLeftover: null,
+  playerModalId: null,
+  showAddPlayer: false,
+  scheduleSelection: new Set(),
+  h2hA: null,
+  h2hB: null,
+  currentUser: null,      // { uid, email }
+  myPlayerId: null,       // player doc owned by currentUser, if any
+  showAuthModal: false,
+  authMode: 'login',      // 'login' | 'register'
+  authBusy: false,
+};
+
+const MODE_META = {
+  open:       { label:'Open Play',    short:'Open Play',   desc:'Partners and opponents rotate every round so everyone mixes.' },
+  tournament: { label:'Tournament',   short:'Tournament',  desc:'Teams are locked in for the whole event and face every other team once.' },
+  dupr:       { label:'DUPR Match',   short:'DUPR',        desc:'Log an official rated result directly — no rotation, just the two teams that played.' },
+};
+
+/* ============================= AUTH ============================= */
+auth.onAuthStateChanged(user=>{
+  state.currentUser = user ? { uid:user.uid, email:user.email } : null;
+  state.myPlayerId = null;
+  if(user){
+    const mine = state.players.find(p=> p.ownerUid===user.uid);
+    state.myPlayerId = mine ? mine.id : null;
+  }
+  render();
+});
+
+/* ============================= REALTIME SYNC ============================= */
+function startSync(){
+  PLAYERS_COL.onSnapshot(snap=>{
+    state.players = snap.docs.map(d=>d.data());
+    state.connected = true;
+    if(state.currentUser){
+      const mine = state.players.find(p=> p.ownerUid===state.currentUser.uid);
+      state.myPlayerId = mine ? mine.id : null;
+    }
+    render();
+  }, err=>{ console.error(err); state.connected=false; toast('Sync error — check your connection'); render(); });
+
+  MATCHES_COL.onSnapshot(snap=>{
+    state.matches = snap.docs.map(d=>d.data());
+    render();
+  }, err=>{ console.error(err); });
+
+  SCHEDULES_COL.onSnapshot(snap=>{
+    const map = {};
+    snap.docs.forEach(d=> map[d.id] = d.data());
+    state.schedules = map;
+    render();
+  }, err=>{ console.error(err); });
+
+  PLAYHISTORY_COL.onSnapshot(snap=>{
+    state.playHistory = snap.docs.map(d=>d.data()).sort((a,b)=> (b.createdAt||'').localeCompare(a.createdAt||''));
+    render();
+  }, err=>{ console.error(err); });
+}
+
+/* ============================= SCHEDULE MATH ============================= */
+// So every player partners with (and faces) every other player exactly once,
+// classic round-robin "circle method" needs N-1 rounds for even N, N rounds for odd N (one bye/sit-out each round).
+function autoRoundCount(n){
+  if(n < 2) return 0;
+  return (n % 2 === 0) ? (n - 1) : n;
+}
+
+
+/* ============================= HELPERS ============================= */
+function uid(p){ return p+'_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function todayStr(){ const d=new Date(); return d.toISOString().slice(0,10); }
+function fmtDate(s){ const d=new Date(s+'T00:00:00'); return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+function shuffle(arr){ const a=[...arr]; for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function playerName(id){ const p = state.players.find(x=>x.id===id); return p ? p.name : 'Former player'; }
+function esc(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function diffPill(n, decimals){
+  decimals = decimals===undefined?0:decimals;
+  const cls = n>0?'diff-pos':(n<0?'diff-neg':'diff-zero');
+  const sign = n>0?'+':'';
+  return `<span class="diff-pill ${cls}">${sign}${n.toFixed(decimals)}</span>`;
+}
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(window.__toastT);
+  window.__toastT = setTimeout(()=> el.classList.remove('show'), 2200);
+}
+function paddleSVG(color){
+  color = color || 'var(--court)';
+  return `<svg class="paddle" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="12" cy="9" rx="7" ry="8.5" fill="${color}"/>
+    <rect x="10.5" y="16" width="3" height="7" rx="1.3" fill="${color}"/>
+  </svg>`;
+}
+
+/* ============================= STATS ============================= */
+function playerMatches(pid){
+  return state.matches.filter(m=> m.team1.includes(pid) || m.team2.includes(pid));
+}
+function computePlayerStats(pid){
+  const ms = playerMatches(pid);
+  let wins=0, losses=0, diffSum=0;
+  const dateSet = new Set();
+  ms.forEach(m=>{
+    const onT1 = m.team1.includes(pid);
+    const my = onT1 ? m.score1 : m.score2;
+    const opp = onT1 ? m.score2 : m.score1;
+    diffSum += (my-opp);
+    if(my>opp) wins++; else if(my<opp) losses++;
+    dateSet.add(m.date);
+  });
+  const gamesPlayed = ms.length;
+  const avgDiff = gamesPlayed ? diffSum/gamesPlayed : 0;
+  const dates = Array.from(dateSet).sort();
+  let avgDaysPerWeek = 0, avgGamesPerWeek = 0;
+  if(dates.length){
+    const first = new Date(dates[0]+'T00:00:00');
+    const last = new Date(dates[dates.length-1]+'T00:00:00');
+    const weeksSpan = Math.max(1, Math.round((last-first)/(7*86400000))+1);
+    avgDaysPerWeek = dates.length/weeksSpan;
+    avgGamesPerWeek = gamesPlayed/weeksSpan;
+  }
+  return { gamesPlayed, wins, losses, diffSum, avgDiff, avgDaysPerWeek, avgGamesPerWeek, uniqueDays:dates.length };
+}
+function computeMatchupMatrix(pid){
+  const map = {};
+  state.matches.forEach(m=>{
+    const onT1 = m.team1.includes(pid), onT2 = m.team2.includes(pid);
+    if(!onT1 && !onT2) return;
+    const myTeam = onT1 ? m.team1 : m.team2;
+    const oppTeam = onT1 ? m.team2 : m.team1;
+    const myScore = onT1 ? m.score1 : m.score2;
+    const oppScore = onT1 ? m.score2 : m.score1;
+    const diff = myScore - oppScore;
+    myTeam.forEach(other=>{
+      if(other===pid) return;
+      map[other] = map[other] || {gamesWith:0,diffWith:0,gamesAgainst:0,diffAgainst:0};
+      map[other].gamesWith++; map[other].diffWith += diff;
+    });
+    oppTeam.forEach(other=>{
+      map[other] = map[other] || {gamesWith:0,diffWith:0,gamesAgainst:0,diffAgainst:0};
+      map[other].gamesAgainst++; map[other].diffAgainst += diff;
+    });
+  });
+  return map;
+}
+function computeH2H(idA, idB){
+  const asOpp = { games:0, aWins:0, bWins:0, ties:0, diffSumA:0 };
+  const asTeam = { games:0, diffSum:0 };
+  const oppMatches = [];
+  state.matches.forEach(m=>{
+    const aInT1 = m.team1.includes(idA), aInT2 = m.team2.includes(idA);
+    const bInT1 = m.team1.includes(idB), bInT2 = m.team2.includes(idB);
+    if(!(aInT1||aInT2) || !(bInT1||bInT2)) return;
+    if((aInT1&&bInT2) || (aInT2&&bInT1)){
+      const aScore = aInT1 ? m.score1 : m.score2;
+      const bScore = aInT1 ? m.score2 : m.score1;
+      asOpp.games++; asOpp.diffSumA += (aScore-bScore);
+      if(aScore>bScore) asOpp.aWins++; else if(bScore>aScore) asOpp.bWins++; else asOpp.ties++;
+      oppMatches.push(m);
+    } else if((aInT1&&bInT1) || (aInT2&&bInT2)){
+      const myScore = aInT1 ? m.score1 : m.score2;
+      const oppScore = aInT1 ? m.score2 : m.score1;
+      asTeam.games++; asTeam.diffSum += (myScore-oppScore);
+    }
+  });
+  oppMatches.sort((x,y)=> y.date.localeCompare(x.date));
+  return { asOpp, asTeam, oppMatches };
+}
+function computePlayerGameLog(pid){
+  const ms = playerMatches(pid).slice().sort((a,b)=> a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+  let running = 0;
+  const rows = ms.map((m,idx)=>{
+    const onT1 = m.team1.includes(pid);
+    const partners = (onT1 ? m.team1 : m.team2).filter(x=>x!==pid);
+    const opponents = onT1 ? m.team2 : m.team1;
+    const myScore = onT1 ? m.score1 : m.score2;
+    const oppScore = onT1 ? m.score2 : m.score1;
+    const diff = myScore - oppScore;
+    running += diff;
+    return { gameNum: idx+1, date: m.date, court: m.court, mode: m.mode||'open', partners, opponents, myScore, oppScore, diff, running };
+  });
+  return rows.reverse();
+}
+function scoutingReport(pid){
+  const matrix = computeMatchupMatrix(pid);
+  const asOpponents = Object.entries(matrix).filter(([,v])=> v.gamesAgainst>0)
+    .map(([id,v])=> ({ id, avg: v.diffAgainst/v.gamesAgainst, games:v.gamesAgainst }));
+  const asPartners = Object.entries(matrix).filter(([,v])=> v.gamesWith>0)
+    .map(([id,v])=> ({ id, avg: v.diffWith/v.gamesWith, games:v.gamesWith }));
+  const toughest = asOpponents.length ? asOpponents.slice().sort((a,b)=> a.avg-b.avg)[0] : null;
+  const easiest = asOpponents.length ? asOpponents.slice().sort((a,b)=> b.avg-a.avg)[0] : null;
+  const bestPartner = asPartners.length ? asPartners.slice().sort((a,b)=> b.avg-a.avg)[0] : null;
+  return { toughest, easiest, bestPartner };
+}
+
+/* ============================= SCHEDULE ALGORITHM ============================= */
+function pairKey(a,b){ return [a,b].sort().join('|'); }
+
+// Classic round-robin "circle method": fixes one player, rotates the rest.
+// Produces (M-1) rounds of M/2 pairs, where M is even (padded with BYE tokens if needed),
+// and every player is paired with every other player across all rounds exactly once.
+function buildCircleRounds(playerIds){
+  let pool = [...playerIds];
+  let byes = 0;
+  while(pool.length % 2 !== 0){ pool.push('BYE_'+(byes++)); }
+  const M = pool.length;
+  if(M < 2) return [];
+  const fixed = pool[0];
+  const rot = pool.slice(1);
+  const totalRounds = M - 1;
+  const rounds = [];
+  for(let r=0; r<totalRounds; r++){
+    const pairs = [[fixed, rot[r % (M-1)]]];
+    for(let i=1; i<M/2; i++){
+      const a = rot[(r+i) % (M-1)];
+      const b = rot[(r-i+(M-1)) % (M-1)];
+      pairs.push([a,b]);
+    }
+    rounds.push(pairs);
+  }
+  return rounds;
+}
+function isBye(x){ return String(x).startsWith('BYE_'); }
+function oppScore(teamA, teamB, opponentCount){
+  let s=0;
+  teamA.forEach(a=> teamB.forEach(b=> s += (opponentCount[pairKey(a,b)]||0)));
+  return s;
+}
+
+// Guaranteed round robin — used whenever the group actually fits on the courts available,
+// so every player partners with (and eventually faces) every other player exactly once.
+function generateScheduleRoundRobin({playerIds, format}){
+  const opponentCount = {};
+  playerIds.forEach(a=> playerIds.forEach(b=>{ if(a!==b) opponentCount[pairKey(a,b)]=0; }));
+
+  if(format==='singles'){
+    return buildCircleRounds(playerIds).map((pairs, idx)=>{
+      const sitOuts = [];
+      const courtsArr = [];
+      let c=1;
+      pairs.forEach(([a,b])=>{
+        if(isBye(a) && isBye(b)) return;
+        if(isBye(a)){ sitOuts.push(b); return; }
+        if(isBye(b)){ sitOuts.push(a); return; }
+        courtsArr.push({court:c++, team1:[a], team2:[b]});
+      });
+      return {round: idx+1, sitOuts, courts: courtsArr};
+    });
+  }
+
+  // doubles: first pass builds guaranteed-unique partnerships via the circle method,
+  // second pass greedily matches those partnerships against each other, minimizing repeat opponents.
+  return buildCircleRounds(playerIds).map((pairs, idx)=>{
+    const sitOuts = [];
+    const partnerships = [];
+    pairs.forEach(([a,b])=>{
+      if(isBye(a) && isBye(b)) return;
+      if(isBye(a)){ sitOuts.push(b); return; }
+      if(isBye(b)){ sitOuts.push(a); return; }
+      partnerships.push([a,b]);
+    });
+    let pool = shuffle(partnerships.map((_,i)=>i));
+    const courtsArr = [];
+    let c=1;
+    while(pool.length>=2){
+      const i = pool.shift();
+      pool.sort((x,y)=> oppScore(partnerships[i],partnerships[x],opponentCount) - oppScore(partnerships[i],partnerships[y],opponentCount));
+      const j = pool.shift();
+      const team1 = partnerships[i], team2 = partnerships[j];
+      team1.forEach(p1=> team2.forEach(p2=> opponentCount[pairKey(p1,p2)]++));
+      courtsArr.push({court:c++, team1, team2});
+    }
+    pool.forEach(i=> sitOuts.push(...partnerships[i]));
+    return {round: idx+1, sitOuts, courts: courtsArr};
+  });
+}
+
+// Fallback for when there are more players than the available courts can hold at once —
+// a perfect one-time-only pairing can't be guaranteed here, so this rotates fairly and
+// minimizes repeats as best it can across the auto-calculated round count.
+function buildGreedyRound(playerIds, usableCourts, capacity, format, partnerCount, opponentCount, sitOutCount){
+  const key = pairKey;
+  const numSitOut = playerIds.length - capacity;
+  const order = [...playerIds].sort((a,b)=> sitOutCount[a]-sitOutCount[b] || (Math.random()-0.5));
+  const sitOuts = numSitOut>0 ? order.slice(0, numSitOut) : [];
+  sitOuts.forEach(id=> sitOutCount[id]++);
+  let pool = shuffle(playerIds.filter(id=> !sitOuts.includes(id)));
+  const courtsArr = [];
+  for(let c=1; c<=usableCourts; c++){
+    if(pool.length < (format==='singles'?2:4)) break;
+    if(format==='singles'){
+      const a = pool.shift();
+      pool.sort((x,y)=> opponentCount[key(a,x)]-opponentCount[key(a,y)]);
+      const b = pool.shift();
+      opponentCount[key(a,b)]++;
+      courtsArr.push({court:c, team1:[a], team2:[b]});
+    } else {
+      const a = pool.shift();
+      pool.sort((x,y)=> partnerCount[key(a,x)]-partnerCount[key(a,y)]);
+      const b = pool.shift();
+      partnerCount[key(a,b)]++;
+      pool.sort((x,y)=>{
+        const sx = opponentCount[key(a,x)]+opponentCount[key(b,x)];
+        const sy = opponentCount[key(a,y)]+opponentCount[key(b,y)];
+        return sx-sy;
+      });
+      const c1 = pool.shift();
+      pool.sort((x,y)=>{
+        const sx = partnerCount[key(c1,x)]*2 + opponentCount[key(a,x)] + opponentCount[key(b,x)];
+        const sy = partnerCount[key(c1,y)]*2 + opponentCount[key(a,y)] + opponentCount[key(b,y)];
+        return sx-sy;
+      });
+      const d1 = pool.shift();
+      partnerCount[key(c1,d1)]++;
+      [a,b].forEach(p1=> [c1,d1].forEach(p2=> opponentCount[key(p1,p2)]++));
+      courtsArr.push({court:c, team1:[a,b], team2:[c1,d1]});
+    }
+  }
+  return { sitOuts, courts: courtsArr };
+}
+function generateScheduleGreedy({playerIds, courts, format}){
+  const rounds = autoRoundCount(playerIds.length);
+  const capacityPerCourt = format==='singles' ? 2 : 4;
+  const usableCourts = Math.max(1, Math.min(courts, Math.floor(playerIds.length/capacityPerCourt)));
+  const capacity = usableCourts*capacityPerCourt;
+  const sitOutCount = {}; playerIds.forEach(id=> sitOutCount[id]=0);
+  const partnerCount = {}, opponentCount = {};
+  playerIds.forEach(a=> playerIds.forEach(b=>{ if(a!==b){ partnerCount[pairKey(a,b)]=0; opponentCount[pairKey(a,b)]=0; } }));
+  const roundsOut = [];
+  for(let r=1; r<=rounds; r++){
+    const { sitOuts, courts:courtsArr } = buildGreedyRound(playerIds, usableCourts, capacity, format, partnerCount, opponentCount, sitOutCount);
+    roundsOut.push({round:r, sitOuts, courts:courtsArr});
+  }
+  return roundsOut;
+}
+
+function generateSchedule({playerIds, courts, format}){
+  const capacityPerCourt = format==='singles' ? 2 : 4;
+  const fitsEveryRound = playerIds.length <= Math.max(1,courts)*capacityPerCourt;
+  return fitsEveryRound
+    ? generateScheduleRoundRobin({playerIds, format})
+    : generateScheduleGreedy({playerIds, courts, format});
+}
+
+/* ============================= ACTIONS ============================= */
+function openAuthModal(mode){ state.showAuthModal=true; state.authMode=mode||'login'; render(); }
+function closeAuthModal(){ state.showAuthModal=false; render(); }
+async function submitAuthForm(ev){
+  ev.preventDefault();
+  const mode = state.authMode;
+  const email = document.getElementById('auth_email').value.trim();
+  const password = document.getElementById('auth_password').value;
+  const name = mode==='register' ? document.getElementById('auth_name').value.trim() : null;
+  if(!email || !password){ toast('Enter email and password'); return; }
+  if(mode==='register' && !name){ toast('Enter your player name'); return; }
+  state.authBusy = true; render();
+  try{
+    if(mode==='register'){
+      const cred = await auth.createUserWithEmailAndPassword(email, password);
+      const p = { id: uid('pl'), name, guest:false, createdAt: new Date().toISOString(), ownerUid: cred.user.uid };
+      await PLAYERS_COL.doc(p.id).set(p);
+      toast(`Welcome to the club, ${name}!`);
+    } else {
+      await auth.signInWithEmailAndPassword(email, password);
+      toast('Signed in');
+    }
+    state.showAuthModal = false;
+  }catch(e){
+    toast(e.message ? e.message.replace('Firebase: ','') : 'Something went wrong');
+  }
+  state.authBusy = false;
+  render();
+}
+async function logoutUser(){
+  await auth.signOut();
+  toast('Signed out');
+}
+async function uploadPlayerPhoto(playerId, fileInput){
+  const file = fileInput.files && fileInput.files[0];
+  if(!file) return;
+  if(file.size > 5*1024*1024){ toast('Please choose an image under 5MB'); return; }
+  toast('Uploading photo…');
+  try{
+    const ref = storage.ref().child(`players/${playerId}_${Date.now()}.jpg`);
+    await ref.put(file);
+    const url = await ref.getDownloadURL();
+    await PLAYERS_COL.doc(playerId).update({ photoURL: url });
+    toast('Photo updated');
+  }catch(e){ toast('Could not upload — check Storage is enabled'); }
+}
+function avatarHTML(player, size){
+  size = size || 40;
+  if(player && player.photoURL){
+    return `<img src="${player.photoURL}" alt="${esc(player.name)}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1.5px solid var(--line);"/>`;
+  }
+  const initial = player && player.name ? player.name.trim().charAt(0).toUpperCase() : '?';
+  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:var(--court);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:${Math.round(size*0.45)}px;flex-shrink:0;">${initial}</div>`;
+}
+async function addPlayer(name, guest){
+  name = name.trim();
+  if(!name) return null;
+  const p = { id: uid('pl'), name, guest: !!guest, createdAt: new Date().toISOString() };
+  try{ await PLAYERS_COL.doc(p.id).set(p); }
+  catch(e){ toast('Could not save — check your connection'); return null; }
+  return p;
+}
+async function deletePlayer(id){
+  if(!confirm('Remove this player from the roster? Past match history stays intact.')) return;
+  try{ await PLAYERS_COL.doc(id).delete(); }
+  catch(e){ toast('Could not remove — try again'); return; }
+  state.playerModalId = null;
+  render();
+  toast('Player removed');
+}
+async function submitAddPlayerForm(ev){
+  ev.preventDefault();
+  const name = document.getElementById('newPlayerName').value;
+  if(!name.trim()){ toast('Enter a name first'); return; }
+  const p = await addPlayer(name, false);
+  if(!p) return;
+  state.showAddPlayer = false;
+  render();
+  toast('Player added to roster');
+}
+async function deleteMatch(id){
+  if(!confirm("Delete this match record? This can't be undone.")) return;
+  try{ await MATCHES_COL.doc(id).delete(); }
+  catch(e){ toast('Could not delete — try again'); return; }
+  toast('Match deleted');
+}
+function toggleScheduleSelect(id){
+  if(state.scheduleSelection.has(id)) state.scheduleSelection.delete(id);
+  else state.scheduleSelection.add(id);
+  render();
+}
+async function addGuestForSchedule(){
+  const input = document.getElementById('guestQuickAdd');
+  const name = input.value;
+  if(!name.trim()) return;
+  const p = await addPlayer(name, true);
+  if(p) state.scheduleSelection.add(p.id);
+  render();
+}
+function onScheduleDateChange(v){
+  state.scheduleDate = v || todayStr();
+  const sch = state.schedules[state.scheduleDate];
+  state.scheduleMode = sch ? sch.mode : null;
+  state.tournamentTeams = sch && sch.teams ? sch.teams : null;
+  state.tournamentLeftover = null;
+  render();
+}
+function selectScheduleMode(mode){
+  state.scheduleMode = mode;
+  state.tournamentTeams = null;
+  state.tournamentLeftover = null;
+  render();
+}
+function backToModePicker(){
+  state.scheduleMode = null;
+  state.tournamentTeams = null;
+  state.tournamentLeftover = null;
+  render();
+}
+function autoPairTeams(){
+  const ids = shuffle(Array.from(state.scheduleSelection));
+  if(ids.length < 4){ toast('Pick at least 4 players to form two teams'); return; }
+  const teams = [];
+  for(let i=0; i+1<ids.length; i+=2) teams.push([ids[i], ids[i+1]]);
+  state.tournamentTeams = teams;
+  state.tournamentLeftover = ids.length % 2 === 1 ? ids[ids.length-1] : null;
+  render();
+}
+async function doGenerateSchedule(){
+  const ids = Array.from(state.scheduleSelection);
+  const courts = Math.max(1, parseInt(document.getElementById('sg_courts').value,10) || 1);
+  const format = document.getElementById('sg_format').value;
+  const date = state.scheduleDate || todayStr();
+  const minNeeded = format==='singles' ? 2 : 4;
+  if(ids.length < minNeeded){ toast(`Pick at least ${minNeeded} players`); return; }
+  const existing = state.schedules[date];
+  if(existing && Object.keys(existing.recorded||{}).length){
+    if(!confirm('This date already has recorded results. Regenerating will keep those match records in History, but you will lose the "Saved" links on the old court cards. Continue?')) return;
+  }
+  const roundsData = generateSchedule({playerIds:ids, courts, format});
+  const schedule = { id: uid('sched'), date, format, courts, mode:'open', rounds: roundsData, recorded:{} };
+  try{ await SCHEDULES_COL.doc(date).set(schedule); }
+  catch(e){ toast('Could not save schedule — try again'); return; }
+  toast(`Schedule generated — ${roundsData.length} round${roundsData.length>1?'s':''} for full rotation`);
+}
+async function doGenerateTournament(){
+  const format = document.getElementById('tm_format').value;
+  const courts = Math.max(1, parseInt(document.getElementById('tm_courts').value,10) || 1);
+  const date = state.scheduleDate || todayStr();
+  let roundsData, teamsForDoc = null;
+
+  if(format==='singles'){
+    const ids = Array.from(state.scheduleSelection);
+    if(ids.length < 2){ toast('Pick at least 2 players'); return; }
+    roundsData = generateSchedule({playerIds:ids, courts, format:'singles'});
+  } else {
+    if(!state.tournamentTeams || state.tournamentTeams.length < 2){ toast('Pair up teams first'); return; }
+    const teams = state.tournamentTeams;
+    const teamTokens = teams.map((_,i)=> 't'+i);
+    const teamByToken = {}; teams.forEach((t,i)=> teamByToken['t'+i] = t);
+    roundsData = buildCircleRounds(teamTokens).map((pairs, idx)=>{
+      const sitOuts = state.tournamentLeftover ? [state.tournamentLeftover] : [];
+      const courtsArr = [];
+      let c=1;
+      pairs.forEach(([ta,tb])=>{
+        if(isBye(ta) && isBye(tb)) return;
+        if(isBye(ta)){ sitOuts.push(...teamByToken[tb]); return; }
+        if(isBye(tb)){ sitOuts.push(...teamByToken[ta]); return; }
+        courtsArr.push({court:c++, team1:teamByToken[ta], team2:teamByToken[tb]});
+      });
+      return {round: idx+1, sitOuts, courts: courtsArr};
+    });
+    teamsForDoc = teams;
+  }
+  const schedule = { id: uid('sched'), date, format, courts, mode:'tournament', rounds: roundsData, recorded:{}, teams: teamsForDoc, leftover: state.tournamentLeftover||null };
+  try{ await SCHEDULES_COL.doc(date).set(schedule); }
+  catch(e){ toast('Could not save schedule — try again'); return; }
+  toast(`Tournament generated — ${roundsData.length} round${roundsData.length>1?'s':''}`);
+}
+async function addDuprMatch(){
+  const format = document.getElementById('dupr_format').value;
+  const date = state.scheduleDate || todayStr();
+  const t1a = document.getElementById('dupr_t1a').value;
+  const t1b = format==='doubles' ? document.getElementById('dupr_t1b').value : null;
+  const t2a = document.getElementById('dupr_t2a').value;
+  const t2b = format==='doubles' ? document.getElementById('dupr_t2b').value : null;
+  const team1 = format==='doubles' ? [t1a,t1b] : [t1a];
+  const team2 = format==='doubles' ? [t2a,t2b] : [t2a];
+  if(team1.includes('') || team2.includes('')){ toast('Pick all players first'); return; }
+  const allIds = [...team1, ...team2];
+  if(new Set(allIds).size !== allIds.length){ toast("A player can't be picked twice"); return; }
+  const existing = state.schedules[date];
+  const base = existing || { id: uid('sched'), date, format, courts:1, mode:'dupr', rounds:[{round:1, sitOuts:[], courts:[]}], recorded:{} };
+  const nextCourt = base.rounds[0].courts.length + 1;
+  const schedule = { ...base, format, rounds:[{ ...base.rounds[0], courts:[...base.rounds[0].courts, {court:nextCourt, team1, team2}] }] };
+  try{ await SCHEDULES_COL.doc(date).set(schedule); }
+  catch(e){ toast('Could not add match — try again'); return; }
+  toast('Match added — enter the score below to save it');
+}
+async function clearSchedule(){
+  const date = state.scheduleDate || todayStr();
+  if(!confirm(`Clear the generated schedule for ${fmtDate(date)}?`)) return;
+  try{ await SCHEDULES_COL.doc(date).delete(); }
+  catch(e){ toast('Could not clear — try again'); return; }
+  state.scheduleMode = null;
+  state.tournamentTeams = null;
+  state.tournamentLeftover = null;
+  render();
+}
+async function recordCourtResult(round, court){
+  const date = state.scheduleDate;
+  const sch = state.schedules[date];
+  if(!sch) return;
+  const s1 = parseInt(document.getElementById(`res_${round}_${court}_1`).value, 10);
+  const s2 = parseInt(document.getElementById(`res_${round}_${court}_2`).value, 10);
+  if(isNaN(s1) || isNaN(s2)){ toast('Enter both scores'); return; }
+  const rd = sch.rounds.find(r=>r.round===round);
+  const ct = rd.courts.find(c=>c.court===court);
+  const m = { id: uid('m'), date: sch.date, court: String(ct.court), format: sch.format, mode: sch.mode || 'open',
+    team1: ct.team1, team2: ct.team2, score1:s1, score2:s2, round: round };
+  try{
+    await MATCHES_COL.doc(m.id).set(m);
+    const recorded = { ...sch.recorded, [`${round}_${court}`]: m.id };
+    await SCHEDULES_COL.doc(date).set({ ...sch, recorded });
+  }catch(e){ toast('Could not save result — try again'); return; }
+  toast(`Court ${court} result saved`);
+}
+
+/* ---------- "+Add Games" — extend a schedule with more rounds when there's time left ---------- */
+function deriveCountsFromSchedule(sch){
+  const playerIds = Array.from(new Set(sch.rounds.flatMap(rd=> [
+    ...rd.courts.flatMap(c=>[...c.team1, ...c.team2]),
+    ...rd.sitOuts
+  ])));
+  const partnerCount = {}, opponentCount = {}, sitOutCount = {};
+  playerIds.forEach(a=>{ sitOutCount[a]=0; playerIds.forEach(b=>{ if(a!==b){ partnerCount[pairKey(a,b)]=0; opponentCount[pairKey(a,b)]=0; } }); });
+  sch.rounds.forEach(rd=>{
+    rd.sitOuts.forEach(id=> sitOutCount[id] = (sitOutCount[id]||0)+1);
+    rd.courts.forEach(ct=>{
+      if(ct.team1.length===2) partnerCount[pairKey(ct.team1[0],ct.team1[1])]++;
+      if(ct.team2.length===2) partnerCount[pairKey(ct.team2[0],ct.team2[1])]++;
+      ct.team1.forEach(p1=> ct.team2.forEach(p2=> opponentCount[pairKey(p1,p2)]++));
+    });
+  });
+  return { playerIds, partnerCount, opponentCount, sitOutCount };
+}
+async function addExtraRound(){
+  const sch = state.schedules[state.scheduleDate];
+  if(!sch) return;
+  let newRounds = [];
+  const nextRoundNum = sch.rounds.length ? Math.max(...sch.rounds.map(r=>r.round))+1 : 1;
+
+  if(sch.mode==='tournament' && sch.teams){
+    const teamTokens = sch.teams.map((_,i)=> 't'+i);
+    const teamByToken = {}; sch.teams.forEach((t,i)=> teamByToken['t'+i]=t);
+    const circle = buildCircleRounds(teamTokens);
+    const cycleIdx = (sch.rounds.length) % circle.length;
+    const pairs = circle[cycleIdx];
+    const sitOuts = sch.leftover ? [sch.leftover] : [];
+    const courtsArr = []; let c=1;
+    pairs.forEach(([ta,tb])=>{
+      if(isBye(ta) && isBye(tb)) return;
+      if(isBye(ta)){ sitOuts.push(...teamByToken[tb]); return; }
+      if(isBye(tb)){ sitOuts.push(...teamByToken[ta]); return; }
+      courtsArr.push({court:c++, team1:teamByToken[ta], team2:teamByToken[tb]});
+    });
+    newRounds = [{ round: nextRoundNum, sitOuts, courts: courtsArr }];
+  } else {
+    const { playerIds, partnerCount, opponentCount, sitOutCount } = deriveCountsFromSchedule(sch);
+    const capacityPerCourt = sch.format==='singles' ? 2 : 4;
+    const usableCourts = Math.max(1, Math.min(sch.courts, Math.floor(playerIds.length/capacityPerCourt)));
+    const capacity = usableCourts*capacityPerCourt;
+    const { sitOuts, courts:courtsArr } = buildGreedyRound(playerIds, usableCourts, capacity, sch.format, partnerCount, opponentCount, sitOutCount);
+    newRounds = [{ round: nextRoundNum, sitOuts, courts: courtsArr }];
+  }
+
+  const updated = { ...sch, rounds: [...sch.rounds, ...newRounds] };
+  try{ await SCHEDULES_COL.doc(sch.date).set(updated); }
+  catch(e){ toast('Could not add round — try again'); return; }
+  toast('Added another round');
+}
+
+/* ---------- Play History (game-day photo feed) ---------- */
+async function uploadPlayHistoryPhoto(fileInput){
+  const file = fileInput.files && fileInput.files[0];
+  if(!file) return;
+  if(!state.currentUser){ toast('Sign in to share photos'); return; }
+  if(file.size > 8*1024*1024){ toast('Please choose an image under 8MB'); return; }
+  const date = document.getElementById('ph_date') ? document.getElementById('ph_date').value : todayStr();
+  const caption = document.getElementById('ph_caption') ? document.getElementById('ph_caption').value.trim() : '';
+  toast('Uploading…');
+  try{
+    const id = uid('ph');
+    const ref = storage.ref().child(`playHistory/${id}.jpg`);
+    await ref.put(file);
+    const url = await ref.getDownloadURL();
+    const uploaderName = state.myPlayerId ? playerName(state.myPlayerId) : (state.currentUser.email||'A player');
+    const entry = { id, date, caption, photoURL:url, uploaderUid: state.currentUser.uid, uploaderName, createdAt: new Date().toISOString() };
+    await PLAYHISTORY_COL.doc(id).set(entry);
+    if(document.getElementById('ph_caption')) document.getElementById('ph_caption').value = '';
+    fileInput.value = '';
+    toast('Shared to Play History!');
+  }catch(e){ toast('Could not upload — check Storage is enabled'); }
+}
+async function deletePlayHistoryEntry(id){
+  const entry = state.playHistory.find(e=>e.id===id);
+  if(!entry) return;
+  if(!state.currentUser || entry.uploaderUid!==state.currentUser.uid){ toast('You can only delete your own posts'); return; }
+  if(!confirm('Delete this photo?')) return;
+  try{ await PLAYHISTORY_COL.doc(id).delete(); }
+  catch(e){ toast('Could not delete — try again'); return; }
+  toast('Deleted');
+}
+
+/* ============================= RENDER: SHELL ============================= */
+function setTab(t){ state.tab = t; render(); }
+
+function render(){
+  const root = document.getElementById('root');
+  if(state.loading){
+    root.innerHTML = `<div style="padding:80px 0;text-align:center;color:var(--muted);">Loading the club…</div>`;
+    return;
+  }
+  root.innerHTML = `
+    ${renderTopbar()}
+    <div id="tabBody">${renderTabBody()}</div>
+    ${state.playerModalId ? renderPlayerModal() : ''}
+    ${state.showAddPlayer ? renderAddPlayerModal() : ''}
+    ${state.showAuthModal ? renderAuthModal() : ''}
+  `;
+  wireTabBodyEvents();
+}
+
+function renderTopbar(){
+  const tabs = [
+    ['dashboard','Dashboard'],['roster','Roster'],['schedule','Schedule'],
+    ['h2h','H2H'],['vibes','Play History'],['history','History']
+  ];
+  return `
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">${paddleSVG('#D6E62B')}</div>
+      <div>
+        <div class="brand-name">PickleHub</div>
+        <div class="brand-sub">Rising Club Companion</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <nav class="tabs">
+        ${tabs.map(([k,l])=> `<button class="${state.tab===k?'active':''}" onclick="setTab('${k}')">${l}</button>`).join('')}
+      </nav>
+      ${state.currentUser ? `
+        <div class="account-chip" onclick="setTab('roster'); ${state.myPlayerId?`state.playerModalId='${state.myPlayerId}';`:''} render();">
+          ${avatarHTML(state.players.find(p=>p.id===state.myPlayerId), 28)}
+          <span class="small" style="font-weight:700;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(state.myPlayerId ? playerName(state.myPlayerId) : state.currentUser.email)}</span>
+          <button class="link-btn" style="margin-left:2px;" onclick="event.stopPropagation(); logoutUser();">Sign out</button>
+        </div>
+      ` : `<button class="btn btn-ghost btn-sm" onclick="openAuthModal('login')">Sign in</button>`}
+    </div>
+  </div>`;
+}
+
+function renderAuthModal(){
+  const mode = state.authMode;
+  return `
+  <div class="modal-overlay" onclick="if(event.target===this){closeAuthModal();}">
+    <div class="modal" style="max-width:400px;">
+      <button class="modal-close" onclick="closeAuthModal()">&times;</button>
+      <h2 style="font-size:24px;color:var(--court-deep);margin-bottom:4px;">${mode==='register' ? 'Join the club' : 'Sign in'}</h2>
+      <p class="small muted" style="margin-bottom:14px;">${mode==='register' ? 'Register to upload your own photo and share game-day moments.' : 'Welcome back.'}</p>
+      <form onsubmit="submitAuthForm(event)">
+        ${mode==='register' ? `<div class="field"><label>Your name</label><input type="text" id="auth_name" placeholder="e.g. Jamie Cruz"/></div>` : ''}
+        <div class="field"><label>Email</label><input type="text" id="auth_email" placeholder="you@email.com"/></div>
+        <div class="field"><label>Password</label><input type="password" id="auth_password" placeholder="At least 6 characters"/></div>
+        <button class="btn btn-primary" type="submit" style="width:100%;" ${state.authBusy?'disabled':''}>${state.authBusy ? 'Please wait…' : (mode==='register' ? 'Create account' : 'Sign in')}</button>
+      </form>
+      <p class="small muted" style="margin-top:14px;text-align:center;">
+        ${mode==='register'
+          ? `Already registered? <button class="link-btn" onclick="state.authMode='login'; render();">Sign in</button>`
+          : `New here? <button class="link-btn" onclick="state.authMode='register'; render();">Create an account</button>`}
+      </p>
+    </div>
+  </div>`;
+}
+
+function renderTabBody(){
+  if(state.tab==='dashboard') return renderDashboard();
+  if(state.tab==='roster') return renderRoster();
+  if(state.tab==='schedule') return renderSchedule();
+  if(state.tab==='h2h') return renderH2H();
+  if(state.tab==='vibes') return renderPlayHistory();
+  if(state.tab==='history') return renderHistory();
+  return '';
+}
+
+/* ============================= DASHBOARD ============================= */
+function renderDashboard(){
+  const totalPlayers = state.players.length;
+  const totalMatches = state.matches.length;
+  const allDates = new Set(state.matches.map(m=>m.date));
+  const stats = state.players.map(p=> ({p, s: computePlayerStats(p.id)}));
+  const withGames = stats.filter(x=> x.s.gamesPlayed>0);
+  const hot = [...withGames].sort((a,b)=> b.s.avgDiff - a.s.avgDiff).slice(0,5);
+  const active = [...withGames].sort((a,b)=> b.s.gamesPlayed - a.s.gamesPlayed).slice(0,5);
+  const clubAvgDaysWeek = withGames.length ? (withGames.reduce((s,x)=> s+x.s.avgDaysPerWeek,0)/withGames.length) : 0;
+
+  if(totalPlayers===0){
+    return `
+    <div class="hero">
+      <div class="hero-top">
+        <h1>Welcome to the club.</h1>
+        <p>Add your first players to start tracking games, +/- and who plays well with whom.</p>
+      </div>
+      <div style="position:relative;z-index:1;margin-top:20px;">
+        <button class="btn btn-ball" onclick="setTab('roster')">Build your roster</button>
+      </div>
+    </div>`;
+  }
+
+  return `
+  <div class="hero">
+    <div class="hero-top">
+      <h1>Rising Club Companion</h1>
+      <p>Every rally counted. Track who's playing, how they're performing, and who to put on the same side of the net next.</p>
+    </div>
+    <div class="score-tiles">
+      <div class="score-tile"><div class="num">${totalPlayers}</div><div class="lbl">Players</div></div>
+      <div class="score-tile"><div class="num">${totalMatches}</div><div class="lbl">Games logged</div></div>
+      <div class="score-tile"><div class="num">${allDates.size}</div><div class="lbl">Play days</div></div>
+      <div class="score-tile"><div class="num">${clubAvgDaysWeek.toFixed(1)}</div><div class="lbl">Avg days/week</div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="section-title"><h2>Leaderboard</h2><span class="small muted">Minimum 1 game played</span></div>
+    ${withGames.length===0 ? `<div class="empty"><p>No games logged yet — run the schedule generator and save results once the first games wrap up.</p></div>` : `
+    <div class="board-grid">
+      <div>
+        <div class="eyebrow">Hot paddles · by avg +/-</div>
+        ${hot.map((x,i)=> `
+          <div class="board-row">
+            <span class="rank">${i+1}</span>
+            ${avatarHTML(x.p,26)}
+            <span class="board-name">${esc(x.p.name)}<div class="board-sub">${x.s.gamesPlayed} games</div></span>
+            ${diffPill(x.s.avgDiff,1)}
+          </div>`).join('')}
+      </div>
+      <div>
+        <div class="eyebrow">Most active · by games played</div>
+        ${active.map((x,i)=> `
+          <div class="board-row">
+            <span class="rank">${i+1}</span>
+            ${avatarHTML(x.p,26)}
+            <span class="board-name">${esc(x.p.name)}<div class="board-sub">${x.s.avgDaysPerWeek.toFixed(1)} days/week</div></span>
+            <span class="mono small muted">${x.s.gamesPlayed}g</span>
+          </div>`).join('')}
+      </div>
+    </div>`}
+  </div>
+
+  <div class="panel">
+    <div class="section-title"><h2>Quick actions</h2></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="setTab('schedule')">Generate today's schedule</button>
+      <button class="btn btn-ghost" onclick="setTab('roster')">Manage roster</button>
+      <button class="btn btn-ghost" onclick="setTab('history')">View match history</button>
+    </div>
+  </div>
+  `;
+}
+
+/* ============================= ROSTER ============================= */
+function renderRoster(){
+  const rows = [...state.players].sort((a,b)=> a.name.localeCompare(b.name));
+  return `
+  <div class="panel">
+    <div class="section-title">
+      <h2>Roster</h2>
+      <button class="btn btn-primary btn-sm" onclick="state.showAddPlayer=true; render();">+ Add player</button>
+    </div>
+    ${rows.length===0 ? `
+      <div class="empty">
+        <h3>No players yet</h3>
+        <p>Add your regulars to start tracking stats and building schedules.</p>
+        <button class="btn btn-ball" onclick="state.showAddPlayer=true; render();">Add your first player</button>
+      </div>` : `
+    <table>
+      <thead><tr>
+        <th></th><th>Name</th><th>Games</th><th>W&nbsp;-&nbsp;L</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(p=>{
+          const s = computePlayerStats(p.id);
+          return `<tr class="clickable" onclick="state.playerModalId='${p.id}'; render();">
+            <td style="width:1%;">${avatarHTML(p,34)}</td>
+            <td class="name-cell">${esc(p.name)}${p.guest?'<span class="guest-tag">Guest</span>':''}${p.ownerUid?'<span class="guest-tag" style="background:rgba(14,95,88,0.1);color:var(--court);">Registered</span>':''}</td>
+            <td class="mono">${s.gamesPlayed}</td>
+            <td class="mono">${s.wins}-${s.losses}</td>
+            <td onclick="event.stopPropagation();"><button class="btn btn-danger btn-sm" onclick="deletePlayer('${p.id}')">Remove</button></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`}
+  </div>`;
+}
+
+function renderAddPlayerModal(){
+  return `
+  <div class="modal-overlay" onclick="if(event.target===this){state.showAddPlayer=false; render();}">
+    <div class="modal" style="max-width:400px;">
+      <button class="modal-close" onclick="state.showAddPlayer=false; render();">&times;</button>
+      <h2 style="font-size:24px;color:var(--court-deep);margin-bottom:14px;">Add a player</h2>
+      <form onsubmit="submitAddPlayerForm(event)">
+        <div class="field">
+          <label>Full name</label>
+          <input type="text" id="newPlayerName" placeholder="e.g. Jamie Cruz" autofocus />
+        </div>
+        <button class="btn btn-primary" type="submit" style="width:100%;">Add to roster</button>
+      </form>
+    </div>
+  </div>`;
+}
+
+function renderPlayerModal(){
+  const p = state.players.find(x=>x.id===state.playerModalId);
+  if(!p) return '';
+  const s = computePlayerStats(p.id);
+  const matrix = computeMatchupMatrix(p.id);
+  const rows = Object.keys(matrix).map(otherId=>{
+    const m = matrix[otherId];
+    return { name: playerName(otherId), ...m };
+  }).sort((a,b)=> (b.gamesWith+b.gamesAgainst) - (a.gamesWith+a.gamesAgainst));
+  const scouting = scoutingReport(p.id);
+  const gameLog = computePlayerGameLog(p.id);
+  const isMine = state.currentUser && p.ownerUid===state.currentUser.uid;
+
+  return `
+  <div class="modal-overlay" onclick="if(event.target===this){state.playerModalId=null; render();}">
+    <div class="modal" style="max-width:680px;">
+      <button class="modal-close" onclick="state.playerModalId=null; render();">&times;</button>
+      <div style="display:flex;align-items:center;gap:14px;">
+        ${avatarHTML(p, 64)}
+        <div>
+          <div class="eyebrow">Player profile</div>
+          <h2 style="font-size:26px;color:var(--court-deep);line-height:1;">${esc(p.name)}${p.guest?'<span class="guest-tag">Guest</span>':''}</h2>
+        </div>
+      </div>
+      ${isMine ? `
+        <div style="margin-top:10px;">
+          <label style="margin-bottom:4px;">Update your photo</label>
+          <input type="file" accept="image/*" onchange="uploadPlayerPhoto('${p.id}', this)"/>
+        </div>` : ''}
+
+      <div class="score-tiles" style="margin-top:16px;">
+        <div class="score-tile" style="background:var(--bg);border-color:var(--line);">
+          <div class="num" style="color:var(--court);">${s.wins}-${s.losses}</div><div class="lbl" style="color:var(--muted);">W - L</div>
+        </div>
+        <div class="score-tile" style="background:var(--bg);border-color:var(--line);">
+          <div class="num" style="color:var(--court);">${s.diffSum>0?'+':''}${s.diffSum}</div><div class="lbl" style="color:var(--muted);">Total +/-</div>
+        </div>
+        <div class="score-tile" style="background:var(--bg);border-color:var(--line);">
+          <div class="num" style="color:var(--court);">${s.avgDiff>0?'+':''}${s.avgDiff.toFixed(1)}</div><div class="lbl" style="color:var(--muted);">Average +/-</div>
+        </div>
+        <div class="score-tile" style="background:var(--bg);border-color:var(--line);">
+          <div class="num" style="color:var(--court);">${s.avgGamesPerWeek.toFixed(1)}</div><div class="lbl" style="color:var(--muted);">Avg weekly games</div>
+        </div>
+      </div>
+
+      ${(scouting.toughest || scouting.easiest || scouting.bestPartner) ? `
+      <div class="divider"></div>
+      <div class="eyebrow">Scouting report</div>
+      <div class="board-grid" style="margin-top:8px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));">
+        ${scouting.toughest ? `<div class="board-row"><span class="board-name">Toughest opponent<div class="board-sub">${esc(playerName(scouting.toughest.id))} · ${scouting.toughest.games}g</div></span>${diffPill(scouting.toughest.avg,1)}</div>` : ''}
+        ${scouting.easiest ? `<div class="board-row"><span class="board-name">Easiest opponent<div class="board-sub">${esc(playerName(scouting.easiest.id))} · ${scouting.easiest.games}g</div></span>${diffPill(scouting.easiest.avg,1)}</div>` : ''}
+        ${scouting.bestPartner ? `<div class="board-row"><span class="board-name">Best chemistry with<div class="board-sub">${esc(playerName(scouting.bestPartner.id))} · ${scouting.bestPartner.games}g</div></span>${diffPill(scouting.bestPartner.avg,1)}</div>` : ''}
+      </div>` : ''}
+
+      <div class="divider"></div>
+      <div class="eyebrow">Match history — teammates &amp; opponents</div>
+      ${rows.length===0 ? `<p class="small muted">No games logged with this player yet.</p>` : `
+      <table>
+        <thead><tr><th>Player</th><th>As teammate</th><th>As opponent</th></tr></thead>
+        <tbody>
+          ${rows.map(r=> `
+            <tr>
+              <td class="name-cell">${esc(r.name)}</td>
+              <td>${r.gamesWith>0 ? `${diffPill(r.diffWith,0)} <span class="small muted">/ ${r.gamesWith}g</span>` : '<span class="small muted">—</span>'}</td>
+              <td>${r.gamesAgainst>0 ? `${diffPill(r.diffAgainst,0)} <span class="small muted">/ ${r.gamesAgainst}g</span>` : '<span class="small muted">—</span>'}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`}
+
+      <div class="divider"></div>
+      <div class="eyebrow">Game history</div>
+      ${gameLog.length===0 ? `<p class="small muted">No games logged yet.</p>` : `
+      <table>
+        <thead><tr><th>Date</th><th>Game #</th><th>Partner</th><th>Opponents</th><th>Score</th><th>Total +/-</th></tr></thead>
+        <tbody>
+          ${gameLog.map(g=> `
+            <tr>
+              <td class="mono small">${fmtDate(g.date)}</td>
+              <td class="mono small">#${g.gameNum}</td>
+              <td>${g.partners.length ? g.partners.map(playerName).map(esc).join(' &amp; ') : '<span class="small muted">—</span>'}</td>
+              <td>${g.opponents.map(playerName).map(esc).join(' &amp; ')}</td>
+              <td class="mono">${g.myScore} – ${g.oppScore}</td>
+              <td>${diffPill(g.running,0)}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`}
+    </div>
+  </div>`;
+}
+
+/* ============================= H2H ============================= */
+function setH2H(which, id){
+  if(which==='a') state.h2hA = id || null;
+  else state.h2hB = id || null;
+  render();
+}
+function renderH2H(){
+  const roster = [...state.players].sort((a,b)=> a.name.localeCompare(b.name));
+  if(roster.length < 2){
+    return `<div class="panel"><div class="empty"><h3>Need at least two players</h3><p>Add more players to the roster to compare head-to-head records.</p><button class="btn btn-ball" onclick="setTab('roster')">Go to roster</button></div></div>`;
+  }
+  const optsFor = (excludeId)=> roster.filter(p=>p.id!==excludeId).map(p=> `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  const a = state.h2hA, b = state.h2hB;
+
+  let resultHTML = '';
+  if(a && b && a!==b){
+    const { asOpp, asTeam, oppMatches } = computeH2H(a,b);
+    const nameA = esc(playerName(a)), nameB = esc(playerName(b));
+    const avgA = asOpp.games ? asOpp.diffSumA/asOpp.games : 0;
+    const avgTeam = asTeam.games ? asTeam.diffSum/asTeam.games : 0;
+    resultHTML = `
+    <div class="panel">
+      <div class="eyebrow">Head to head — as opponents</div>
+      <div class="score-tiles" style="margin-top:10px;">
+        <div class="score-tile" style="background:var(--bg);border-color:var(--line);"><div class="num" style="color:var(--court);">${asOpp.games}</div><div class="lbl" style="color:var(--muted);">Games played</div></div>
+        <div class="score-tile" style="background:var(--bg);border-color:var(--line);"><div class="num" style="color:var(--court);">${asOpp.aWins} – ${asOpp.bWins}</div><div class="lbl" style="color:var(--muted);">${nameA} vs ${nameB} wins</div></div>
+        <div class="score-tile" style="background:var(--bg);border-color:var(--line);"><div class="num" style="color:var(--court);">${asOpp.diffSumA>0?'+':''}${asOpp.diffSumA}</div><div class="lbl" style="color:var(--muted);">Total +/- (for ${nameA})</div></div>
+        <div class="score-tile" style="background:var(--bg);border-color:var(--line);"><div class="num" style="color:var(--court);">${avgA>0?'+':''}${avgA.toFixed(1)}</div><div class="lbl" style="color:var(--muted);">Avg +/- per game</div></div>
+      </div>
+      ${asOpp.games===0 ? `<p class="small muted" style="margin-top:12px;">They haven't played against each other yet.</p>` : `
+      <table style="margin-top:14px;">
+        <thead><tr><th>Date</th><th>Court</th><th>${nameA}'s team</th><th>${nameB}'s team</th><th>Score</th></tr></thead>
+        <tbody>
+          ${oppMatches.map(m=>{
+            const aInT1 = m.team1.includes(a);
+            const aTeam = aInT1 ? m.team1 : m.team2;
+            const bTeam = aInT1 ? m.team2 : m.team1;
+            const aScore = aInT1 ? m.score1 : m.score2;
+            const bScore = aInT1 ? m.score2 : m.score1;
+            return `<tr>
+              <td class="mono small">${fmtDate(m.date)}</td>
+              <td class="mono small">${esc(m.court||'—')}</td>
+              <td>${aTeam.map(playerName).map(esc).join(' &amp; ')}</td>
+              <td>${bTeam.map(playerName).map(esc).join(' &amp; ')}</td>
+              <td class="mono">${aScore} – ${bScore}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`}
+    </div>
+    <div class="panel">
+      <div class="eyebrow">As teammates</div>
+      <div class="score-tiles" style="margin-top:10px;">
+        <div class="score-tile" style="background:var(--bg);border-color:var(--line);"><div class="num" style="color:var(--court);">${asTeam.games}</div><div class="lbl" style="color:var(--muted);">Games together</div></div>
+        <div class="score-tile" style="background:var(--bg);border-color:var(--line);"><div class="num" style="color:var(--court);">${asTeam.diffSum>0?'+':''}${asTeam.diffSum}</div><div class="lbl" style="color:var(--muted);">Total +/-</div></div>
+        <div class="score-tile" style="background:var(--bg);border-color:var(--line);"><div class="num" style="color:var(--court);">${avgTeam>0?'+':''}${avgTeam.toFixed(1)}</div><div class="lbl" style="color:var(--muted);">Avg +/- per game</div></div>
+      </div>
+      ${asTeam.games===0 ? `<p class="small muted" style="margin-top:12px;">They haven't partnered up yet.</p>` : ''}
+    </div>`;
+  } else if(a && b && a===b){
+    resultHTML = `<div class="panel"><p class="small muted">Pick two different players to compare.</p></div>`;
+  }
+
+  return `
+  <div class="panel">
+    <div class="section-title"><h2>Head to head</h2></div>
+    <p class="small muted" style="margin-top:-6px;">Pick any two players to see how they match up — as opponents and as teammates.</p>
+    <div class="field-row" style="margin-top:14px;">
+      <div class="field"><label>Player A</label>
+        <select onchange="setH2H('a', this.value)">
+          <option value="">Select…</option>${roster.map(p=> `<option value="${p.id}" ${a===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Player B</label>
+        <select onchange="setH2H('b', this.value)">
+          <option value="">Select…</option>${roster.map(p=> `<option value="${p.id}" ${b===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+  </div>
+  ${resultHTML}
+  `;
+}
+
+/* ============================= PLAY HISTORY ============================= */
+function renderPlayHistory(){
+  const grouped = {};
+  state.playHistory.forEach(entry=>{
+    grouped[entry.date] = grouped[entry.date] || [];
+    grouped[entry.date].push(entry);
+  });
+  const dates = Object.keys(grouped).sort((a,b)=> b.localeCompare(a));
+
+  const uploadCard = `
+  <div class="panel">
+    <div class="section-title"><h2>Share the vibes</h2></div>
+    <p class="small muted" style="margin-top:-6px;">Snap something from game day and drop it here — just for the memories, no stats attached.</p>
+    ${!state.currentUser ? `
+      <div class="empty" style="padding:24px 12px;">
+        <p>Sign in to post a photo.</p>
+        <button class="btn btn-ball" onclick="openAuthModal('login')">Sign in</button>
+      </div>` : `
+      <div class="field-row" style="margin-top:14px;">
+        <div class="field"><label>Game day</label><input type="date" id="ph_date" value="${state.scheduleDate||todayStr()}"/></div>
+        <div class="field"><label>Caption (optional)</label><input type="text" id="ph_caption" placeholder="Squad after the last round 🔥"/></div>
+      </div>
+      <label>Photo</label>
+      <input type="file" accept="image/*" onchange="uploadPlayHistoryPhoto(this)"/>
+    `}
+  </div>`;
+
+  if(dates.length===0){
+    return uploadCard + `<div class="panel"><div class="empty"><h3>No photos yet</h3><p>Once someone shares a game-day photo, it'll show up here like a story feed.</p></div></div>`;
+  }
+
+  return uploadCard + dates.map(date=> `
+    <div class="panel">
+      <div class="section-title"><h2>${fmtDate(date)}</h2><span class="small muted">${grouped[date].length} photo${grouped[date].length>1?'s':''}</span></div>
+      <div class="vibes-grid">
+        ${grouped[date].map(entry=> `
+          <div class="vibes-card">
+            <img src="${entry.photoURL}" alt="${esc(entry.caption||'Game day photo')}" loading="lazy"/>
+            <div class="vibes-meta">
+              ${entry.caption ? `<div class="vibes-caption">${esc(entry.caption)}</div>` : ''}
+              <div class="vibes-by">
+                <span class="small muted">by ${esc(entry.uploaderName||'a player')}</span>
+                ${state.currentUser && entry.uploaderUid===state.currentUser.uid ? `<button class="link-btn" onclick="deletePlayHistoryEntry('${entry.id}')">Delete</button>` : ''}
+              </div>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function computeTeamStandings(sch){
+  if(!sch.teams) return null;
+  const keyOf = arr=> [...arr].sort().join('|');
+  const table = sch.teams.map(t=> ({ team:t, key:keyOf(t), wins:0, losses:0, diff:0, games:0 }));
+  const byKey = {}; table.forEach(row=> byKey[row.key]=row);
+  state.matches.filter(m=> m.date===sch.date && m.mode==='tournament').forEach(m=>{
+    const k1 = keyOf(m.team1), k2 = keyOf(m.team2);
+    if(byKey[k1]){ byKey[k1].games++; byKey[k1].diff += (m.score1-m.score2); if(m.score1>m.score2) byKey[k1].wins++; else if(m.score1<m.score2) byKey[k1].losses++; }
+    if(byKey[k2]){ byKey[k2].games++; byKey[k2].diff += (m.score2-m.score1); if(m.score2>m.score1) byKey[k2].wins++; else if(m.score2<m.score1) byKey[k2].losses++; }
+  });
+  return table.sort((a,b)=> b.wins-a.wins || b.diff-a.diff);
+}
+
+function renderModePicker(){
+  return `
+  <div class="panel">
+    <div class="section-title"><h2>Choose a play mode</h2></div>
+    <p class="small muted" style="margin-top:-6px;">Pick how today's games will run — this decides how PickleHub builds the schedule.</p>
+    <div class="mode-grid" style="margin-top:14px;">
+      ${Object.entries(MODE_META).map(([key,meta])=> `
+        <div class="mode-card" onclick="selectScheduleMode('${key}')">
+          <div class="mtitle">${meta.label}</div>
+          <div class="mdesc">${meta.desc}</div>
+        </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+function renderOpenForm(){
+  const roster = [...state.players].sort((a,b)=> a.name.localeCompare(b.name));
+  const selCount = state.scheduleSelection.size;
+  const previewRounds = autoRoundCount(selCount);
+  return `
+  <div class="panel">
+    <div class="section-title"><h2>Open Play</h2><button class="link-btn" onclick="backToModePicker()">&larr; change mode</button></div>
+    <p class="small muted" style="margin-top:-6px;">PickleHub works out how many rounds are needed so every player partners with — and faces — every other player, then rotates courts automatically.</p>
+    <div class="field-row" style="margin-top:16px;">
+      <div class="field"><label>Format</label>
+        <select id="sg_format">
+          <option value="doubles">Doubles (2v2)</option>
+          <option value="singles">Singles (1v1)</option>
+        </select>
+      </div>
+      <div class="field"><label>Courts available</label><input type="number" id="sg_courts" min="1" value="${Math.max(1,Math.floor(roster.length/4))||1}" onchange="render()"/></div>
+    </div>
+    <div class="field">
+      <label>Rounds</label>
+      <div style="padding:10px 11px;border-radius:8px;background:var(--bg);border:1.5px solid var(--line);font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--court-deep);display:inline-block;">
+        ${selCount>=2 ? `Auto: ${previewRounds}` : 'Pick players below'}
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Session length (min) — optional</label><input type="number" id="sg_minutes" min="1" placeholder="e.g. 120" onchange="render()"/></div>
+      <div class="field"><label>Avg minutes / game</label><input type="number" id="sg_minpergame" min="1" value="15" onchange="render()"/></div>
+    </div>
+    ${(()=>{
+      const mins = parseInt((document.getElementById('sg_minutes')&&document.getElementById('sg_minutes').value)||0,10);
+      const perGame = Math.max(1, parseInt((document.getElementById('sg_minpergame')&&document.getElementById('sg_minpergame').value)||15,10));
+      if(!mins || selCount<2) return '';
+      const timeRounds = Math.max(1, Math.floor(mins/perGame));
+      const cmp = timeRounds >= previewRounds
+        ? `You've got enough time for the full rotation (${previewRounds} rounds) with about ${timeRounds-previewRounds} round${timeRounds-previewRounds===1?'':'s'} of extra time — use "+ Add games" after generating if you want to fill it.`
+        : `Your time only fits about ${timeRounds} round${timeRounds>1?'s':''} — the full rotation needs ${previewRounds}, so not everyone will partner with everyone this session.`;
+      return `<p class="small muted" style="margin-top:-8px;">${cmp}</p>`;
+    })()}
+    ${(()=>{
+      const courtsVal = Math.max(1, parseInt((document.getElementById('sg_courts')&&document.getElementById('sg_courts').value)||0,10) || 1);
+      const capacityPerCourt = (document.getElementById('sg_format') && document.getElementById('sg_format').value)==='singles' ? 2 : 4;
+      const fits = selCount <= courtsVal*capacityPerCourt;
+      if(selCount>=2 && !fits) return `<p class="small" style="color:var(--coral);margin-top:-8px;">Only ${courtsVal} court${courtsVal>1?'s':''} for ${selCount} players — everyone still rotates fairly, but a perfect one-time-only pairing needs more courts (or fewer players per round).</p>`;
+      return '';
+    })()}
+    <div class="field">
+      <div class="flex-between"><label style="margin-bottom:0;">Who's playing (${selCount} selected)</label>
+        <button class="link-btn" onclick="event.preventDefault(); ${roster.length? "state.scheduleSelection.size===state.players.length ? state.scheduleSelection.clear() : state.players.forEach(p=>state.scheduleSelection.add(p.id)); render();" : ''}">Select all / none</button>
+      </div>
+      ${roster.length===0 ? `<p class="small muted">Add players in the Roster tab first.</p>` : `
+      <div class="chip-grid">
+        ${roster.map(p=> `<div class="chip ${state.scheduleSelection.has(p.id)?'on':''}" onclick="toggleScheduleSelect('${p.id}')">${esc(p.name)}</div>`).join('')}
+      </div>`}
+      <div class="inline-row" style="margin-top:10px;">
+        <div class="field"><label>Walk-in / guest</label><input type="text" id="guestQuickAdd" placeholder="Add a guest for today"/></div>
+        <button class="btn btn-ghost btn-sm" onclick="addGuestForSchedule()">Add &amp; select</button>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="doGenerateSchedule()">Generate schedule</button>
+  </div>`;
+}
+
+function renderTournamentForm(){
+  const roster = [...state.players].sort((a,b)=> a.name.localeCompare(b.name));
+  const selCount = state.scheduleSelection.size;
+  const format = document.getElementById('tm_format') ? document.getElementById('tm_format').value : 'doubles';
+  return `
+  <div class="panel">
+    <div class="section-title"><h2>Tournament</h2><button class="link-btn" onclick="backToModePicker()">&larr; change mode</button></div>
+    <p class="small muted" style="margin-top:-6px;">Teams stay fixed for the whole event and face every other team exactly once.</p>
+    <div class="field-row" style="margin-top:16px;">
+      <div class="field"><label>Format</label>
+        <select id="tm_format" onchange="state.tournamentTeams=null; render();">
+          <option value="doubles" ${format==='doubles'?'selected':''}>Doubles (fixed teams)</option>
+          <option value="singles" ${format==='singles'?'selected':''}>Singles (individuals)</option>
+        </select>
+      </div>
+      <div class="field"><label>Courts available</label><input type="number" id="tm_courts" min="1" value="${Math.max(1,Math.floor(roster.length/4))||1}"/></div>
+    </div>
+    <div class="field">
+      <div class="flex-between"><label style="margin-bottom:0;">Who's playing (${selCount} selected)</label>
+        <button class="link-btn" onclick="event.preventDefault(); ${roster.length? "state.scheduleSelection.size===state.players.length ? state.scheduleSelection.clear() : state.players.forEach(p=>state.scheduleSelection.add(p.id)); state.tournamentTeams=null; render();" : ''}">Select all / none</button>
+      </div>
+      ${roster.length===0 ? `<p class="small muted">Add players in the Roster tab first.</p>` : `
+      <div class="chip-grid">
+        ${roster.map(p=> `<div class="chip ${state.scheduleSelection.has(p.id)?'on':''}" onclick="state.tournamentTeams=null; toggleScheduleSelect('${p.id}')">${esc(p.name)}</div>`).join('')}
+      </div>`}
+      <div class="inline-row" style="margin-top:10px;">
+        <div class="field"><label>Walk-in / guest</label><input type="text" id="guestQuickAdd" placeholder="Add a guest for today"/></div>
+        <button class="btn btn-ghost btn-sm" onclick="addGuestForSchedule()">Add &amp; select</button>
+      </div>
+    </div>
+    ${format==='doubles' ? `
+    <div class="field">
+      <div class="flex-between"><label style="margin-bottom:5px;">Teams</label>
+        <button class="link-btn" onclick="autoPairTeams()">${state.tournamentTeams ? 'Shuffle teams' : 'Auto-pair teams'}</button>
+      </div>
+      ${!state.tournamentTeams ? `<p class="small muted">Select players above, then auto-pair them into teams.</p>` : `
+        ${state.tournamentTeams.map((t,i)=> `<div class="team-stage-row">${paddleSVG('var(--court)')} Team ${i+1} — ${t.map(playerName).map(esc).join(' &amp; ')}</div>`).join('')}
+        ${state.tournamentLeftover ? `<p class="small muted" style="margin-top:8px;">${esc(playerName(state.tournamentLeftover))} is an odd one out and will sit out the whole event — add or remove a player for even teams.</p>` : ''}
+      `}
+    </div>` : ''}
+    <button class="btn btn-primary" onclick="doGenerateTournament()">Generate tournament</button>
+  </div>`;
+}
+
+function renderDuprForm(sch){
+  const roster = [...state.players].sort((a,b)=> a.name.localeCompare(b.name));
+  if(roster.length < 2){
+    return `<div class="panel"><div class="empty"><h3>Need players first</h3><p>Add at least two players to the roster before logging a DUPR match.</p><button class="btn btn-ball" onclick="setTab('roster')">Go to roster</button></div></div>`;
+  }
+  const format = sch ? sch.format : (document.getElementById('dupr_format') ? document.getElementById('dupr_format').value : 'doubles');
+  const opts = roster.map(p=> `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  return `
+  <div class="panel">
+    <div class="section-title"><h2>DUPR Match</h2>${sch ? '' : `<button class="link-btn" onclick="backToModePicker()">&larr; change mode</button>`}</div>
+    <p class="small muted" style="margin-top:-6px;">Log an official result directly — no rotation, just the two teams that played. Add as many matches for this date as you need.</p>
+    <div class="field" style="margin-top:14px;"><label>Format</label>
+      <select id="dupr_format" onchange="render()" ${sch ? 'disabled title="Format is locked once matches are logged for this date"' : ''}>
+        <option value="doubles" ${format==='doubles'?'selected':''}>Doubles (2v2)</option>
+        <option value="singles" ${format==='singles'?'selected':''}>Singles (1v1)</option>
+      </select>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Team 1${format==='doubles'?' — Player A':''}</label><select id="dupr_t1a"><option value="">Select…</option>${opts}</select></div>
+      ${format==='doubles' ? `<div class="field"><label>Team 1 — Player B</label><select id="dupr_t1b"><option value="">Select…</option>${opts}</select></div>` : ''}
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Team 2${format==='doubles'?' — Player A':''}</label><select id="dupr_t2a"><option value="">Select…</option>${opts}</select></div>
+      ${format==='doubles' ? `<div class="field"><label>Team 2 — Player B</label><select id="dupr_t2b"><option value="">Select…</option>${opts}</select></div>` : ''}
+    </div>
+    <button class="btn btn-primary" onclick="addDuprMatch()">Add match</button>
+  </div>`;
+}
+
+/* ============================= SCHEDULE ============================= */
+function dayStatus(dateStr){
+  const today = todayStr();
+  if(dateStr < today) return {label:'Past', cls:'diff-zero'};
+  if(dateStr === today) return {label:'Today', cls:'diff-pos'};
+  return {label:'Upcoming', cls:'diff-zero'};
+}
+function renderSchedule(){
+  if(!state.scheduleDate) state.scheduleDate = todayStr();
+  const sch = state.schedules[state.scheduleDate];
+  const status = dayStatus(state.scheduleDate);
+  const mode = sch ? sch.mode : state.scheduleMode;
+
+  const dateBar = `
+  <div class="panel">
+    <div class="flex-between">
+      <div>
+        <div class="section-title" style="margin-bottom:6px;"><h2>Schedule</h2>${mode ? `<span class="mode-badge">${MODE_META[mode] ? MODE_META[mode].short : mode}</span>`:''}</div>
+      </div>
+      <span class="diff-pill ${status.cls}">${status.label}</span>
+    </div>
+    <div class="field" style="max-width:220px;margin-top:6px;margin-bottom:0;">
+      <label>Game day</label>
+      <input type="date" id="sg_date" value="${state.scheduleDate}" onchange="onScheduleDateChange(this.value)"/>
+    </div>
+  </div>`;
+
+  let body;
+  if(sch){
+    const canAddMore = sch.mode!=='dupr';
+    body = (sch.mode==='dupr' ? renderDuprForm(sch) : '') + renderScheduleResult(sch) + `
+      <div class="panel">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          ${canAddMore ? `<button class="btn btn-ball" onclick="addExtraRound()">+ Add games</button>` : ''}
+          <button class="btn btn-danger" onclick="clearSchedule()">Clear schedule for this date</button>
+        </div>
+        ${canAddMore ? `<p class="small muted" style="margin-top:8px;">Still have court time left? Add another round on top of the full rotation — great if you booked more time than a single pass needs.</p>` : ''}
+      </div>`;
+  } else if(!state.scheduleMode){
+    body = renderModePicker();
+  } else if(state.scheduleMode==='open'){
+    body = renderOpenForm();
+  } else if(state.scheduleMode==='tournament'){
+    body = renderTournamentForm();
+  } else if(state.scheduleMode==='dupr'){
+    body = renderDuprForm(null);
+  }
+
+  return dateBar + body;
+}
+
+function renderScheduleResult(sch){
+  const totalSlots = sch.rounds.reduce((n,rd)=> n+rd.courts.length, 0);
+  const recordedCount = Object.keys(sch.recorded||{}).length;
+  const complete = totalSlots>0 && recordedCount>=totalSlots;
+  const standings = sch.mode==='tournament' ? computeTeamStandings(sch) : null;
+  return `
+  <div class="panel">
+    <div class="section-title">
+      <h2>${fmtDate(sch.date)} — ${sch.rounds.length} round${sch.rounds.length>1?'s':''}${sch.mode!=='dupr' ? `, ${sch.courts} court${sch.courts>1?'s':''}` : ''}</h2>
+      ${totalSlots>0 ? `<span class="diff-pill ${complete?'diff-pos':'diff-zero'}">${recordedCount}/${totalSlots} results recorded</span>` : ''}
+    </div>
+    ${totalSlots===0 ? `<p class="small muted">No matches yet — add one above.</p>` : ''}
+    ${standings && standings.length ? `
+    <div class="eyebrow" style="margin-top:6px;">Standings</div>
+    <table style="margin-bottom:6px;">
+      <thead><tr><th>Team</th><th>W&nbsp;-&nbsp;L</th><th>+/-</th></tr></thead>
+      <tbody>
+        ${standings.map(row=> `<tr><td class="name-cell">${row.team.map(playerName).map(esc).join(' &amp; ')}</td><td class="mono">${row.wins}-${row.losses}</td><td>${diffPill(row.diff,0)}</td></tr>`).join('')}
+      </tbody>
+    </table>` : ''}
+    ${sch.rounds.map(rd=> rd.courts.length===0 ? '' : `
+      <div class="round-label">${paddleSVG('var(--court)')} ${sch.mode==='dupr' ? 'Matches' : 'Round '+rd.round}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;">
+        ${rd.courts.map(ct=>{
+          const recKey = `${rd.round}_${ct.court}`;
+          const recordedId = sch.recorded[recKey];
+          const recordedMatch = recordedId ? state.matches.find(m=>m.id===recordedId) : null;
+          return `
+          <div class="court-card">
+            <div class="court-head"><span>${sch.mode==='dupr' ? 'MATCH '+ct.court : 'COURT '+ct.court}</span>${recordedMatch ? `<span class="recorded-badge">Saved</span>`:''}</div>
+            <div class="court-body">
+              <div class="team-row">${paddleSVG('#fff')} ${ct.team1.map(playerName).map(esc).join(' &amp; ')}</div>
+              <div class="net-line">net</div>
+              <div class="team-row">${paddleSVG('#fff')} ${ct.team2.map(playerName).map(esc).join(' &amp; ')}</div>
+              ${recordedMatch ? `
+                <div class="score-inputs"><span style="color:#fff;font-family:'IBM Plex Mono',monospace;font-weight:700;">${recordedMatch.score1} <span class="score-vs">–</span> ${recordedMatch.score2}</span></div>
+              ` : `
+                <div class="score-inputs">
+                  <input type="number" id="res_${rd.round}_${ct.court}_1" placeholder="0"/>
+                  <span class="score-vs">VS</span>
+                  <input type="number" id="res_${rd.round}_${ct.court}_2" placeholder="0"/>
+                  <button class="btn btn-ball btn-sm" onclick="recordCourtResult(${rd.round},${ct.court})">Save</button>
+                </div>
+              `}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+      ${rd.sitOuts.length ? `
+        <div style="margin-top:10px;">
+          <div class="eyebrow">Sitting out this round</div>
+          <div class="paddle-stack">
+            ${rd.sitOuts.map((id,i)=> `<div class="paddle-row"><span class="p-order">${i+1}</span>${paddleSVG('var(--court)')}<span class="p-name">${esc(playerName(id))}</span></div>`).join('')}
+          </div>
+        </div>` : ''}
+    `).join('')}
+  </div>`;
+}
+
+
+/* ============================= HISTORY ============================= */
+function renderHistory(){
+  const ms = [...state.matches].sort((a,b)=> b.date.localeCompare(a.date) || 0);
+  if(ms.length===0){
+    return `<div class="panel"><div class="empty"><h3>No matches logged yet</h3><p>Games are recorded straight from the schedule generator — build today's rounds, then save each court's score as it wraps up.</p><button class="btn btn-ball" onclick="setTab('schedule')">Go to schedule generator</button></div></div>`;
+  }
+  return `
+  <div class="panel">
+    <div class="section-title"><h2>Match history</h2><span class="small muted">${ms.length} game${ms.length>1?'s':''} logged</span></div>
+    <table>
+      <thead><tr><th>Date</th><th>Court</th><th>Team 1</th><th>Team 2</th><th>Score</th><th></th></tr></thead>
+      <tbody>
+        ${ms.map(m=> `
+          <tr>
+            <td class="mono small">${fmtDate(m.date)}</td>
+            <td class="mono small">${esc(m.court||'—')}</td>
+            <td>${m.team1.map(playerName).map(esc).join(' &amp; ')}</td>
+            <td>${m.team2.map(playerName).map(esc).join(' &amp; ')}</td>
+            <td class="mono">${m.score1} – ${m.score2}</td>
+            <td><button class="btn btn-danger btn-sm" onclick="deleteMatch('${m.id}')">Delete</button></td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+/* ============================= MISC WIRING ============================= */
+function wireTabBodyEvents(){ /* reserved for future direct DOM listeners */ }
+
+/* ============================= INIT ============================= */
+(function init(){
+  state.loading = false;
+  render();
+  startSync();
+})();
+</script>
+</body>
+</html>
