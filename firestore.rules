@@ -1,0 +1,406 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function activeClubId() { return 'rising-club'; }
+    function isSignedIn() { return request.auth != null; }
+    function userPath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+    function userExists() { return isSignedIn() && exists(userPath()); }
+    function userData() { return get(userPath()).data; }
+    function isSuperAdmin() {
+      return userExists() && userData().role == 'admin';
+    }
+    function currentPlayerId() {
+      return userData().get('playerId', '');
+    }
+    function clubRolePath(clubId, uid) {
+      let adminId = clubId + '_' + uid;
+      return /databases/$(database)/documents/clubAdmins/$(adminId);
+    }
+    function isLegacyClubAdmin(clubId) {
+      return userExists() && userData().role == 'club_admin' &&
+        userData().get('clubId', activeClubId()) == clubId;
+    }
+    function hasRegisteredClubRole(clubId, roles) {
+      let rolePath = clubRolePath(clubId, request.auth.uid);
+      return isSignedIn() && exists(rolePath) &&
+        get(rolePath).data.get('role', 'club_admin') in roles;
+    }
+    function isRegisteredClubAdmin(clubId) {
+      return hasRegisteredClubRole(clubId, ['club_admin', 'co_admin']);
+    }
+    function isPrimaryClubAdminFor(clubId) {
+      return isSuperAdmin() || isLegacyClubAdmin(clubId) ||
+        hasRegisteredClubRole(clubId, ['club_admin']);
+    }
+    function isClubAdminFor(clubId) {
+      return isSuperAdmin() || isLegacyClubAdmin(clubId) || isRegisteredClubAdmin(clubId);
+    }
+    function isClubStaffFor(clubId) {
+      return isClubAdminFor(clubId) || hasRegisteredClubRole(clubId, ['staff']);
+    }
+    function documentClub(data) {
+      return data.get('clubId', activeClubId());
+    }
+    function isAdminFor(data) {
+      return isClubAdminFor(documentClub(data));
+    }
+    function validVisibility(value) {
+      return value == 'public' || value == 'club' || value == 'private';
+    }
+    function validVerification(value) {
+      return value == 'pending' || value == 'confirmed' || value == 'disputed';
+    }
+    function validMembershipStatus(value) {
+      return value == 'pending' || value == 'active' || value == 'removed';
+    }
+    function validClubStatus(value) {
+      return value == 'active' || value == 'removed';
+    }
+    function validClubRole(value) {
+      return value == 'club_admin' || value == 'co_admin' || value == 'staff';
+    }
+    function clubExistsOrLegacy(clubId) {
+      let clubPath = /databases/$(database)/documents/clubs/$(clubId);
+      return (clubId == activeClubId() && !exists(clubPath)) ||
+        (exists(clubPath) && get(clubPath).data.get('status', 'active') == 'active') ||
+        (getAfter(clubPath).data.id == clubId &&
+          getAfter(clubPath).data.get('status', 'active') == 'active');
+    }
+    function playerOwnedByCurrentUser(playerId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/players/$(playerId)) &&
+        get(/databases/$(database)/documents/players/$(playerId)).data.get('ownerUid', '') == request.auth.uid;
+    }
+    function playerBelongsToClub(playerId, clubId) {
+      let playerPath = /databases/$(database)/documents/players/$(playerId);
+      let membershipId = clubId + '_' + playerId;
+      let membershipPath = /databases/$(database)/documents/clubMemberships/$(membershipId);
+      return exists(playerPath) &&
+        (get(playerPath).data.get('clubId', '') == clubId ||
+         clubId in get(playerPath).data.get('clubIds', []) ||
+         (exists(membershipPath) && get(membershipPath).data.status == 'active'));
+    }
+    function currentUserBelongsToClub(clubId) {
+      return userExists() && currentPlayerId() != '' &&
+        playerOwnedByCurrentUser(currentPlayerId()) &&
+        playerBelongsToClub(currentPlayerId(), clubId);
+    }
+    function roleTargetIsClubMember(data) {
+      return exists(/databases/$(database)/documents/players/$(data.playerId)) &&
+        get(/databases/$(database)/documents/players/$(data.playerId)).data.get('ownerUid', '') == data.uid &&
+        playerBelongsToClub(data.playerId, data.clubId);
+    }
+    function isMatchParticipant(data) {
+      return userExists() &&
+        (currentPlayerId() in data.team1 || currentPlayerId() in data.team2);
+    }
+
+    match /users/{uid} {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn() && request.auth.uid == uid &&
+        request.resource.data.role == 'player' &&
+        request.resource.data.get('clubIds', []).size() <= 20;
+
+      allow update: if isSuperAdmin() ||
+        (isSignedIn() && request.auth.uid == uid &&
+          request.resource.data.role == resource.data.role &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'displayName', 'email', 'photoURL', 'authProvider', 'updatedAt',
+            'createdAt', 'playerId', 'clubId', 'clubIds'
+          ]) &&
+          request.resource.data.get('displayName', '').size() <= 80 &&
+          request.resource.data.get('clubIds', []).size() <= 20 &&
+          (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['playerId']) ||
+            (exists(/databases/$(database)/documents/players/$(request.resource.data.playerId)) &&
+             get(/databases/$(database)/documents/players/$(request.resource.data.playerId)).data.ownerUid == request.auth.uid)));
+
+      allow delete: if isSuperAdmin();
+    }
+
+    match /clubs/{clubId} {
+      allow read: if true;
+
+      allow create: if userExists() &&
+        request.resource.data.id == clubId &&
+        clubId != 'independent' &&
+        (clubId != activeClubId() || isSuperAdmin() || isLegacyClubAdmin(activeClubId())) &&
+        request.resource.data.createdByUid == request.auth.uid &&
+        (request.resource.data.createdByPlayerId == currentPlayerId() ||
+          (clubId == activeClubId() && request.resource.data.status == 'removed' && isClubAdminFor(clubId))) &&
+        validClubStatus(request.resource.data.status) &&
+        (request.resource.data.status == 'active' ||
+          (clubId == activeClubId() && isClubAdminFor(clubId))) &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 80 &&
+        request.resource.data.origin is string &&
+        request.resource.data.origin.size() >= 5 && request.resource.data.origin.size() <= 200;
+
+      allow update: if isClubAdminFor(clubId) &&
+        request.resource.data.id == resource.data.id &&
+        request.resource.data.createdByUid == resource.data.createdByUid &&
+        request.resource.data.createdByPlayerId == resource.data.createdByPlayerId &&
+        validClubStatus(request.resource.data.status) &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 80 &&
+        request.resource.data.origin is string &&
+        request.resource.data.origin.size() >= 5 && request.resource.data.origin.size() <= 200;
+
+      allow delete: if isSuperAdmin();
+    }
+
+    match /clubAdmins/{adminId} {
+      allow read: if isSignedIn() &&
+        (isSuperAdmin() || resource.data.uid == request.auth.uid ||
+         currentUserBelongsToClub(resource.data.clubId) ||
+         isClubStaffFor(resource.data.clubId));
+
+      allow create: if isSignedIn() &&
+        request.resource.data.id == adminId &&
+        adminId == request.resource.data.clubId + '_' + request.resource.data.uid &&
+        validClubRole(request.resource.data.role) &&
+        ((request.resource.data.role == 'club_admin' &&
+          request.resource.data.uid == request.auth.uid &&
+          request.resource.data.playerId == currentPlayerId() &&
+          getAfter(/databases/$(database)/documents/clubs/$(request.resource.data.clubId)).data.createdByUid == request.auth.uid) ||
+         (isSuperAdmin() && roleTargetIsClubMember(request.resource.data)) ||
+         (isPrimaryClubAdminFor(request.resource.data.clubId) &&
+          request.resource.data.role in ['co_admin', 'staff'] &&
+          roleTargetIsClubMember(request.resource.data)));
+
+      allow update: if request.resource.data.id == resource.data.id &&
+        request.resource.data.clubId == resource.data.clubId &&
+        request.resource.data.uid == resource.data.uid &&
+        request.resource.data.playerId == resource.data.playerId &&
+        validClubRole(request.resource.data.role) &&
+        roleTargetIsClubMember(request.resource.data) &&
+        (isSuperAdmin() ||
+         (isPrimaryClubAdminFor(resource.data.clubId) &&
+          resource.data.get('role', 'club_admin') != 'club_admin' &&
+          request.resource.data.role in ['co_admin', 'staff']));
+
+      allow delete: if isSuperAdmin() ||
+        (isPrimaryClubAdminFor(resource.data.clubId) &&
+         resource.data.get('role', 'club_admin') != 'club_admin');
+    }
+
+    match /clubMemberships/{membershipId} {
+      allow read: if true;
+
+      allow create: if isSignedIn() &&
+        request.resource.data.id == membershipId &&
+        membershipId == request.resource.data.clubId + '_' + request.resource.data.playerId &&
+        clubExistsOrLegacy(request.resource.data.clubId) &&
+        validMembershipStatus(request.resource.data.status) &&
+        (isClubAdminFor(request.resource.data.clubId) ||
+         (playerOwnedByCurrentUser(request.resource.data.playerId) &&
+          request.resource.data.status == 'pending') ||
+         (playerOwnedByCurrentUser(request.resource.data.playerId) &&
+          request.resource.data.status == 'active' &&
+          getAfter(/databases/$(database)/documents/clubs/$(request.resource.data.clubId)).data.createdByUid == request.auth.uid));
+
+      allow update: if isSignedIn() &&
+        request.resource.data.clubId == resource.data.clubId &&
+        request.resource.data.playerId == resource.data.playerId &&
+        clubExistsOrLegacy(resource.data.clubId) &&
+        validMembershipStatus(request.resource.data.status) &&
+        (isClubAdminFor(resource.data.clubId) ||
+         (playerOwnedByCurrentUser(resource.data.playerId) &&
+          ((resource.data.status == 'active' && request.resource.data.status == 'removed') ||
+           (resource.data.status != 'active' && request.resource.data.status == 'pending'))));
+
+      allow delete: if isSignedIn() &&
+        (isClubAdminFor(resource.data.clubId) || playerOwnedByCurrentUser(resource.data.playerId));
+    }
+
+    match /clubChats/{messageId} {
+      allow read: if isSignedIn() &&
+        (currentUserBelongsToClub(resource.data.clubId) ||
+         isClubStaffFor(resource.data.clubId));
+
+      allow create: if userExists() &&
+        request.resource.data.keys().hasOnly([
+          'id', 'clubId', 'senderUid', 'senderPlayerId', 'senderName', 'text',
+          'mentions', 'mentionRoles', 'createdAt'
+        ]) &&
+        request.resource.data.id == messageId &&
+        request.resource.data.senderUid == request.auth.uid &&
+        request.resource.data.senderPlayerId is string &&
+        playerOwnedByCurrentUser(request.resource.data.senderPlayerId) &&
+        (playerBelongsToClub(request.resource.data.senderPlayerId, request.resource.data.clubId) ||
+         isClubStaffFor(request.resource.data.clubId)) &&
+        request.resource.data.senderName is string &&
+        request.resource.data.senderName.size() >= 1 &&
+        request.resource.data.senderName.size() <= 80 &&
+        request.resource.data.text is string &&
+        request.resource.data.text.size() >= 1 &&
+        request.resource.data.text.size() <= 500 &&
+        request.resource.data.get('mentions', []) is list &&
+        request.resource.data.get('mentions', []).size() <= 100 &&
+        request.resource.data.get('mentionRoles', []) is list &&
+        request.resource.data.get('mentionRoles', []).size() <= 3 &&
+        request.resource.data.get('mentionRoles', []).toSet().hasOnly([
+          'admin', 'co_admin', 'staff'
+        ]) &&
+        (request.resource.data.createdAt is string ||
+         request.resource.data.createdAt is timestamp);
+
+      allow update: if false;
+
+      allow delete: if isSignedIn() &&
+        (isSuperAdmin() || resource.data.senderUid == request.auth.uid ||
+         isClubStaffFor(resource.data.clubId));
+    }
+
+    match /supportRequests/{requestId} {
+      allow create: if userExists() &&
+        request.resource.data.keys().hasOnly([
+          'id', 'reporterUid', 'reporterPlayerId', 'reporterName',
+          'reporterEmail', 'category', 'subject', 'message', 'status',
+          'createdAt', 'updatedAt'
+        ]) &&
+        request.resource.data.id == requestId &&
+        request.resource.data.reporterUid == request.auth.uid &&
+        (request.resource.data.reporterPlayerId == currentPlayerId() ||
+         (currentPlayerId() == '' && request.resource.data.reporterPlayerId == null)) &&
+        request.resource.data.reporterName is string &&
+        request.resource.data.reporterName.size() >= 1 &&
+        request.resource.data.reporterName.size() <= 80 &&
+        request.resource.data.reporterEmail is string &&
+        request.resource.data.reporterEmail.size() <= 254 &&
+        request.resource.data.category in [
+          'account', 'club', 'game', 'chat', 'technical', 'other'
+        ] &&
+        request.resource.data.subject is string &&
+        request.resource.data.subject.size() >= 3 &&
+        request.resource.data.subject.size() <= 100 &&
+        request.resource.data.message is string &&
+        request.resource.data.message.size() >= 10 &&
+        request.resource.data.message.size() <= 1200 &&
+        request.resource.data.status == 'open' &&
+        (request.resource.data.createdAt is string ||
+         request.resource.data.createdAt is timestamp) &&
+        (request.resource.data.updatedAt is string ||
+         request.resource.data.updatedAt is timestamp);
+
+      allow read: if isSignedIn() &&
+        (resource.data.reporterUid == request.auth.uid || isSuperAdmin());
+
+      allow update: if isSuperAdmin() &&
+        request.resource.data.id == resource.data.id &&
+        request.resource.data.reporterUid == resource.data.reporterUid &&
+        request.resource.data.reporterPlayerId == resource.data.reporterPlayerId &&
+        request.resource.data.reporterName == resource.data.reporterName &&
+        request.resource.data.reporterEmail == resource.data.reporterEmail &&
+        request.resource.data.category == resource.data.category &&
+        request.resource.data.subject == resource.data.subject &&
+        request.resource.data.message == resource.data.message &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'adminResponse', 'status', 'respondedAt', 'respondedByUid', 'updatedAt'
+        ]) &&
+        request.resource.data.adminResponse is string &&
+        request.resource.data.adminResponse.size() >= 2 &&
+        request.resource.data.adminResponse.size() <= 1200 &&
+        request.resource.data.status == 'resolved' &&
+        request.resource.data.respondedByUid == request.auth.uid &&
+        (request.resource.data.respondedAt is string ||
+         request.resource.data.respondedAt is timestamp) &&
+        (request.resource.data.updatedAt is string ||
+         request.resource.data.updatedAt is timestamp);
+
+      allow delete: if false;
+    }
+
+    match /players/{playerId} {
+      allow read: if true;
+
+      allow create: if isSuperAdmin() ||
+        (isSignedIn() && request.resource.data.get('ownerUid', '') == request.auth.uid) ||
+        (isSignedIn() && request.resource.data.guest == true &&
+          request.resource.data.createdByUid == request.auth.uid) ||
+        (isSignedIn() && request.resource.data.createdByUid == request.auth.uid &&
+          clubExistsOrLegacy(documentClub(request.resource.data)) &&
+          isClubAdminFor(documentClub(request.resource.data)));
+
+      allow update: if isSuperAdmin() ||
+        (isSignedIn() && resource.data.get('ownerUid', '') == request.auth.uid &&
+          request.resource.data.ownerUid == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'name', 'avatarUrl', 'profileVisibility', 'clubId', 'clubIds', 'updatedAt'
+          ]) &&
+          request.resource.data.name is string &&
+          request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 80 &&
+          request.resource.data.get('clubIds', []).size() <= 20 &&
+          validVisibility(request.resource.data.get('profileVisibility', 'public'))) ||
+        (isSignedIn() && resource.data.get('ownerUid', null) == null &&
+          request.resource.data.ownerUid == request.auth.uid &&
+          request.resource.data.name == resource.data.name &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'ownerUid', 'clubId', 'clubIds', 'avatarUrl', 'updatedAt'
+          ]));
+
+      allow delete: if isSuperAdmin();
+    }
+
+    match /matches/{matchId} {
+      allow read: if true;
+
+      allow create: if isSignedIn() &&
+        request.resource.data.recordedByUid == request.auth.uid &&
+        request.resource.data.status == 'completed' &&
+        request.resource.data.scheduleId is string &&
+        request.resource.data.score1 is int && request.resource.data.score1 >= 0 &&
+        request.resource.data.score2 is int && request.resource.data.score2 >= 0 &&
+        validVerification(request.resource.data.verificationStatus) &&
+        (isAdminFor(request.resource.data) ||
+          (exists(/databases/$(database)/documents/schedules/$(request.resource.data.scheduleId)) &&
+           get(/databases/$(database)/documents/schedules/$(request.resource.data.scheduleId)).data.createdBy == request.auth.uid &&
+           documentClub(get(/databases/$(database)/documents/schedules/$(request.resource.data.scheduleId)).data) == documentClub(request.resource.data)));
+
+      allow update: if isAdminFor(resource.data) ||
+        (isMatchParticipant(resource.data) && resource.data.recordedByUid != request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'verificationStatus', 'confirmedByUid', 'confirmedByPlayerId', 'confirmedAt',
+            'resolvedAt', 'resolvedByUid', 'disputeReason', 'disputedByUid',
+            'disputedByPlayerId', 'disputedAt'
+          ]) && validVerification(request.resource.data.verificationStatus)) ||
+        (isSignedIn() && resource.data.scheduleId is string &&
+          exists(/databases/$(database)/documents/schedules/$(resource.data.scheduleId)) &&
+          get(/databases/$(database)/documents/schedules/$(resource.data.scheduleId)).data.createdBy == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'score1', 'score2', 'status', 'correctedByUid', 'verificationStatus',
+            'confirmedByUid', 'confirmedAt', 'disputeReason', 'disputedByUid',
+            'disputedAt', 'updatedAt'
+          ]) && request.resource.data.score1 is int && request.resource.data.score1 >= 0 &&
+          request.resource.data.score2 is int && request.resource.data.score2 >= 0 &&
+          validVerification(request.resource.data.verificationStatus));
+
+      allow delete: if isAdminFor(resource.data);
+    }
+
+    match /schedules/{scheduleId} {
+      allow read: if true;
+
+      allow create: if isSignedIn() &&
+        request.resource.data.createdBy == request.auth.uid &&
+        request.resource.data.get('venueName', '').size() <= 120 &&
+        (documentClub(request.resource.data) == 'independent' ||
+         (clubExistsOrLegacy(documentClub(request.resource.data)) &&
+          (currentUserBelongsToClub(documentClub(request.resource.data)) ||
+           isClubAdminFor(documentClub(request.resource.data)))));
+
+      allow update: if (isAdminFor(resource.data) ||
+        (isSignedIn() && resource.data.createdBy == request.auth.uid)) &&
+        request.resource.data.createdBy == resource.data.createdBy &&
+        documentClub(request.resource.data) == documentClub(resource.data) &&
+        request.resource.data.get('venueName', '').size() <= 120;
+
+      allow delete: if isAdminFor(resource.data) ||
+        (isSignedIn() && resource.data.createdBy == request.auth.uid);
+    }
+  }
+}
