@@ -3256,7 +3256,7 @@ function renderAuthModal(){
       <button class="btn btn-google" type="button" onclick="signInWithGoogle()" ${state.authBusy?'disabled':''}>${googleLogo()}<span>${state.authBusy?'Please wait…':'Continue with Google'}</span></button>
       <div class="auth-divider"><span>or use email</span></div>
       <form onsubmit="submitAuthForm(event)">
-        ${mode==='register' ? `<div class="field"><label>Your name</label><input type="text" id="auth_name" placeholder="e.g. Jamie Cruz"/></div><div class="field"><label>Request to join a club?</label><select id="auth_club"><option value="">Not yet — I’ll join through Club Hub later</option>${clubs.map(club=>`<option value="${esc(club.id)}">${esc(club.name)} — ${esc(club.origin||'Origin pending')}</option>`).join('')}</select><div class="small muted" style="margin-top:5px;">The selected club’s administrators will review your request.</div></div>` : ''}
+        ${mode==='register' ? `<div class="field"><label>Your name</label><input type="text" id="auth_name" placeholder="e.g. Picklebear"/></div><div class="field"><label>Request to join a club?</label><select id="auth_club"><option value="">Not yet — I’ll join through Club Hub later</option>${clubs.map(club=>`<option value="${esc(club.id)}">${esc(club.name)} — ${esc(club.origin||'Origin pending')}</option>`).join('')}</select><div class="small muted" style="margin-top:5px;">The selected club’s administrators will review your request.</div></div>` : ''}
         <div class="field"><label>Email</label><input type="text" id="auth_email" placeholder="you@email.com"/></div>
         <div class="field"><label>Password</label><input type="password" id="auth_password" placeholder="At least 6 characters"/></div>
         <button class="btn btn-primary" type="submit" style="width:100%;" ${state.authBusy?'disabled':''}>${state.authBusy ? 'Please wait…' : (mode==='register' ? 'Create account' : 'Sign in')}</button>
@@ -3578,7 +3578,7 @@ function renderAddPlayerModal(){
       <form onsubmit="submitAddPlayerForm(event)">
         <div class="field">
           <label>Full name</label>
-          <input type="text" id="newPlayerName" placeholder="e.g. Jamie Cruz" autofocus />
+          <input type="text" id="newPlayerName" placeholder="e.g. Picklebear" autofocus />
         </div>
         <button class="btn btn-primary" type="submit" style="width:100%;">Add to Club Members</button>
       </form>
