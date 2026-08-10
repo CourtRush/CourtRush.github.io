@@ -392,6 +392,21 @@ service cloud.firestore {
       allow delete: if isAdminFor(resource.data);
     }
 
+    match /profileViews/{viewId} {
+      allow read: if isSignedIn();
+
+      allow create, update: if isSignedIn() &&
+        request.resource.data.id == viewId &&
+        request.resource.data.viewerUid == request.auth.uid &&
+        request.resource.data.playerId is string &&
+        exists(/databases/$(database)/documents/players/$(request.resource.data.playerId)) &&
+        request.resource.data.day is string &&
+        request.resource.data.day.matches('^\\d{4}-\\d{2}-\\d{2}$') &&
+        request.resource.data.viewedAt is string;
+
+      allow delete: if false;
+    }
+
     match /schedules/{scheduleId} {
       allow read: if true;
 

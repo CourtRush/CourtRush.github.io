@@ -61,3 +61,20 @@ allow update: if request.auth != null
     "updatedAt"
   ])
   && validPlayerDivision(request.resource.data.get("division", "novice"));
+
+// Add this match block for daily player profile visitor counts.
+// The UI displays only the number of same-day view receipts per player.
+match /profileViews/{viewId} {
+  allow read: if request.auth != null;
+
+  allow create, update: if request.auth != null
+    && request.resource.data.id == viewId
+    && request.resource.data.viewerUid == request.auth.uid
+    && request.resource.data.playerId is string
+    && exists(/databases/$(database)/documents/players/$(request.resource.data.playerId))
+    && request.resource.data.day is string
+    && request.resource.data.day.matches("^\\d{4}-\\d{2}-\\d{2}$")
+    && request.resource.data.viewedAt is string;
+
+  allow delete: if false;
+}

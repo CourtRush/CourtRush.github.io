@@ -668,6 +668,7 @@
   .club-role-person span{font-size:10px;color:var(--muted);margin-top:2px;}
   .club-chip.staff{background:rgba(46,183,169,.12);border-color:rgba(46,183,169,.3);}
   .theme-toggle{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;border-radius:50%;font-size:16px;}
+  .theme-toggle svg,.nav-toggle-icon svg{display:block;width:17px;height:17px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;}
   .chat-page{display:grid;grid-template-columns:250px minmax(0,1fr);gap:16px;min-height:620px;}
   .chat-club-list{display:flex;flex-direction:column;gap:8px;}
   .chat-club-button{position:relative;width:100%;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:11px;padding:12px 42px 12px 12px;text-align:left;transition:border-color .15s ease,transform .15s ease,background-color .15s ease;}
@@ -903,6 +904,7 @@ const CLUB_MEMBERSHIPS_COL = db.collection('clubMemberships');
 const CLUB_ADMINS_COL = db.collection('clubAdmins');
 const CLUB_CHATS_COL = db.collection('clubChats');
 const SUPPORT_REQUESTS_COL = db.collection('supportRequests');
+const PROFILE_VIEWS_COL = db.collection('profileViews');
 const LEGACY_CLUB = {id:ACTIVE_CLUB_ID,name:'Rising Club',origin:'Origin address pending migration',legacy:true};
 const THEME_PREF_KEY='picklehub_theme';
 const CHAT_READ_PREF_KEY='courtrush_chat_mention_reads_v1';
@@ -932,6 +934,7 @@ let state = {
   clubs: [],
   clubMemberships: [],
   clubRoles: [],
+  profileViews: [],
   adminClubIds: [],
   staffClubIds: [],
   clubHubSelectedId: null,
@@ -1116,6 +1119,14 @@ function canAssignClubRoles(clubId){
   return !!(mine&&mine.role==='club_admin') || (state.currentUser.role==='club_admin'&&(state.currentUser.clubId||ACTIVE_CLUB_ID)===clubId);
 }
 function themeValue(){ return document.documentElement.dataset.theme==='dark'?'dark':'light'; }
+function iconSVG(name){
+  const icons={
+    sun:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>',
+    moon:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5 7 7 0 1 0 20.5 14.5Z"></path></svg>',
+    menu:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"></path><path d="M4 12h16"></path><path d="M4 17h16"></path></svg>'
+  };
+  return icons[name]||'';
+}
 function toggleTheme(){
   const next=themeValue()==='dark'?'light':'dark';
   document.documentElement.dataset.theme=next;
@@ -1306,6 +1317,11 @@ function startSync(){
     refreshClubRoleDirectorySync(true);
     render();
   },err=>console.error('Club membership sync failed',err));
+
+  PROFILE_VIEWS_COL.where('day','==',todayStr()).onSnapshot(snap=>{
+    state.profileViews=snap.docs.map(d=>({id:d.id,...d.data()}));
+    render();
+  },err=>console.error('Profile visitor sync failed',err));
 
 }
 
@@ -1949,6 +1965,21 @@ function rosterSortHeader(key,label){
 
 /* ============================= SCHEDULE ALGORITHM ============================= */
 function pairKey(a,b){ return [a,b].sort().join('|'); }
+const DIVISION_RANKS={novice:1,beginner:2,intermediate:3,advanced:4,pro:5};
+function playerDivisionRank(playerId){
+  const player=state.players.find(p=>p.id===playerId);
+  return DIVISION_RANKS[playerDivisionValue(player)]||1;
+}
+function teamDivisionAverage(team){
+  return (team||[]).reduce((sum,id)=>sum+playerDivisionRank(id),0)/Math.max(1,(team||[]).length);
+}
+function divisionMatchSpread(teamA,teamB){
+  return Math.abs(teamDivisionAverage(teamA)-teamDivisionAverage(teamB));
+}
+function divisionPartnerSpread(team){
+  if(!team||team.length<2) return 0;
+  return Math.max(...team.map(playerDivisionRank))-Math.min(...team.map(playerDivisionRank));
+}
 
 // Classic round-robin "circle method": fixes one player, rotates the rest.
 // Produces (M-1) rounds of M/2 pairs, where M is even (padded with BYE tokens if needed),
@@ -1979,6 +2010,13 @@ function oppScore(teamA, teamB, opponentCount){
   let s=0;
   teamA.forEach(a=> teamB.forEach(b=> s += (opponentCount[pairKey(a,b)]||0)));
   return s;
+}
+function openPlayOpponentScore(teamA,teamB,opponentCount){
+  return oppScore(teamA,teamB,opponentCount) + divisionMatchSpread(teamA,teamB)*0.35;
+}
+function openPlayPartnerScore(team,partnerCount){
+  const repeat=team.length===2 ? (partnerCount[pairKey(team[0],team[1])]||0) : 0;
+  return repeat*2 + divisionPartnerSpread(team)*0.18;
 }
 
 // Guaranteed round robin — used whenever the group actually fits on the courts available,
@@ -2018,7 +2056,7 @@ function generateScheduleRoundRobin({playerIds, format}){
     let c=1;
     while(pool.length>=2){
       const i = pool.shift();
-      pool.sort((x,y)=> oppScore(partnerships[i],partnerships[x],opponentCount) - oppScore(partnerships[i],partnerships[y],opponentCount));
+      pool.sort((x,y)=> openPlayOpponentScore(partnerships[i],partnerships[x],opponentCount) - openPlayOpponentScore(partnerships[i],partnerships[y],opponentCount));
       const j = pool.shift();
       const team1 = partnerships[i], team2 = partnerships[j];
       team1.forEach(p1=> team2.forEach(p2=> opponentCount[pairKey(p1,p2)]++));
@@ -2044,24 +2082,24 @@ function buildGreedyRound(playerIds, usableCourts, capacity, format, partnerCoun
     if(pool.length < (format==='singles'?2:4)) break;
     if(format==='singles'){
       const a = pool.shift();
-      pool.sort((x,y)=> opponentCount[key(a,x)]-opponentCount[key(a,y)]);
+      pool.sort((x,y)=> (opponentCount[key(a,x)] + divisionMatchSpread([a],[x])*0.35) - (opponentCount[key(a,y)] + divisionMatchSpread([a],[y])*0.35));
       const b = pool.shift();
       opponentCount[key(a,b)]++;
       courtsArr.push({court:c, team1:[a], team2:[b]});
     } else {
       const a = pool.shift();
-      pool.sort((x,y)=> partnerCount[key(a,x)]-partnerCount[key(a,y)]);
+      pool.sort((x,y)=> openPlayPartnerScore([a,x],partnerCount) - openPlayPartnerScore([a,y],partnerCount));
       const b = pool.shift();
       partnerCount[key(a,b)]++;
       pool.sort((x,y)=>{
-        const sx = opponentCount[key(a,x)]+opponentCount[key(b,x)];
-        const sy = opponentCount[key(a,y)]+opponentCount[key(b,y)];
+        const sx = opponentCount[key(a,x)]+opponentCount[key(b,x)] + divisionMatchSpread([a,b],[x])*0.35;
+        const sy = opponentCount[key(a,y)]+opponentCount[key(b,y)] + divisionMatchSpread([a,b],[y])*0.35;
         return sx-sy;
       });
       const c1 = pool.shift();
       pool.sort((x,y)=>{
-        const sx = partnerCount[key(c1,x)]*2 + opponentCount[key(a,x)] + opponentCount[key(b,x)];
-        const sy = partnerCount[key(c1,y)]*2 + opponentCount[key(a,y)] + opponentCount[key(b,y)];
+        const sx = openPlayPartnerScore([c1,x],partnerCount) + opponentCount[key(a,x)] + opponentCount[key(b,x)] + divisionMatchSpread([a,b],[c1,x])*0.35;
+        const sy = openPlayPartnerScore([c1,y],partnerCount) + opponentCount[key(a,y)] + opponentCount[key(b,y)] + divisionMatchSpread([a,b],[c1,y])*0.35;
         return sx-sy;
       });
       const d1 = pool.shift();
@@ -2260,8 +2298,26 @@ function playerDivisionBadge(player){
   const meta=divisionMeta(playerDivisionValue(player));
   return `<span class="guest-tag" title="${esc(meta.label)} division" aria-label="${esc(meta.label)} division">${esc(meta.abbr)}</span>`;
 }
+function profileViewDay(){ return todayStr(); }
+function profileViewId(playerId,uid,day){ return `${playerId}_${day}_${uid}`; }
+function dailyVisitorCount(playerId){
+  const day=profileViewDay();
+  return state.profileViews.filter(view=>view.playerId===playerId&&view.day===day).length;
+}
+async function recordProfileView(playerId){
+  if(!state.currentUser||!playerId||state.myPlayerId===playerId) return;
+  const day=profileViewDay();
+  const id=profileViewId(playerId,state.currentUser.uid,day);
+  if(state.profileViews.some(view=>view.id===id)) return;
+  const record={id,playerId,viewerUid:state.currentUser.uid,day,viewedAt:new Date().toISOString()};
+  state.profileViews=[...state.profileViews,record];
+  try{ await PROFILE_VIEWS_COL.doc(id).set(record,{merge:true}); }
+  catch(e){ console.error('Could not record profile view',e); }
+  render();
+}
 function canViewPlayerProfile(player){
   if(!player) return false;
+  if(!isSignedIn()) return false;
   if(isSuperAdmin()||state.myPlayerId===player.id||activePlayerClubIds(player).some(id=>isClubAdmin(id))) return true;
   const visibility=profileVisibilityValue(player);
   if(visibility==='public') return true;
@@ -2274,11 +2330,17 @@ function canViewPlayerProfile(player){
 }
 function openPlayerProfile(playerId){
   const player=state.players.find(p=>p.id===playerId);
+  if(!isSignedIn()){
+    toast('Sign in or register to view player stats');
+    openAuthModal('login');
+    return;
+  }
   if(!canViewPlayerProfile(player)&&!managedInviteClubsForPlayer(player).length){
-    toast(isSignedIn()?'This player keeps detailed stats private':'Sign in to view club-only player details');
+    toast(isSignedIn()?'This player keeps detailed stats private':'Sign in or register to view player stats');
     return;
   }
   state.playerModalId=playerId;
+  recordProfileView(playerId);
   render();
 }
 async function saveProfileVisibility(value){
@@ -3633,13 +3695,13 @@ function renderTopbar(){
     </div>
     <div class="topbar-right ${state.currentUser?'logged-in':''}">
       <div class="primary-nav">
-        <button class="nav-toggle" type="button" aria-expanded="${state.navOpen?'true':'false'}" aria-controls="primaryNavigation" onclick="toggleNavigation()"><span class="nav-toggle-icon" aria-hidden="true">?</span><span>${esc(activeLabel)}</span></button>
+        <button class="nav-toggle" type="button" aria-expanded="${state.navOpen?'true':'false'}" aria-controls="primaryNavigation" onclick="toggleNavigation()"><span class="nav-toggle-icon" aria-hidden="true">${iconSVG('menu')}</span><span>${esc(activeLabel)}</span></button>
         <nav id="primaryNavigation" class="toolbar ${state.navOpen?'open':''}" aria-label="Primary navigation">
           ${tabs.map(([k,l])=> `<button type="button" class="${state.tab===k?'active':''}" ${state.tab===k?'aria-current="page"':''} onclick="setTab('${k}')">${l}${k==='clubs'&&pendingClubRequests?`<span class="nav-count" aria-label="${pendingClubRequests} pending club join request${pendingClubRequests===1?'':'s'}">${pendingClubRequests}</span>`:k==='chat'&&unreadChatMentions?`<span class="nav-count" aria-label="${unreadChatMentions} unread Club Chat mention${unreadChatMentions===1?'':'s'}">${unreadChatMentions}</span>`:''}</button>`).join('')}
         </nav>
         <div class="nav-account">${accountComponent}</div>
       </div>
-      <button class="btn btn-ghost theme-toggle" type="button" onclick="toggleTheme()" aria-label="Switch to ${themeValue()==='dark'?'light':'dark'} theme" title="${themeValue()==='dark'?'Light':'Dark'} theme">${themeValue()==='dark'?'?':'?'}</button>
+      <button class="btn btn-ghost theme-toggle" type="button" onclick="toggleTheme()" aria-label="Switch to ${themeValue()==='dark'?'light':'dark'} theme" title="${themeValue()==='dark'?'Light':'Dark'} theme">${iconSVG(themeValue()==='dark'?'sun':'moon')}</button>
     </div>
   </div>`;
 }
@@ -4255,7 +4317,7 @@ function renderPlayerModal(){
   const canViewDetails=canViewPlayerProfile(p);
   if(!canViewDetails&&!inviteClubs.length){ state.playerModalId=null; return ''; }
   if(!canViewDetails){
-    return `<div class="modal-overlay player-profile-overlay" onclick="if(event.target===this){state.playerModalId=null;render();}"><div class="modal player-profile-modal"><div class="player-profile-sticky-actions"><button class="modal-close" aria-label="Close player profile" onclick="state.playerModalId=null;render();">&times;</button></div><div class="player-profile-header">${avatarHTML(p,64)}<div class="player-profile-header-copy"><div class="eyebrow">Player profile</div><h2 style="font-size:26px;color:var(--court-deep);line-height:1;">${esc(p.name)}</h2><div class="club-chip-list">${activePlayerClubIds(p).map(id=>`<span class="club-chip">${esc(clubName(id))}</span>`).join('')||'<span class="small muted">Independent player</span>'}</div></div></div>${renderManagedClubInvites(p,inviteClubs)}<div class="empty" style="padding-bottom:4px;"><p>This player keeps detailed performance statistics private.</p></div></div></div>`;
+    return `<div class="modal-overlay player-profile-overlay" onclick="if(event.target===this){state.playerModalId=null;render();}"><div class="modal player-profile-modal"><div class="player-profile-sticky-actions"><button class="modal-close" aria-label="Close player profile" onclick="state.playerModalId=null;render();">&times;</button></div><div class="player-profile-header">${avatarHTML(p,64)}<div class="player-profile-header-copy"><div class="eyebrow">Player profile</div><h2 style="font-size:26px;color:var(--court-deep);line-height:1;">${esc(p.name)}</h2><div class="club-chip-list"><span class="my-profile-badge">${esc(playerDivisionLabel(p))}</span>${activePlayerClubIds(p).map(id=>`<span class="club-chip">${esc(clubName(id))}</span>`).join('')||'<span class="small muted">Independent player</span>'}</div></div></div>${renderManagedClubInvites(p,inviteClubs)}<div class="empty" style="padding-bottom:4px;"><p>This player keeps detailed performance statistics private.</p></div></div></div>`;
   }
   const s = computePlayerStats(p.id);
   const scouting = scoutingReport(p.id);
@@ -4274,7 +4336,7 @@ function renderPlayerModal(){
         <div class="player-profile-header-copy">
           <div class="eyebrow">Player profile · ${activeDateRangeLabel()}</div>
           <h2 style="font-size:26px;color:var(--court-deep);line-height:1;">${esc(p.name)}${p.guest?'<span class="guest-tag">Guest</span>':''}</h2>
-          <div class="club-chip-list">${activePlayerClubIds(p).map(id=>`<span class="club-chip">${esc(clubName(id))}</span>`).join('')||'<span class="small muted">Independent player</span>'}</div>
+          <div class="club-chip-list"><span class="my-profile-badge">${esc(playerDivisionLabel(p))}</span>${activePlayerClubIds(p).map(id=>`<span class="club-chip">${esc(clubName(id))}</span>`).join('')||'<span class="small muted">Independent player</span>'}</div>
         </div>
       </div>
 
@@ -4295,6 +4357,9 @@ function renderPlayerModal(){
         </div>
         <div class="score-tile" style="background:rgba(214,230,43,0.16);border-color:rgba(169,184,24,0.35);">
           <div class="num" style="color:var(--court-deep);">${mvpCount}</div><div class="lbl" style="color:var(--muted);">MVP</div>
+        </div>
+        <div class="score-tile" style="background:var(--bg);border-color:var(--line);">
+          <div class="num" style="color:var(--court);">${dailyVisitorCount(p.id)}</div><div class="lbl" style="color:var(--muted);">Daily Visitor</div>
         </div>
       </div>
       <p class="small muted" style="margin:10px 0 0;">${esc(MVP_RULE_TEXT)} Exact ties in both measures produce co-MVPs.</p>
@@ -4620,6 +4685,7 @@ function renderGamePlanBuilder(isEdit){
         <div class="preview-finish"><span class="small">Estimated finish</span><strong>${preview.estimatedFinish}</strong></div>
       </div>
       <p class="small muted" style="margin:10px 2px 0;">A round is one simultaneous time block. Each occupied court inside that round is one game.</p>
+      ${d.mode==='open'?'<p class="small muted" style="margin:8px 2px 0;">Open Play lightly balances teammates and opponents by division while still allowing mixed-level matches.</p>':''}
     </div>
   </div>`;
 }
