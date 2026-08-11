@@ -645,12 +645,12 @@
   .profile-division-panel{margin-top:0;margin-bottom:16px;padding:13px;}
   .profile-division-panel .section-title{margin-bottom:9px;}
   .profile-division-panel .section-title h2{font-size:19px;}
-  .division-panel-grid{display:grid;grid-template-columns:minmax(190px,280px) minmax(520px,760px);gap:28px;align-items:start;justify-content:space-between;}
-  .division-select-wrap{display:grid;gap:7px;align-content:start;}
+  .division-panel-grid{display:grid;grid-template-columns:minmax(220px,360px) minmax(0,1fr);gap:10px;align-items:stretch;}
+  .division-select-wrap{min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:13px;display:grid;gap:7px;align-content:start;}
   .division-select-head{display:flex;align-items:center;justify-content:space-between;gap:10px;}
-  .division-tip-wrap{width:100%;max-width:760px;justify-self:end;display:grid;grid-template-columns:minmax(170px,1fr) minmax(300px,520px);gap:12px;align-items:start;}
-  .division-tip-note{justify-self:start;color:var(--muted);font-size:12px;line-height:1.35;text-align:left;padding-top:1px;}
-  .division-tip-slider{min-width:0;position:relative;background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:12px 13px;min-height:92px;display:flex;flex-direction:column;justify-content:space-between;}
+  .division-tip-wrap{width:100%;min-width:0;display:grid;}
+  .division-tip-note{display:block;margin-top:8px;color:var(--muted);font-size:12px;line-height:1.35;text-align:left;}
+  .division-tip-slider{min-width:0;position:relative;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:13px;min-height:0;display:flex;flex-direction:column;justify-content:flex-start;}
   .division-tip-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:5px;}
   .division-tip-viewport{overflow:hidden;min-width:0;cursor:grab;touch-action:pan-y;user-select:none;}
   .division-tip-viewport.dragging{cursor:grabbing;}
@@ -2812,10 +2812,11 @@ function wireDivisionTipSlider(){
 function renderDivisionTips(player){
   const tips=divisionTips(player);
   const active=((Number(state.divisionTipIndex)||0)%tips.length+tips.length)%tips.length;
-  return `<div class="division-tip-wrap"><span class="division-tip-note">Tips like these can improve your gameplay, so give them a quick read.</span><div class="division-tip-slider" data-total-tips="${tips.length}" aria-label="${esc(playerDivisionLabel(player))} improvement tips">
+  return `<div class="division-tip-wrap"><div class="division-tip-slider" data-total-tips="${tips.length}" aria-label="${esc(playerDivisionLabel(player))} improvement tips">
     <div class="division-tip-head"><div class="eyebrow">Division tips</div></div>
     <div class="division-tip-viewport"><div class="division-tip-track" style="transform:translateX(-${active*100}%);">${tips.map(([title,copy],index)=>`<div class="division-tip" aria-hidden="${index===active?'false':'true'}"><strong>${esc(title)}</strong><span>${esc(copy)}</span></div>`).join('')}</div></div>
     <div class="division-tip-dots" aria-label="Division tip progress">${tips.map((_,index)=>`<span class="${index===active?'active':''}"></span>`).join('')}</div>
+    <span class="division-tip-note">Tips like these can improve your gameplay, so give them a quick read.</span>
   </div></div>`;
 }
 function profileViewDay(){ return todayStr(); }
@@ -6073,7 +6074,6 @@ document.addEventListener('keydown',event=>{
 </script>
 </body>
 </html>
-
 
 
 
