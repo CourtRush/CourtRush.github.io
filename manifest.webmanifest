@@ -1,0 +1,19 @@
+{
+  "name": "CourtRush",
+  "short_name": "CourtRush",
+  "description": "Rush the court. Rule the game.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F4F8F6",
+  "theme_color": "#0E5F58",
+  "icons": [
+    {
+      "src": "./courtrush-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
