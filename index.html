@@ -247,12 +247,16 @@
   tr.clickable{cursor:pointer;}
   tr.clickable:hover td{background:var(--bg);}
   .name-cell{font-weight:700;}
-  .guest-tag{font-size:10px;background:var(--bg);color:var(--muted);padding:2px 7px;border-radius:20px;margin-left:6px;font-weight:700;text-transform:uppercase;}
-  .guest-division-badges{display:inline-flex;align-items:center;gap:5px;margin-left:6px;vertical-align:middle;}
+  .guest-tag{font-size:10px;background:var(--court-deep);color:#fff;padding:2px 7px;border-radius:20px;margin-left:8px;font-weight:700;text-transform:uppercase;}
+  .guest-division-badges{display:inline-flex;align-items:center;gap:8px;margin-left:10px;vertical-align:middle;}
   .guest-division-badges .guest-tag,.guest-division-badges .division-tag{margin-left:0;}
-  .division-tag{font-size:10px;background:var(--ball-fill);color:var(--ball-on);padding:2px 7px;border-radius:20px;font-weight:800;text-transform:uppercase;}
+  .division-tag{font-size:10px;background:var(--ball-fill);color:var(--ball-on);padding:2px 7px;border-radius:20px;margin-left:10px;font-weight:800;text-transform:uppercase;}
   .roster-player-cell{display:flex;align-items:center;gap:10px;min-width:180px;}
   .roster-player-name{min-width:0;}
+  .roster-player-email{display:block;margin-top:3px;color:var(--muted);font-size:11px;font-weight:600;line-height:1.25;overflow-wrap:anywhere;}
+  .player-private-meta{display:block;margin-top:5px;color:var(--muted);font-size:11px;font-weight:600;line-height:1.3;overflow-wrap:anywhere;}
+  .player-private-meta span{display:block;}
+  .my-profile-hero .player-private-meta{color:rgba(255,255,255,.72);font-size:10.5px;}
   .mvp-pill{display:inline-flex;align-items:center;justify-content:center;min-width:36px;padding:4px 9px;border-radius:20px;background:var(--ball-fill);color:var(--ball-on);font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:800;border:1px solid var(--ball-hover);}
   .mvp-pill.zero{background:var(--bg);border-color:var(--line);color:var(--muted);}
   .roster-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:12px 14px;margin:0 0 14px;background:var(--bg);border:1px solid var(--line);border-radius:11px;}
@@ -817,6 +821,7 @@
   :root[data-theme="dark"] .mode-card .mtitle,
   :root[data-theme="dark"] .round-label{color:var(--ink);}
   :root[data-theme="dark"] .brand-mark{background:transparent;box-shadow:0 5px 16px rgba(0,0,0,.32);}
+  :root[data-theme="dark"] .guest-tag{background:#F7FFB8;color:#10201D;box-shadow:0 0 0 1px rgba(247,255,184,0.35);}
   :root[data-theme="dark"] .club-card,
   :root[data-theme="dark"] .club-member-row,
   :root[data-theme="dark"] .club-leader,
@@ -1052,6 +1057,7 @@ let state = {
   profileDivisionBusy: false,
   divisionTipIndex: 0,
   players: [],
+  users: [],
   matches: [],
   schedules: [],          // normalized Firestore documents; each item includes docId
   clubs: [],
@@ -1087,6 +1093,7 @@ let state = {
   scheduleLeaderboardOpenId: null,
   h2hA: null,
   h2hB: null,
+  playerProfilePlanKey: null,
   h2hClubId: 'all',
   h2hSearchA: '',
   h2hSearchB: '',
@@ -1529,6 +1536,11 @@ function startSync(){
     refreshClubRoleDirectorySync();
     render();
   }, err=>{ console.error(err); state.connected=false; toast('Sync error - check your connection'); render(); });
+
+  USERS_COL.onSnapshot(snap=>{
+    state.users=snap.docs.map(d=>({uid:d.id,...d.data()}));
+    render();
+  }, err=>{ console.warn('User directory sync unavailable',err); state.users=[]; render(); });
 
   MATCHES_COL.onSnapshot(snap=>{
     state.matches = snap.docs.map(d=>d.data());
@@ -2008,7 +2020,7 @@ function computePlayerGameLog(pid){
     const oppScore = onT1 ? m.score2 : m.score1;
     const diff = myScore - oppScore;
     running += diff;
-    return { gameNum: idx+1, date: m.date, court: m.court, mode: m.mode||'open', partners, opponents, myScore, oppScore, diff, running };
+    return { id:m.id, scheduleId:m.scheduleId||null, gamePlanTitle:m.gamePlanTitle||'', gamePlanVenueName:m.gamePlanVenueName||'', startTime:m.startTime||'', clubId:m.clubId||ACTIVE_CLUB_ID, gameNum: idx+1, date: m.date, court: m.court, round:m.round, mode: m.mode||'open', partners, opponents, myScore, oppScore, diff, running };
   });
   return rows.reverse();
 }
@@ -2576,7 +2588,7 @@ async function ensureGooglePlayerProfile(user, requestedClubId){
   let playerId=saved.playerId||null;
   let player=playerId?state.players.find(p=>p.id===playerId):null;
   if(!playerId){
-    player=state.players.find(p=>p.ownerUid===user.uid)||state.players.find(p=>!p.ownerUid&&p.name.trim().toLowerCase()===name.toLowerCase()&&(!requestedClub||playerIsMemberOfClub(p,requestedClub)||pendingClubInvite(requestedClub,p.id)))||null;
+    player=state.players.find(p=>p.ownerUid===user.uid)||state.players.find(p=>!p.ownerUid&&playerEmail(p)===normalizeEmail(email))||state.players.find(p=>!p.ownerUid&&p.name.trim().toLowerCase()===name.toLowerCase()&&(!requestedClub||playerIsMemberOfClub(p,requestedClub)||pendingClubInvite(requestedClub,p.id)))||null;
     playerId=player?player.id:uid('pl');
   }
   const playerRef=PLAYERS_COL.doc(playerId);
@@ -2584,11 +2596,11 @@ async function ensureGooglePlayerProfile(user, requestedClubId){
   const clubIds=[...new Set([...existingClubIds,...savedClubIds])].filter(id=>!!clubById(id));
   const primaryClubId=saved.clubId||clubIds[0]||null;
   if(player){
-    const updates={ownerUid:user.uid,clubId:primaryClubId,clubIds};
+    const updates={ownerUid:user.uid,email,guest:false,clubId:primaryClubId,clubIds};
     if(photoURL) updates.avatarUrl=photoURL;
     await playerRef.set(updates,{merge:true});
   }else{
-    await playerRef.set({id:playerId,name,guest:false,clubId:primaryClubId,clubIds,createdAt:new Date().toISOString(),ownerUid:user.uid,...(photoURL?{avatarUrl:photoURL}:{})});
+    await playerRef.set({id:playerId,player_id:playerId,name,guest:false,email,clubId:primaryClubId,clubIds,createdAt:new Date().toISOString(),ownerUid:user.uid,...(photoURL?{avatarUrl:photoURL}:{})});
   }
   const joinRequested=!!(requestedClub&&!clubIds.includes(requestedClub)&&!pendingClubInvite(requestedClub,playerId));
   if(joinRequested){
@@ -2654,16 +2666,17 @@ async function submitAuthForm(ev){
       const cred = await auth.createUserWithEmailAndPassword(email, password);
       // Link to an existing unclaimed roster entry with a matching name if one exists,
       // so an admin-added player history isn't duplicated when they register.
-      const existing = state.players.find(p=> !p.ownerUid && p.name.trim().toLowerCase()===name.toLowerCase() && (!registrationClubId||playerIsMemberOfClub(p,registrationClubId)||pendingClubInvite(registrationClubId,p.id)));
+      const normalizedEmail=normalizeEmail(email);
+      const existing = state.players.find(p=> !p.ownerUid && playerEmail(p)===normalizedEmail)||state.players.find(p=> !p.ownerUid && p.name.trim().toLowerCase()===name.toLowerCase() && (!registrationClubId||playerIsMemberOfClub(p,registrationClubId)||pendingClubInvite(registrationClubId,p.id)));
       let playerId;
       let registeredClubIds=[];
       if(existing){
         playerId = existing.id;
         registeredClubIds=[...new Set(playerClubIds(existing))];
-        await PLAYERS_COL.doc(playerId).update({ ownerUid: cred.user.uid, clubId:existing.clubId||registeredClubIds[0]||null, clubIds:registeredClubIds });
+        await PLAYERS_COL.doc(playerId).update({ ownerUid: cred.user.uid, email:normalizedEmail, guest:false, clubId:existing.clubId||registeredClubIds[0]||null, clubIds:registeredClubIds });
       } else {
         playerId = uid('pl');
-        await PLAYERS_COL.doc(playerId).set({ id:playerId, name, guest:false, clubId:null, clubIds:[], createdAt:new Date().toISOString(), ownerUid:cred.user.uid });
+        await PLAYERS_COL.doc(playerId).set({ id:playerId, player_id:playerId, name, guest:false, email:normalizedEmail, clubId:null, clubIds:[], createdAt:new Date().toISOString(), ownerUid:cred.user.uid });
       }
       const joinRequested=!!(registrationClubId&&!registeredClubIds.includes(registrationClubId)&&!pendingClubInvite(registrationClubId,playerId));
       if(joinRequested){
@@ -2719,7 +2732,7 @@ function playerDivisionLabel(player){
 }
 function playerDivisionBadge(player){
   const meta=divisionMeta(playerDivisionValue(player));
-  return `<span class="guest-tag" title="${esc(meta.label)} division" aria-label="${esc(meta.label)} division">${esc(meta.abbr)}</span>`;
+  return `<span class="division-tag" title="${esc(meta.label)} division" aria-label="${esc(meta.label)} division">${esc(meta.abbr)}</span>`;
 }
 function playerRosterBadges(player){
   if(!player) return '';
@@ -2728,6 +2741,36 @@ function playerRosterBadges(player){
     return `<span class="guest-division-badges"><span class="guest-tag">Guest</span><span class="division-tag" title="${esc(meta.label)} division" aria-label="${esc(meta.label)} division">${esc(meta.abbr)}</span></span>`;
   }
   return playerDivisionBadge(player);
+}
+function normalizeEmail(value){
+  return String(value||'').trim().toLowerCase();
+}
+function isValidEmail(value){
+  return /^\S+@\S+\.\S+$/.test(String(value||'').trim());
+}
+function playerEmail(player){
+  if(!player) return '';
+  const direct=normalizeEmail(player.email||player.migrationEmail||player.pendingMigrationEmail||'');
+  if(direct) return direct;
+  const linked=(state.users||[]).find(user=>(user.playerId&&user.playerId===player.id)||(player.ownerUid&&user.uid===player.ownerUid));
+  return normalizeEmail((linked&&linked.email)||(state.myPlayerId===player.id&&state.currentUser&&state.currentUser.email));
+}
+function canAdminViewPlayerPrivateMeta(player){
+  if(!player||!state.currentUser) return false;
+  return isSuperAdmin()||activePlayerClubIds(player).some(clubId=>isAdminForClub(clubId));
+}
+function renderPlayerPrivateMeta(player,options={}){
+  if(!player) return '';
+  const lines=[];
+  const email=playerEmail(player);
+  const playerCode=player.player_id||player.playerId||player.id||'';
+  if(email&&canAdminViewPlayerPrivateMeta(player)) lines.push(`Email: ${esc(email)}`);
+  if(options.includeId!==false&&playerCode) lines.push(`Player ID: ${esc(playerCode)}`);
+  return lines.length?`<span class="player-private-meta">${lines.map(line=>`<span>${line}</span>`).join('')}</span>`:'';
+}
+function rosterPlayerNameHTML(player){
+  const email=playerEmail(player);
+  return `${esc(player.name)}${playerRosterBadges(player)}${email&&canAdminViewPlayerPrivateMeta(player)?`<span class="roster-player-email">${esc(email)}</span>`:''}`;
 }
 const DIVISION_TIPS={
   novice:[
@@ -2888,6 +2931,7 @@ function openPlayerProfile(playerId,context){
     toast(isSignedIn()?'This player keeps detailed stats private':'Sign in or register to view player stats');
     return;
   }
+  if(state.playerModalId!==playerId) state.playerProfilePlanKey=null;
   state.playerModalId=playerId;
   state.playerModalContext=context||null;
   recordProfileView(playerId);
@@ -3208,7 +3252,7 @@ async function createClubMember(clubId){
   if(duplicate&&!confirm(`A CourtRush player named ${duplicate.name} already exists. Create a separate profile with the same name?`)) return;
   const playerId=uid('pl');
   const now=new Date().toISOString();
-  const player={id:playerId,name,guest:false,clubId,clubIds:[clubId],createdAt:now,createdByUid:state.currentUser.uid};
+  const player={id:playerId,player_id:playerId,name,guest:false,clubId,clubIds:[clubId],createdAt:now,createdByUid:state.currentUser.uid};
   const id=clubMembershipId(clubId,playerId);
   const membership={id,clubId,playerId,status:'active',addedByUid:state.currentUser.uid,joinedAt:now};
   try{
@@ -3565,7 +3609,8 @@ async function addPlayer(name, guest, clubId, division){
   name = name.trim();
   if(!name) return null;
   const targetClubId=clubId||ACTIVE_CLUB_ID;
-  const p = { id: uid('pl'), name, guest: !!guest, division:playerDivisionValue({division}), clubId:targetClubId==='independent'?null:targetClubId, clubIds:targetClubId==='independent'?[]:[targetClubId], createdAt: new Date().toISOString() };
+  const playerId=uid('pl');
+  const p = { id: playerId, player_id:playerId, name, guest: !!guest, division:playerDivisionValue({division}), clubId:targetClubId==='independent'?null:targetClubId, clubIds:targetClubId==='independent'?[]:[targetClubId], createdAt: new Date().toISOString() };
   if(guest && state.currentUser) p.createdByUid = state.currentUser.uid;
   try{ await PLAYERS_COL.doc(p.id).set(p); }
   catch(e){ toast('Could not save - check your connection'); return null; }
@@ -3598,50 +3643,62 @@ async function migrateGuestToRegisteredPlayer(guestId){
   if(!isSuperAdmin()){ toast('Only a platform administrator can migrate guest history'); return; }
   const guest=state.players.find(p=>p.id===guestId&&p.guest);
   if(!guest){ toast('Choose a guest player to migrate'); return; }
-  const candidates=state.players.filter(p=>p.id!==guestId&&!p.guest&&p.ownerUid).sort((a,b)=>{
-    const sameA=normalizePlayerSearch(a.name)===normalizePlayerSearch(guest.name)?0:1;
-    const sameB=normalizePlayerSearch(b.name)===normalizePlayerSearch(guest.name)?0:1;
-    return sameA-sameB||a.name.localeCompare(b.name);
-  }).slice(0,12);
-  if(!candidates.length){ toast('No registered player profiles found to migrate into'); return; }
-  const choice=prompt(`Migrate ${guest.name}'s guest history to which registered player?\n\n${candidates.map((p,i)=>`${i+1}. ${p.name}`).join('\n')}\n\nEnter a number.`);
-  const index=Number(choice)-1;
-  const target=candidates[index];
-  if(!target){ toast('Migration cancelled'); return; }
-  if(!confirm(`Move all games and Game Plan slots from guest ${guest.name} to registered player ${target.name}, then remove the guest profile?`)) return;
+  const email=normalizeEmail(prompt(`Enter the player's email address to connect ${guest.name}'s guest history to:`)||'');
+  if(!email){ toast('Migration cancelled'); return; }
+  if(!isValidEmail(email)){ toast('Enter a valid email address'); return; }
   const now=new Date().toISOString();
-  const affectedMatches=state.matches.filter(m=>[...(m.team1||[]),...(m.team2||[])].includes(guestId));
-  const affectedSchedules=state.schedules.filter(s=>schedulePlayers(s).includes(guestId));
+  let linkedUser=null;
+  try{
+    const userSnap=await USERS_COL.where('email','==',email).limit(1).get();
+    linkedUser=userSnap.empty?null:{uid:userSnap.docs[0].id,...userSnap.docs[0].data()};
+  }catch(e){
+    console.warn('Could not look up user email during migration',e);
+  }
+  let target=linkedUser&&linkedUser.playerId?state.players.find(p=>p.id===linkedUser.playerId):null;
+  if(target&&target.id===guestId) target=null;
+  if(target&&!confirm(`Move all games and Game Plan slots from guest ${guest.name} to ${target.name} (${email}), then remove the guest profile?`)) return;
+  if(!target&&!confirm(`Connect ${guest.name}'s guest profile to ${email}? Future sign-ins with that email will use this player history.`)) return;
+  const affectedMatches=target?state.matches.filter(m=>[...(m.team1||[]),...(m.team2||[])].includes(guestId)):[];
+  const affectedSchedules=target?state.schedules.filter(s=>schedulePlayers(s).includes(guestId)):[];
+  const targetId=target?target.id:guestId;
   const targetUpdate={
     guest:false,
-    migratedGuestIds:[...new Set([...(target.migratedGuestIds||[]),guestId])],
-    migratedGuestNames:[...new Set([...(target.migratedGuestNames||[]),guest.name])],
+    email,
+    migrationEmail:email,
+    pendingMigrationEmail:email,
     updatedAt:now
   };
-  if(!target.division&&guest.division) targetUpdate.division=guest.division;
+  if(linkedUser&&linkedUser.uid) targetUpdate.ownerUid=linkedUser.uid;
+  if(target){
+    targetUpdate.migratedGuestIds=[...new Set([...(target.migratedGuestIds||[]),guestId])];
+    targetUpdate.migratedGuestNames=[...new Set([...(target.migratedGuestNames||[]),guest.name])];
+    if(!target.division&&guest.division) targetUpdate.division=guest.division;
+  }
   try{
     if(typeof db.batch==='function'){
       const batch=db.batch();
-      affectedMatches.forEach(m=>batch.set(MATCHES_COL.doc(m.id),{team1:replacePlayerIdList(m.team1,guestId,target.id),team2:replacePlayerIdList(m.team2,guestId,target.id),updatedAt:now,migratedGuestId:guestId,migratedToPlayerId:target.id},{merge:true}));
-      affectedSchedules.forEach(s=>batch.set(SCHEDULES_COL.doc(scheduleDocId(s)),{selectedPlayerIds:replacePlayerIdList(schedulePlayers(s),guestId,target.id),rounds:replacePlayerIdInRounds(s.rounds,guestId,target.id),updatedAt:now,migratedGuestId:guestId,migratedToPlayerId:target.id},{merge:true}));
-      batch.set(PLAYERS_COL.doc(target.id),targetUpdate,{merge:true});
-      batch.delete(PLAYERS_COL.doc(guestId));
+      affectedMatches.forEach(m=>batch.set(MATCHES_COL.doc(m.id),{team1:replacePlayerIdList(m.team1,guestId,targetId),team2:replacePlayerIdList(m.team2,guestId,targetId),updatedAt:now,migratedGuestId:guestId,migratedToPlayerId:targetId},{merge:true}));
+      affectedSchedules.forEach(s=>batch.set(SCHEDULES_COL.doc(scheduleDocId(s)),{selectedPlayerIds:replacePlayerIdList(schedulePlayers(s),guestId,targetId),rounds:replacePlayerIdInRounds(s.rounds,guestId,targetId),updatedAt:now,migratedGuestId:guestId,migratedToPlayerId:targetId},{merge:true}));
+      batch.set(PLAYERS_COL.doc(targetId),targetUpdate,{merge:true});
+      if(linkedUser&&linkedUser.uid) batch.set(USERS_COL.doc(linkedUser.uid),{playerId:targetId,email,updatedAt:now},{merge:true});
+      if(target) batch.delete(PLAYERS_COL.doc(guestId));
       await batch.commit();
     }else{
       await Promise.all([
-        ...affectedMatches.map(m=>MATCHES_COL.doc(m.id).set({team1:replacePlayerIdList(m.team1,guestId,target.id),team2:replacePlayerIdList(m.team2,guestId,target.id),updatedAt:now,migratedGuestId:guestId,migratedToPlayerId:target.id},{merge:true})),
-        ...affectedSchedules.map(s=>SCHEDULES_COL.doc(scheduleDocId(s)).set({selectedPlayerIds:replacePlayerIdList(schedulePlayers(s),guestId,target.id),rounds:replacePlayerIdInRounds(s.rounds,guestId,target.id),updatedAt:now,migratedGuestId:guestId,migratedToPlayerId:target.id},{merge:true})),
-        PLAYERS_COL.doc(target.id).set(targetUpdate,{merge:true}),
-        PLAYERS_COL.doc(guestId).delete()
+        ...affectedMatches.map(m=>MATCHES_COL.doc(m.id).set({team1:replacePlayerIdList(m.team1,guestId,targetId),team2:replacePlayerIdList(m.team2,guestId,targetId),updatedAt:now,migratedGuestId:guestId,migratedToPlayerId:targetId},{merge:true})),
+        ...affectedSchedules.map(s=>SCHEDULES_COL.doc(scheduleDocId(s)).set({selectedPlayerIds:replacePlayerIdList(schedulePlayers(s),guestId,targetId),rounds:replacePlayerIdInRounds(s.rounds,guestId,targetId),updatedAt:now,migratedGuestId:guestId,migratedToPlayerId:targetId},{merge:true})),
+        PLAYERS_COL.doc(targetId).set(targetUpdate,{merge:true}),
+        ...(linkedUser&&linkedUser.uid?[USERS_COL.doc(linkedUser.uid).set({playerId:targetId,email,updatedAt:now},{merge:true})]:[]),
+        ...(target?[PLAYERS_COL.doc(guestId).delete()]:[])
       ]);
     }
   }catch(e){ console.error(e); toast('Could not migrate guest history'); return; }
-  state.matches=state.matches.map(m=>affectedMatches.some(x=>x.id===m.id)?{...m,team1:replacePlayerIdList(m.team1,guestId,target.id),team2:replacePlayerIdList(m.team2,guestId,target.id),updatedAt:now}:m);
-  state.schedules=state.schedules.map(s=>affectedSchedules.some(x=>scheduleDocId(x)===scheduleDocId(s))?normalizeScheduleDoc(scheduleDocId(s),{...stripScheduleMeta(s),selectedPlayerIds:replacePlayerIdList(schedulePlayers(s),guestId,target.id),rounds:replacePlayerIdInRounds(s.rounds,guestId,target.id),updatedAt:now}):s);
-  state.players=state.players.filter(p=>p.id!==guestId).map(p=>p.id===target.id?{...p,...targetUpdate}:p);
+  state.matches=state.matches.map(m=>affectedMatches.some(x=>x.id===m.id)?{...m,team1:replacePlayerIdList(m.team1,guestId,targetId),team2:replacePlayerIdList(m.team2,guestId,targetId),updatedAt:now}:m);
+  state.schedules=state.schedules.map(s=>affectedSchedules.some(x=>scheduleDocId(x)===scheduleDocId(s))?normalizeScheduleDoc(scheduleDocId(s),{...stripScheduleMeta(s),selectedPlayerIds:replacePlayerIdList(schedulePlayers(s),guestId,targetId),rounds:replacePlayerIdInRounds(s.rounds,guestId,targetId),updatedAt:now}):s);
+  state.players=state.players.filter(p=>!target||p.id!==guestId).map(p=>p.id===targetId?{...p,...targetUpdate}:p);
   state.playerModalId=null;
   render();
-  toast(`Guest history migrated to ${target.name}`);
+  toast(target?`Guest history migrated to ${target.name}`:`${guest.name} is ready for ${email}`);
 }
 async function submitAddPlayerForm(ev){
   ev.preventDefault();
@@ -5117,7 +5174,7 @@ function renderRoster(){
         ${rows.map(row=>{
           const p=row.player,s=row.stats;
           return `<tr class="clickable" onclick="openPlayerProfile(${jsArg(p.id)})">
-            <td class="name-cell"><div class="roster-player-cell">${avatarHTML(p,34)}<div class="roster-player-name">${esc(p.name)}${playerRosterBadges(p)}</div></div></td>
+            <td class="name-cell"><div class="roster-player-cell">${avatarHTML(p,34)}<div class="roster-player-name">${rosterPlayerNameHTML(p)}</div></div></td>
             <td><div class="club-chip-list">${renderPlayerTopClubChip(p)}</div></td>
             <td class="mono">${isSignedIn()?s.gamesPlayed:'--'}</td>
             <td class="mono">${isSignedIn()?`${s.wins}-${s.losses}`:'--'}</td>
@@ -5128,7 +5185,7 @@ function renderRoster(){
       </tbody>
     </table>
     <div class="roster-mobile-cards">
-      ${rows.map(row=>{const p=row.player,s=row.stats;return `<article class="roster-member-card"><div class="roster-member-head" onclick="openPlayerProfile(${jsArg(p.id)})">${avatarHTML(p,38)}<strong>${esc(p.name)}${playerRosterBadges(p)}</strong></div><div class="club-chip-list">${renderPlayerTopClubChip(p)}</div>${isSignedIn()?`<div class="roster-member-stats"><div class="roster-member-stat"><strong>${s.gamesPlayed}</strong><span>Games</span></div><div class="roster-member-stat"><strong>${s.wins}-${s.losses}</strong><span>W - L</span></div><div class="roster-member-stat"><strong>${row.mvp}</strong><span>MVP</span></div></div>`:'<span class="profile-stats-locked">Sign in to view stats</span>'}${isSuperAdmin()?p.guest?`<button class="btn btn-primary btn-sm" style="width:100%;margin-top:9px;" onclick="migrateGuestToRegisteredPlayer(${jsArg(p.id)})">Migrate to registered player</button>`:`<button class="btn btn-danger btn-sm" style="width:100%;margin-top:9px;" onclick="deletePlayer(${jsArg(p.id)})">Delete profile</button>`:''}</article>`;}).join('')}
+      ${rows.map(row=>{const p=row.player,s=row.stats;return `<article class="roster-member-card"><div class="roster-member-head" onclick="openPlayerProfile(${jsArg(p.id)})">${avatarHTML(p,38)}<strong>${rosterPlayerNameHTML(p)}</strong></div><div class="club-chip-list">${renderPlayerTopClubChip(p)}</div>${isSignedIn()?`<div class="roster-member-stats"><div class="roster-member-stat"><strong>${s.gamesPlayed}</strong><span>Games</span></div><div class="roster-member-stat"><strong>${s.wins}-${s.losses}</strong><span>W - L</span></div><div class="roster-member-stat"><strong>${row.mvp}</strong><span>MVP</span></div></div>`:'<span class="profile-stats-locked">Sign in to view stats</span>'}${isSuperAdmin()?p.guest?`<button class="btn btn-primary btn-sm" style="width:100%;margin-top:9px;" onclick="migrateGuestToRegisteredPlayer(${jsArg(p.id)})">Migrate to registered player</button>`:`<button class="btn btn-danger btn-sm" style="width:100%;margin-top:9px;" onclick="deletePlayer(${jsArg(p.id)})">Delete profile</button>`:''}</article>`;}).join('')}
     </div>`:`<div class="empty"><h3>No members in the selected clubs</h3><p>Tick one or more club names to show matching members.</p><button class="btn btn-ghost" type="button" onclick="selectAllRosterClubFilters()">Show all clubs</button></div>`}`}
   </div>`;
 }
@@ -5173,6 +5230,67 @@ function renderProfileGameCards(gameLog, emptyCopy){
         </div>
       </article>`).join('')}
   </div>`;
+}
+function profileGamePlanKey(g){
+  return g.scheduleId?`schedule:${g.scheduleId}`:`legacy:${g.date||'unknown'}:${g.startTime||''}:${g.mode||'open'}:${g.gamePlanTitle||''}`;
+}
+function profileGamePlanGroups(gameLog){
+  const groups=new Map();
+  (gameLog||[]).slice().reverse().forEach(g=>{
+    const key=profileGamePlanKey(g);
+    if(!groups.has(key)){
+      const sch=g.scheduleId?scheduleById(g.scheduleId):null;
+      const modeKey=(sch&&sch.mode)||g.mode||'open';
+      const mode=MODE_META[modeKey]||{label:modeKey,short:modeKey};
+      groups.set(key,{
+        key,
+        title:(sch&&sch.title)||g.gamePlanTitle||`${mode.label} Game Plan`,
+        date:(sch&&sch.date)||g.date||'',
+        startTime:(sch&&sch.startTime)||g.startTime||'',
+        venueName:(sch&&sch.venueName)||g.gamePlanVenueName||'',
+        clubId:(sch&&sch.clubId)||g.clubId||ACTIVE_CLUB_ID,
+        mode,
+        games:[],
+        diff:0
+      });
+    }
+    const group=groups.get(key);
+    group.games.push(g);
+    group.diff+=g.diff;
+  });
+  return [...groups.values()].map(group=>({
+    ...group,
+    games:group.games.sort((a,b)=>(Number(a.gameNum)||0)-(Number(b.gameNum)||0))
+  })).sort((a,b)=>`${b.date}T${b.startTime||'00:00'}`.localeCompare(`${a.date}T${a.startTime||'00:00'}`));
+}
+function openPlayerProfilePlan(key){
+  state.playerProfilePlanKey=key;
+  render();
+}
+function backToPlayerProfilePlans(){
+  state.playerProfilePlanKey=null;
+  render();
+}
+function renderProfileGamePlanHistory(gameLog, emptyCopy){
+  if(!gameLog.length) return `<p class="small muted">${esc(emptyCopy||'No games logged yet.')}</p>`;
+  const groups=profileGamePlanGroups(gameLog);
+  const active=state.playerProfilePlanKey?groups.find(group=>group.key===state.playerProfilePlanKey):null;
+  if(state.playerProfilePlanKey&&!active) state.playerProfilePlanKey=null;
+  if(active){
+    return `<button class="link-btn" type="button" onclick="backToPlayerProfilePlans()">&larr; Back to History</button>
+      <article class="profile-game-card" style="margin-top:10px;">
+        <div class="profile-game-card-head">
+          <div class="profile-game-head-copy">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span class="mode-badge">${esc(active.mode.short)}</span><span class="club-chip">${esc(active.clubId==='independent'?'Independent':clubName(active.clubId))}</span></div>
+            <div class="profile-game-date" style="margin-top:10px;">${esc(active.title)}</div>
+            <div class="profile-game-meta">${active.date?fmtDate(active.date):'Date unavailable'} &middot; ${formatTime(active.startTime)}${active.venueName?` &middot; ${esc(active.venueName)}`:''}</div>
+          </div>
+          ${diffPill(active.diff,0)}
+        </div>
+      </article>
+      ${renderProfileGameCards(active.games,'No games are available for this Game Plan.')}`;
+  }
+  return `<div class="history-plan-list">${groups.map(group=>`<button type="button" class="history-plan-card-button" onclick="openPlayerProfilePlan(${jsArg(group.key)})"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span class="mode-badge">${esc(group.mode.short)}</span><span class="club-chip">${esc(group.clubId==='independent'?'Independent':clubName(group.clubId))}</span></div><h2 style="margin-top:12px;">${esc(group.title)}</h2><p class="history-plan-meta">${group.date?fmtDate(group.date):'Date unavailable'} &middot; ${formatTime(group.startTime)}${group.venueName?` &middot; ${esc(group.venueName)}`:''}</p><div class="history-mvp-detail">Player running +/-: ${group.diff>0?'+':''}${group.diff} &middot; ${group.games.length} game${group.games.length===1?'':'s'}</div><span class="history-view-link">View games &rarr;</span></button>`).join('')}</div>`;
 }
 
 function beginProfileNameEdit(){ state.profileNameEditing=true; render(); }
@@ -5295,7 +5413,7 @@ function renderMyProfile(){
   return `
   <div class="my-profile-page">
     <section class="my-profile-hero">
-      <div class="my-profile-person">${avatarHTML(p,72)}<div class="my-profile-person-copy"><div class="eyebrow" style="color:rgba(255,255,255,.65);">My Profile &middot; ${activeDateRangeLabel()}</div><div class="my-profile-name-line"><h1>${esc(p.name)}</h1><span class="my-profile-badge">${esc(playerDivisionLabel(p))}</span></div><p>${esc(activeDateRangeSummary())} &middot; ${profileClubIds.length?profileClubIds.map(clubName).map(esc).join(' &middot; '):'Independent player'}</p></div></div>
+      <div class="my-profile-person">${avatarHTML(p,72)}<div class="my-profile-person-copy"><div class="eyebrow" style="color:rgba(255,255,255,.65);">My Profile &middot; ${activeDateRangeLabel()}</div><div class="my-profile-name-line"><h1>${esc(p.name)}</h1><span class="my-profile-badge">${esc(playerDivisionLabel(p))}</span></div><p>${esc(activeDateRangeSummary())} &middot; ${profileClubIds.length?profileClubIds.map(clubName).map(esc).join(' &middot; '):'Independent player'}</p>${renderPlayerPrivateMeta(p)}</div></div>
       <div class="my-profile-actions">${!state.profileNameEditing?`<button class="btn btn-sm btn-profile-edit" type="button" onclick="beginProfileNameEdit()">Edit name</button>`:''}</div>
       ${state.profileNameEditing?`<form class="profile-name-editor" onsubmit="saveMyProfileName(event)"><div class="field"><label for="myProfileName">Player name</label><input id="myProfileName" type="text" value="${esc(p.name)}" maxlength="60" autocomplete="name" autofocus ${state.profileNameBusy?'disabled':''}/></div><button class="btn btn-ball btn-sm" type="submit" ${state.profileNameBusy?'disabled':''}>${state.profileNameBusy?'Saving...':'Save name'}</button><button class="btn btn-profile-edit btn-sm" type="button" onclick="cancelProfileNameEdit()" ${state.profileNameBusy?'disabled':''}>Cancel</button></form>`:''}
       <div class="profile-hero-stats" aria-label="Personal statistics">
@@ -5334,7 +5452,7 @@ function renderMyProfile(){
     <section class="panel profile-section">
       <div class="section-title"><h2>Detailed game history</h2><span class="small muted">${gameLog.length} game${gameLog.length===1?'':'s'}</span></div>
       <div class="profile-history-range">${renderDateRangePicker(true)}</div>
-      ${renderProfileGameCards(gameLog,'No games are available for this date range.')}
+      ${renderProfileGamePlanHistory(gameLog,'No games are available for this date range.')}
     </section>
   </div>`;
 }
@@ -5364,13 +5482,13 @@ function renderPlayerModal(){
   const p = state.players.find(x=>x.id===state.playerModalId);
   if(!p) return '';
   if(!isSignedIn()){
-    return `<div class="modal-overlay player-profile-overlay" onclick="if(event.target===this){state.playerModalId=null;render();}"><div class="modal player-profile-modal"><div class="player-profile-sticky-actions"><button class="modal-close" aria-label="Close player profile" onclick="state.playerModalId=null;render();">&times;</button></div><div class="player-profile-header">${avatarHTML(p,64)}<div class="player-profile-header-copy"><div class="eyebrow">Player profile</div><h2 style="font-size:26px;color:var(--court-deep);line-height:1;">${esc(p.name)}</h2><div class="club-chip-list"><span class="my-profile-badge">${esc(playerDivisionLabel(p))}</span></div></div></div><div class="empty" style="padding-bottom:4px;"><h3>Sign in to view player stats</h3><p>Player profiles and performance details are available only to signed-in CourtRush accounts.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;"><button class="btn btn-ball" onclick="state.playerModalId=null;openAuthModal('login')">Sign in</button><button class="btn btn-ghost" onclick="state.playerModalId=null;openAuthModal('register')">Register</button></div></div></div></div>`;
+    return `<div class="modal-overlay player-profile-overlay" onclick="if(event.target===this){state.playerModalId=null;render();}"><div class="modal player-profile-modal"><div class="player-profile-sticky-actions"><button class="modal-close" aria-label="Close player profile" onclick="state.playerModalId=null;render();">&times;</button></div><div class="player-profile-header">${avatarHTML(p,64)}<div class="player-profile-header-copy"><div class="eyebrow">Player profile</div><h2 style="font-size:26px;color:var(--court-deep);line-height:1;">${esc(p.name)}</h2><div class="club-chip-list"><span class="my-profile-badge">${esc(playerDivisionLabel(p))}</span></div>${renderPlayerPrivateMeta(p)}</div></div><div class="empty" style="padding-bottom:4px;"><h3>Sign in to view player stats</h3><p>Player profiles and performance details are available only to signed-in CourtRush accounts.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;"><button class="btn btn-ball" onclick="state.playerModalId=null;openAuthModal('login')">Sign in</button><button class="btn btn-ghost" onclick="state.playerModalId=null;openAuthModal('register')">Register</button></div></div></div></div>`;
   }
   const inviteClubs=managedInviteClubsForPlayer(p);
   const canViewDetails=canViewPlayerProfile(p);
   if(!canViewDetails&&!inviteClubs.length){ state.playerModalId=null; return ''; }
   if(!canViewDetails){
-    return `<div class="modal-overlay player-profile-overlay" onclick="if(event.target===this){state.playerModalId=null;render();}"><div class="modal player-profile-modal"><div class="player-profile-sticky-actions"><button class="modal-close" aria-label="Close player profile" onclick="state.playerModalId=null;render();">&times;</button></div><div class="player-profile-header">${avatarHTML(p,64)}<div class="player-profile-header-copy"><div class="eyebrow">Player profile</div><h2 style="font-size:26px;color:var(--court-deep);line-height:1;">${esc(p.name)}</h2><div class="club-chip-list"><span class="my-profile-badge">${esc(playerDivisionLabel(p))}</span>${renderPlayerProfileTopClub(p)}</div></div></div>${renderManagedClubInvites(p,inviteClubs)}<div class="empty" style="padding-bottom:4px;"><p>This player keeps detailed performance statistics private.</p></div></div></div>`;
+    return `<div class="modal-overlay player-profile-overlay" onclick="if(event.target===this){state.playerModalId=null;render();}"><div class="modal player-profile-modal"><div class="player-profile-sticky-actions"><button class="modal-close" aria-label="Close player profile" onclick="state.playerModalId=null;render();">&times;</button></div><div class="player-profile-header">${avatarHTML(p,64)}<div class="player-profile-header-copy"><div class="eyebrow">Player profile</div><h2 style="font-size:26px;color:var(--court-deep);line-height:1;">${esc(p.name)}</h2><div class="club-chip-list"><span class="my-profile-badge">${esc(playerDivisionLabel(p))}</span>${renderPlayerProfileTopClub(p)}</div>${renderPlayerPrivateMeta(p)}</div></div>${renderManagedClubInvites(p,inviteClubs)}<div class="empty" style="padding-bottom:4px;"><p>This player keeps detailed performance statistics private.</p></div></div></div>`;
   }
   const s = computePlayerStats(p.id);
   const scouting = scoutingReport(p.id);
@@ -5392,6 +5510,7 @@ function renderPlayerModal(){
           <div class="eyebrow">Player profile - ${activeDateRangeLabel()}</div>
           <h2 style="font-size:26px;color:var(--court-deep);line-height:1;">${esc(p.name)}${p.guest?'<span class="guest-tag">Guest</span>':''}</h2>
           <div class="club-chip-list"><span class="my-profile-badge">${esc(playerDivisionLabel(p))}</span>${renderPlayerProfileTopClub(p)}</div>
+          ${renderPlayerPrivateMeta(p)}
           ${clubHubMemberDuration?`<p class="small muted" style="margin:7px 0 0;">${esc(clubHubMemberDuration)}</p>`:""}
         </div>
       </div>
@@ -5434,39 +5553,7 @@ function renderPlayerModal(){
       <section class="profile-section">
         <div class="divider"></div>
         <div class="eyebrow">Game history</div>
-        ${gameLog.length===0 ? `<p class="small muted">No games logged yet.</p>` : `
-        <div class="profile-game-grid">
-          ${gameLog.map(g=> `
-            <article class="profile-game-card">
-              <div class="profile-game-card-head">
-                <div class="profile-game-head-copy">
-                  <div class="profile-game-date">${fmtDate(g.date)}</div>
-                  <div class="profile-game-meta">Game #${g.gameNum} - Court ${esc(g.court||'-')}</div>
-                </div>
-                <div class="profile-game-score">${g.myScore} - ${g.oppScore}</div>
-              </div>
-              <div class="profile-game-details">
-                <div class="profile-game-detail">
-                  <span class="profile-game-label">Partner</span>
-                  <span class="profile-game-value">${g.partners.length ? g.partners.map(playerName).map(esc).join(' &amp; ') : '<span class="muted">-</span>'}</span>
-                </div>
-                <div class="profile-game-detail">
-                  <span class="profile-game-label">Opponents</span>
-                  <span class="profile-game-value">${g.opponents.length ? g.opponents.map(playerName).map(esc).join(' &amp; ') : '<span class="muted">-</span>'}</span>
-                </div>
-              </div>
-              <div class="profile-game-stats">
-                <div class="profile-game-stat">
-                  <span class="profile-game-stat-label">Game +/-</span>
-                  ${diffPill(g.diff,0)}
-                </div>
-                <div class="profile-game-stat">
-                  <span class="profile-game-stat-label">Running +/-</span>
-                  ${diffPill(g.running,0)}
-                </div>
-              </div>
-            </article>`).join('')}
-        </div>`}
+        ${renderProfileGamePlanHistory(gameLog,'No games logged yet.')}
       </section>
     </div>
   </div>`;
@@ -6184,7 +6271,7 @@ function renderHistory(){
     const canDeleteGroup=canManageHistoryGroup(active);
     return `
     <section class="panel history-plan-card">
-      <button class="link-btn" type="button" onclick="backToHistoryPlans()">&larr; Back to Game Plans</button>
+      <button class="link-btn" type="button" onclick="backToHistoryPlans()">&larr; Back to History</button>
       <div class="history-plan-head" style="margin-top:14px;">
         <div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span class="mode-badge">${esc(active.mode.short)}</span><span class="club-chip">${esc(active.clubId==='independent'?'Independent':clubName(active.clubId))}</span>${status?`<span class="status-badge ${esc(status)}">${esc(scheduleStatusLabel(status))}</span>`:''}</div><h2>${esc(active.title)}</h2><p class="history-plan-meta">${active.date?fmtDate(active.date):'Date unavailable'} &middot; ${formatTime(active.startTime)}${active.venueName?` &middot; ${esc(active.venueName)}`:''}${active.creatorName?` &middot; Game Plan by ${esc(active.creatorName)}`:''}</p></div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;"><span class="diff-pill diff-zero">${officialMatches.length}/${active.matches.length} confirmed</span>${canDeleteGroup?`<button class="btn btn-danger btn-sm" type="button" onclick="deleteGamePlanHistory(${jsArg(active.key)})">Delete Game Plan history</button>`:''}</div>
