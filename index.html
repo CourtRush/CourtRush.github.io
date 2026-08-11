@@ -411,10 +411,10 @@
   .paddle-row .p-name{font-weight:600;font-size:13.5px;flex:1;}
 
   /* ---------- Court diagram ---------- */
-  .court-card{border:1.5px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:14px;}
+  .court-card{display:flex;flex-direction:column;width:100%;height:100%;border:1.5px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:14px;}
   .court-head{background:var(--hero-end);color:#fff;padding:8px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;letter-spacing:0.05em;display:flex;justify-content:space-between;align-items:center;}
-  .court-body{background:linear-gradient(180deg,var(--court-surface-start) 0%,var(--court-surface-end) 100%);padding:16px 14px;}
-  .team-row{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.12);border-radius:9px;padding:10px 12px;color:#fff;font-weight:600;font-size:14px;}
+  .court-body{display:flex;flex:1 1 auto;flex-direction:column;background:linear-gradient(180deg,var(--court-surface-start) 0%,var(--court-surface-end) 100%);padding:16px 14px;}
+  .team-row{display:flex;align-items:center;gap:8px;width:100%;min-width:0;background:rgba(255,255,255,0.12);border-radius:9px;padding:10px 12px;color:#fff;font-weight:600;font-size:14px;}
   .team-row + .team-row{margin-top:0;}
   .net-line{display:flex;align-items:center;gap:8px;margin:8px 0;color:rgba(255,255,255,0.6);font-size:10px;text-transform:uppercase;letter-spacing:0.18em;font-weight:700;}
   .net-line::before,.net-line::after{content:"";flex:1;height:1px;background:repeating-linear-gradient(90deg,rgba(255,255,255,0.5) 0 6px,transparent 6px 12px);}
@@ -424,12 +424,13 @@
   .recorded-badge{background:var(--ball-fill);color:var(--ball-on);font-size:11px;font-weight:800;padding:4px 10px;border-radius:20px;}
   .btn-score-edit{background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.45);}
   .btn-score-edit:hover{background:rgba(255,255,255,0.22);border-color:#fff;}
-  .team-names{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:0;}
+  .team-names{display:flex;align-items:center;gap:5px;flex:1 1 auto;width:100%;min-width:0;flex-wrap:wrap;}
   .team-separator{color:rgba(255,255,255,0.72);font-weight:700;}
   .player-name-self{display:inline-flex;align-items:center;gap:5px;background:var(--ball-fill);color:var(--ball-on);padding:3px 7px;border-radius:7px;font-weight:800;box-shadow:0 0 0 1px rgba(255,255,255,0.35);}
   .schedule-player-name{display:inline-flex;align-items:center;gap:5px;min-width:0;}
   .schedule-division-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#F2FF45;color:#12312D;font:900 9px/1 'IBM Plex Mono',monospace;box-shadow:0 0 0 1px rgba(18,49,45,0.2);}
-  .participant-pill .schedule-division-badge,.paddle-row .schedule-division-badge{background:var(--court-deep);color:#fff;box-shadow:none;}
+  .team-row .schedule-division-badge,.player-name-self .schedule-division-badge{background:#F2FF45;color:#12312D;box-shadow:0 0 0 1px rgba(18,49,45,0.28);}
+  .participant-pill .schedule-division-badge,.paddle-row .schedule-division-badge{background:#DDF64A;color:#0A2926;box-shadow:0 0 0 1px rgba(10,41,38,0.22);}
   .player-you-tag{font-size:8px;line-height:1;letter-spacing:0.08em;text-transform:uppercase;background:var(--hero-end);color:#fff;padding:3px 4px;border-radius:4px;}
   .paddle-row.self-player{background:rgba(214,230,43,0.22);border-color:rgba(169,184,24,0.55);}
   .paddle-row .player-name-self{box-shadow:none;}
