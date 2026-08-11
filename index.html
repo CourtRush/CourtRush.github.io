@@ -311,8 +311,8 @@
   .club-member-profile{grid-column:1/-1;display:flex;align-items:center;gap:10px;min-width:0;width:100%;border:0;background:transparent;color:inherit;text-align:left;padding:0;}
   .club-member-row-copy{min-width:0;flex:1;}
   .club-member-row-copy > strong{display:block;line-height:1.15;overflow-wrap:break-word;}
-  .club-member-name-line{display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
-  .club-member-name-line .my-profile-badge{padding:4px 9px;font-size:10px;}
+  .club-member-name-line{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .club-member-name-line .my-profile-badge{padding:4px 9px;font-size:10px;margin-left:2px;}
   .club-member-row-stats{display:grid;grid-template-columns:repeat(3,max-content);gap:4px 9px;margin-top:5px;}
   .club-member-row-stats > span{display:block;font-size:9px;color:var(--muted);white-space:nowrap;}
   .club-member-row-stats b{color:var(--court-deep);font-family:'IBM Plex Mono',monospace;font-size:10px;}
@@ -1185,6 +1185,15 @@ function clubRoleForPlayer(clubId,player){
 }
 function clubRoleLabel(role){
   return role==='club_admin'?'Club Admin':role==='co_admin'?'Co-Admin':role==='staff'?'Staff':'Member';
+}
+function clubRoleSortRank(role){
+  return role==='club_admin'?0:role==='co_admin'?1:role==='staff'?2:3;
+}
+function sortClubMembersByRole(clubId,members){
+  return [...(members||[])].sort((a,b)=>{
+    const roleDiff=clubRoleSortRank(clubRoleForPlayer(clubId,a))-clubRoleSortRank(clubRoleForPlayer(clubId,b));
+    return roleDiff || a.name.localeCompare(b.name,undefined,{sensitivity:'base'});
+  });
 }
 function canAssignClubRoles(clubId){
   if(isSuperAdmin()) return true;
@@ -4243,9 +4252,9 @@ function renderClubDirectory() {
   const selectedId=selected?selected.id:null;
   const selectedMembers=selected?membersForClub(selected.id):[];
   const activeRoleFilter=['all','club_admin','co_admin','staff','member'].includes(state.clubProfileRoleFilter)?state.clubProfileRoleFilter:'all';
-  const roleFilterLabels={all:'All',club_admin:'Admin',co_admin:'Co Admin',staff:'Staff',member:'Members'};
+  const roleFilterLabels={all:'All',club_admin:'Admin',co_admin:'Co-Admin',staff:'Staff',member:'Members'};
   const roleFilterCounts=selectedMembers.reduce((counts,player)=>{ const role=clubRoleForPlayer(selected&&selected.id,player); counts[role]=(counts[role]||0)+1; counts.all+=1; return counts; },{all:0,club_admin:0,co_admin:0,staff:0,member:0});
-  const filteredMembers=activeRoleFilter==='all'?selectedMembers:selectedMembers.filter(player=>clubRoleForPlayer(selected.id,player)===activeRoleFilter);
+  const filteredMembers=selected?sortClubMembersByRole(selected.id,activeRoleFilter==='all'?selectedMembers:selectedMembers.filter(player=>clubRoleForPlayer(selected.id,player)===activeRoleFilter)):[];
   const canManage=selected?isAdminForClub(selected.id):false;
   const availablePlayers=selected?state.players.filter(p=>!playerIsMemberOfClub(p,selected.id)&&!pendingJoinRequest(selected.id,p.id)).sort((a,b)=>a.name.localeCompare(b.name)):[];
   const selectedGames=selected?clubMemberMatches(selected.id,false):[];
