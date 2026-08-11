@@ -117,8 +117,10 @@
   .account-chip{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:5px 6px 5px 5px;cursor:pointer;}
   .account-chip:hover{border-color:var(--court);}
   .account-role-tag{font-size:10px;background:rgba(214,230,43,0.25);color:var(--court-deep);padding:2px 7px;border-radius:20px;font-weight:800;text-transform:uppercase;white-space:nowrap;}
-  .logout-icon-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:0;border-radius:50%;background:transparent;color:var(--court);font-size:17px;line-height:1;cursor:pointer;}
+  .logout-icon-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:28px;height:28px;padding:0 8px;border:0;border-radius:999px;background:transparent;color:var(--court);font-size:12px;font-weight:800;line-height:1;cursor:pointer;}
   .logout-icon-btn:hover{background:rgba(14,95,88,.09);color:var(--court-deep);}
+  .logout-icon{font-size:15px;line-height:1;}
+  .logout-label{display:none;}
   .primary-nav{position:relative;min-width:0;display:flex;align-items:center;gap:8px;}
   .nav-toggle{display:none;align-items:center;gap:8px;border:1px solid var(--line);background:var(--panel);color:var(--court-deep);border-radius:9px;padding:9px 11px;font-weight:800;font-size:12px;}
   .nav-toggle-icon{font-size:17px;line-height:1;}
@@ -192,6 +194,8 @@
     nav.toolbar.open{display:grid;grid-template-columns:1fr;}
     nav.toolbar button{text-align:left;padding:11px 12px;border-radius:8px;}
     nav.toolbar button::after{left:0;right:auto;top:8px;bottom:8px;width:3px;height:auto;border-radius:0 3px 3px 0;}
+    .logout-icon-btn{border:1px solid var(--line);background:var(--panel);height:32px;}
+    .logout-label{display:inline;}
   }
   @media(max-width:760px){.board-grid{grid-template-columns:1fr;}}
   .board-row{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line);}
@@ -904,6 +908,8 @@
     .schedule-page-head .btn{width:100%;}
     .game-plan-metrics{grid-template-columns:repeat(3,1fr);}
     .schedule-filter-tools{align-items:stretch;}
+    .schedule-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;overflow:visible;padding:4px;}
+    .schedule-filter{width:100%;min-width:0;padding:9px 6px;font-size:10px;letter-spacing:0;text-align:center;}
     .court-count-filter{width:100%;min-width:0;margin-left:0;}
     .court-board-filter{width:100%;align-items:stretch;}
     .court-board-filter .field{width:100%;min-width:0;}
@@ -1238,12 +1244,27 @@ function messageMentionsMe(message){
 }
 function unreadMentionCount(clubId){
   const lastRead=Number(chatReadState()[chatReadKey(clubId)]||0);
-  return allChatMessages().filter(message=>message.clubId===clubId&&messageMentionsMe(message)&&chatMessageTime(message)>lastRead).length;
+  return allChatMessages().filter(message=>message.clubId===clubId&&canViewChatMessage(message)&&messageMentionsMe(message)&&chatMessageTime(message)>lastRead).length;
 }
 function allChatMessages(){
   const byId=new Map();
   [...state.chatMessages,...state.directChatMessages].forEach(message=>{ if(message&&message.id) byId.set(message.id,message); });
   return [...byId.values()].sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||'')));
+}
+function canViewChatMessage(message){
+  if(!message) return false;
+  if(message.kind!=='system') return true;
+  if(message.systemType!=='schedule_created'&&message.systemType!=='schedule_updated') return true;
+  const mentions=Array.isArray(message.mentions)?message.mentions:[];
+  return !!(state.myPlayerId&&mentions.includes(state.myPlayerId)&&playerIsMemberOfClub(state.players.find(p=>p.id===state.myPlayerId),message.clubId))||canClearClubChat(message.clubId);
+}
+function lockedScheduleChatNotice(clubId){
+  if(!clubId||!state.myPlayerId||playerIsMemberOfClub(state.players.find(p=>p.id===state.myPlayerId),clubId)||canClearClubChat(clubId)) return null;
+  return allChatMessages().find(message=>
+    message&&message.clubId===clubId&&message.kind==='system'&&
+    (message.systemType==='schedule_created'||message.systemType==='schedule_updated')&&
+    Array.isArray(message.mentions)&&message.mentions.includes(state.myPlayerId)
+  )||null;
 }
 function visibleChatClubIds(){
   return [...new Set([...chatClubIds(),...state.directChatMessages.filter(message=>messageMentionsMe(message)).map(message=>message.clubId)])].filter(id=>!!clubById(id));
@@ -3014,39 +3035,27 @@ async function createPlayerNotifications({type,sourceId,clubId,playerIds,title,b
 async function createClubSystemChatMessages({type,sourceId,clubId,playerIds,text}){
   const club=clubById(clubId);
   if(!club||!state.currentUser||!state.myPlayerId) return;
-  const recipients=[...new Set(playerIds||[])].filter(playerId=>playerIsMemberOfClub(state.players.find(p=>p.id===playerId),clubId)||type==='club_invite');
+  const recipients=[...new Set(playerIds||[])].filter(playerId=>!!state.players.find(p=>p.id===playerId));
   if(!recipients.length) return;
   const now=new Date().toISOString();
-  const writeMessage=playerId=>{
-    const id=uid('club_notice');
-    return {
-      id,
-      record:{
-        id,clubId,
-        kind:'system',
-        systemType:type,
-        sourceId,
-        senderUid:state.currentUser.uid,
-        senderPlayerId:state.myPlayerId,
-        senderName:club.name,
-        text:String(text||'').slice(0,500),
-        mentions:[playerId],
-        mentionRoles:[],
-        createdAt:now
-      }
-    };
+  const stableSource=String(sourceId||uid('club_notice')).replace(/[^a-zA-Z0-9_-]+/g,'_').slice(0,120);
+  const id=`club_notice_${type||'system'}_${stableSource}`;
+  const record={
+    id,clubId,
+    kind:'system',
+    systemType:type,
+    sourceId,
+    senderUid:state.currentUser.uid,
+    senderPlayerId:state.myPlayerId,
+    senderName:club.name,
+    text:String(text||'').slice(0,500),
+    mentions:recipients,
+    mentionRoles:[],
+    createdAt:now,
+    updatedAt:now
   };
   try{
-    if(typeof db.batch==='function'){
-      const batch=db.batch();
-      recipients.map(writeMessage).forEach(({id,record})=>batch.set(CLUB_CHATS_COL.doc(id),record));
-      await batch.commit();
-    }else{
-      await Promise.all(recipients.map(playerId=>{
-        const {id,record}=writeMessage(playerId);
-        return CLUB_CHATS_COL.doc(id).set(record);
-      }));
-    }
+    await CLUB_CHATS_COL.doc(id).set(record,{merge:true});
   }catch(e){ console.warn('Could not create club system chat messages',e); }
 }
 async function invitePlayerToClub(clubId,playerId){
@@ -4745,7 +4754,7 @@ function renderTopbar(){
         <div class="account-chip" onclick="setTab('profile')">
           ${avatarHTML(state.players.find(p=>p.id===state.myPlayerId), 28)}
           ${isAdmin() ? `<span class="account-role-tag">${isSuperAdmin()?'Admin':'Club Admin'}</span>` : ''}
-          <button class="logout-icon-btn" type="button" aria-label="Sign out" title="Sign out" onclick="event.stopPropagation(); logoutUser();">&#x23FB;</button>
+          <button class="logout-icon-btn" type="button" aria-label="Sign out" title="Sign out" onclick="event.stopPropagation(); logoutUser();"><span class="logout-icon" aria-hidden="true">&#x23FB;</span><span class="logout-label">Sign out</span></button>
         </div>
       ` : `<button class="btn btn-ghost btn-sm" onclick="openAuthModal('login')">Sign in</button>`;
   return `
@@ -5113,13 +5122,16 @@ function renderClubChat(){
   if(state.chatClubId!==active.id) state.chatClubId=active.id;
   markChatRead(active.id);
   const canPost=chatClubIds().includes(active.id);
-  const messages=allChatMessages().filter(message=>message.clubId===active.id).slice(-150);
+  const lockedNotice=lockedScheduleChatNotice(active.id);
+  const pendingAccess=!!(state.myPlayerId&&pendingJoinRequest(active.id,state.myPlayerId));
+  const inviteAccess=!!(state.myPlayerId&&pendingClubInvite(active.id,state.myPlayerId));
+  const messages=allChatMessages().filter(message=>message.clubId===active.id&&canViewChatMessage(message)).slice(-150);
   return `<div class="chat-page">
-    <aside class="panel"><div class="section-title"><div><div class="eyebrow">Your conversations</div><h2>Club Chats</h2></div><span class="diff-pill diff-zero">${clubs.length}</span></div><p class="small muted" style="margin:-5px 0 14px;">Approved club chats and direct club notices are shown here.</p><div class="chat-club-list">${clubs.map(club=>{const count=allChatMessages().filter(message=>message.clubId===club.id).length;const unread=unreadMentionCount(club.id);const noticeOnly=!chatClubIds().includes(club.id);return `<button class="chat-club-button ${club.id===active.id?'active':''}" type="button" onclick="selectChatClub(${jsArg(club.id)})"><strong>${esc(club.name)}</strong><span>${noticeOnly?'Direct club notice':unread?`${unread} unread mention${unread===1?'':'s'}`:count?`${count} recent message${count===1?'':'s'}`:'Start the conversation'}</span>${unread?`<span class="chat-unread-badge" aria-label="${unread} unread mention${unread===1?'':'s'}">${unread}</span>`:''}</button>`;}).join('')}</div></aside>
+    <aside class="panel"><div class="section-title"><div><div class="eyebrow">Your conversations</div><h2>Club Chats</h2></div><span class="diff-pill diff-zero">${clubs.length}</span></div><p class="small muted" style="margin:-5px 0 14px;">Approved club chats and direct club notices are shown here.</p><div class="chat-club-list">${clubs.map(club=>{const count=allChatMessages().filter(message=>message.clubId===club.id&&canViewChatMessage(message)).length;const unread=unreadMentionCount(club.id);const noticeOnly=!chatClubIds().includes(club.id);const locked=lockedScheduleChatNotice(club.id);return `<button class="chat-club-button ${club.id===active.id?'active':''}" type="button" onclick="selectChatClub(${jsArg(club.id)})"><strong>${esc(club.name)}</strong><span>${locked?'Club request needed':noticeOnly?'Direct club notice':unread?`${unread} unread mention${unread===1?'':'s'}`:count?`${count} recent message${count===1?'':'s'}`:'Start the conversation'}</span>${unread?`<span class="chat-unread-badge" aria-label="${unread} unread mention${unread===1?'':'s'}">${unread}</span>`:''}</button>`;}).join('')}</div></aside>
     <section class="panel chat-room" aria-label="${esc(active.name)} Club Chat">
       <div class="chat-room-head"><div><div class="eyebrow">Members only</div><h2>${esc(active.name)}</h2></div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;"><span class="club-chip">Club Chat</span>${canClearClubChat(active.id)?`<button class="btn btn-danger btn-sm" type="button" onclick="clearClubChatForAll(${jsArg(active.id)})" ${state.chatClearBusy?'disabled':''}>${state.chatClearBusy?'Clearing...':'Clear Chat for All Members'}</button>`:''}</div></div>
-      <div id="clubChatMessages" class="chat-messages" aria-live="polite">${messages.length?messages.map(message=>{const system=message.kind==='system';const mine=!system&&message.senderUid===state.currentUser.uid;const mentioned=messageMentionsMe(message);const blocked=!system&&containsChatProfanity(message.text);const sender=system?{name:message.senderName||clubName(message.clubId)}:state.players.find(player=>player.id===message.senderPlayerId);return `<div class="chat-message ${mine?'mine':''} ${mentioned?'mentioned':''} ${system?'system':''}">${avatarHTML(sender||{name:message.senderName||'Member'},30)}<div class="chat-bubble">${mentioned?'<div class="chat-mention-label">@ Mentioned you</div>':''}<div class="chat-meta">${system?esc(message.senderName||clubName(message.clubId)):(mine?'You':esc(message.senderName||playerName(message.senderPlayerId)))} - ${esc(formatChatTime(message.createdAt))}</div><div class="chat-text">${blocked?'<em>Message hidden for violating the Club Chat language rule.</em>':formatChatMessageText(message)}</div></div></div>`;}).join(''):`<div class="empty"><h3>Start the club conversation</h3><p>Coordinate games, share reminders, and keep the chat respectful.</p></div>`}</div>
-      ${canPost?`<form class="chat-composer" onsubmit="sendClubChat(event)"><div class="chat-composer-row"><div class="chat-input-wrap"><div id="clubChatMentionMenu" class="mention-menu" role="listbox" aria-label="Club member and role suggestions" hidden></div><textarea id="clubChatMessage" maxlength="500" rows="2" aria-label="Message ${esc(active.name)}" aria-controls="clubChatMentionMenu" aria-autocomplete="list" placeholder="Message ${esc(active.name)}..." oninput="handleChatMessageInput(event)" onkeydown="handleChatMentionKeydown(event)" onblur="setTimeout(closeChatMentionMenu,150)" ${state.chatBusy?'disabled':''}></textarea></div><button class="btn btn-primary" type="submit" ${state.chatBusy?'disabled':''}>${state.chatBusy?'Sending...':'Send'}</button></div><div class="chat-hint"><div class="chat-rule">Community rule: profanity and abusive words in English or Tagalog are not allowed.</div><div class="chat-mention-hint">Type @ to mention a member or role</div></div></form>`:`<div class="chat-composer"><div class="chat-rule">This is a direct club notice. Accept the invitation before joining the member conversation.</div></div>`}
+      <div id="clubChatMessages" class="chat-messages" aria-live="polite">${messages.length?messages.map(message=>{const system=message.kind==='system';const mine=!system&&message.senderUid===state.currentUser.uid;const mentioned=messageMentionsMe(message);const blocked=!system&&containsChatProfanity(message.text);const sender=system?{name:message.senderName||clubName(message.clubId)}:state.players.find(player=>player.id===message.senderPlayerId);return `<div class="chat-message ${mine?'mine':''} ${mentioned?'mentioned':''} ${system?'system':''}">${avatarHTML(sender||{name:message.senderName||'Member'},30)}<div class="chat-bubble">${mentioned?'<div class="chat-mention-label">@ Mentioned you</div>':''}<div class="chat-meta">${system?esc(message.senderName||clubName(message.clubId)):(mine?'You':esc(message.senderName||playerName(message.senderPlayerId)))} - ${esc(formatChatTime(message.createdAt))}</div><div class="chat-text">${blocked?'<em>Message hidden for violating the Club Chat language rule.</em>':formatChatMessageText(message)}</div></div></div>`;}).join(''):lockedNotice?`<div class="empty"><h3>Club approval needed</h3><p>You were included in a ${esc(active.name)} Game Plan. Request to join the club before reading its Club Chat notice.</p>${inviteAccess?`<button class="btn btn-ball" type="button" onclick="setTab('profile')">Review club invitation</button>`:pendingAccess?`<span class="club-chip">Request pending</span>`:`<button class="btn btn-ball" type="button" onclick="requestClubJoin(${jsArg(active.id)})">Request to join ${esc(active.name)}</button>`}</div>`:`<div class="empty"><h3>Start the club conversation</h3><p>Coordinate games, share reminders, and keep the chat respectful.</p></div>`}</div>
+      ${canPost?`<form class="chat-composer" onsubmit="sendClubChat(event)"><div class="chat-composer-row"><div class="chat-input-wrap"><div id="clubChatMentionMenu" class="mention-menu" role="listbox" aria-label="Club member and role suggestions" hidden></div><textarea id="clubChatMessage" maxlength="500" rows="2" aria-label="Message ${esc(active.name)}" aria-controls="clubChatMentionMenu" aria-autocomplete="list" placeholder="Message ${esc(active.name)}..." oninput="handleChatMessageInput(event)" onkeydown="handleChatMentionKeydown(event)" onblur="setTimeout(closeChatMentionMenu,150)" ${state.chatBusy?'disabled':''}></textarea></div><button class="btn btn-primary" type="submit" ${state.chatBusy?'disabled':''}>${state.chatBusy?'Sending...':'Send'}</button></div><div class="chat-hint"><div class="chat-rule">Community rule: profanity and abusive words in English or Tagalog are not allowed.</div><div class="chat-mention-hint">Type @ to mention a member or role</div></div></form>`:`<div class="chat-composer"><div class="chat-rule">${lockedNotice?'Request club approval before reading this Game Plan notice.':'This is a direct club notice. Accept the invitation before joining the member conversation.'}</div></div>`}
     </section>
   </div>`;
 }
