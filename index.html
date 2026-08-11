@@ -414,7 +414,7 @@
   .court-card{display:flex;flex-direction:column;width:100%;height:100%;border:1.5px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:14px;}
   .court-head{background:var(--hero-end);color:#fff;padding:8px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;letter-spacing:0.05em;display:flex;justify-content:space-between;align-items:center;}
   .court-body{display:flex;flex:1 1 auto;flex-direction:column;background:linear-gradient(180deg,var(--court-surface-start) 0%,var(--court-surface-end) 100%);padding:16px 14px;}
-  .team-row{display:flex;align-items:center;gap:8px;width:100%;min-width:0;background:rgba(255,255,255,0.12);border-radius:9px;padding:10px 12px;color:#fff;font-weight:600;font-size:14px;}
+  .team-row{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-width:0;background:rgba(255,255,255,0.12);border-radius:9px;padding:10px 12px;color:#fff;font-weight:600;font-size:14px;text-align:center;}
   .team-row + .team-row{margin-top:0;}
   .net-line{display:flex;align-items:center;gap:8px;margin:8px 0;color:rgba(255,255,255,0.6);font-size:10px;text-transform:uppercase;letter-spacing:0.18em;font-weight:700;}
   .net-line::before,.net-line::after{content:"";flex:1;height:1px;background:repeating-linear-gradient(90deg,rgba(255,255,255,0.5) 0 6px,transparent 6px 12px);}
@@ -424,7 +424,7 @@
   .recorded-badge{background:var(--ball-fill);color:var(--ball-on);font-size:11px;font-weight:800;padding:4px 10px;border-radius:20px;}
   .btn-score-edit{background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.45);}
   .btn-score-edit:hover{background:rgba(255,255,255,0.22);border-color:#fff;}
-  .team-names{display:flex;align-items:center;gap:5px;flex:1 1 auto;width:100%;min-width:0;flex-wrap:wrap;}
+  .team-names{display:flex;align-items:center;justify-content:center;gap:5px;flex:1 1 auto;width:100%;min-width:0;flex-wrap:wrap;}
   .team-separator{color:rgba(255,255,255,0.72);font-weight:700;}
   .player-name-self{display:inline-flex;align-items:center;gap:5px;background:var(--ball-fill);color:var(--ball-on);padding:3px 7px;border-radius:7px;font-weight:800;box-shadow:0 0 0 1px rgba(255,255,255,0.35);}
   .schedule-player-name{display:inline-flex;align-items:center;gap:5px;min-width:0;}
@@ -572,7 +572,9 @@
   .plan-summary-item strong{font-family:'IBM Plex Mono',monospace;font-size:18px;color:var(--court-deep);display:block;}
   .plan-summary-item span{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);}
   .participant-list{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px;}
-  .participant-pill{background:var(--bg);border:1px solid var(--line);border-radius:20px;padding:6px 10px;font-size:12px;font-weight:700;}
+  .participant-pill{display:inline-flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--line);border-radius:20px;padding:6px 10px;font-size:12px;font-weight:700;}
+  .participant-remove{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:0;border-radius:50%;background:rgba(239,99,81,0.13);color:var(--coral);font-size:14px;font-weight:900;line-height:1;cursor:pointer;}
+  .participant-remove:hover{background:var(--coral);color:#fff;}
   .form-note{border-left:3px solid var(--ball-deep);background:rgba(214,230,43,0.12);padding:10px 12px;border-radius:0 8px 8px 0;font-size:12.5px;color:var(--muted);}
   .court-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;}
   .schedule-filter-tools{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:18px;}
@@ -1748,18 +1750,46 @@ function scheduleHasRecordedSlot(sch,round,court){
   const matchId=(sch&&sch.recorded||{})[scheduleGameKey(round,court)];
   return !!(matchId&&state.matches.some(m=>m.id===matchId));
 }
+function playerHasUnplayedScheduleSlot(sch,playerId){
+  return (sch&&sch.rounds||[]).some(rd=>{
+    if((rd.sitOuts||[]).includes(playerId)) return true;
+    return (rd.courts||[]).some(ct=>{
+      if(scheduleHasRecordedSlot(sch,rd.round,ct.court)) return false;
+      return [...(ct.team1||[]),...(ct.team2||[])].includes(playerId);
+    });
+  });
+}
+function playerUnplayedScheduleSlotCount(sch,playerId){
+  return (sch&&sch.rounds||[]).reduce((total,rd)=>{
+    const sits=(rd.sitOuts||[]).includes(playerId) ? 1 : 0;
+    const games=(rd.courts||[]).filter(ct=>!scheduleHasRecordedSlot(sch,rd.round,ct.court) && [...(ct.team1||[]),...(ct.team2||[])].includes(playerId)).length;
+    return total+sits+games;
+  },0);
+}
 function scheduleCourtNumbers(sch){
   return [...new Set((sch&&sch.rounds||[]).flatMap(rd=>(rd.courts||[]).map(ct=>Number(ct.court))))]
     .filter(Number.isFinite).sort((a,b)=>a-b);
 }
-function renderSchedulePlayerName(id){
+function scheduleShortPlayerName(id, scopeIds=[]){
+  const full=playerName(id).trim();
+  if(!full || full==='Former player') return full || 'Former player';
+  const parts=full.split(/\s+/).filter(Boolean);
+  const first=parts[0]||full;
+  const scope=(scopeIds&&scopeIds.length?scopeIds:state.players.map(p=>p.id))
+    .map(pid=>playerName(pid).trim())
+    .filter(Boolean);
+  const firstKey=first.toLowerCase();
+  const sameFirst=scope.filter(name=>(name.split(/\s+/)[0]||'').toLowerCase()===firstKey).length;
+  return sameFirst>1 && parts.length>1 ? `${first} ${parts[1]}` : first;
+}
+function renderSchedulePlayerName(id, displayName){
   const mine=!!state.myPlayerId && id===state.myPlayerId;
   const player=state.players.find(p=>p.id===id);
   const meta=divisionMeta(player&&player.division);
-  return `<span class="schedule-player-name ${mine?'player-name-self':''}">${esc(playerName(id))}<span class="schedule-division-badge" title="${esc(meta.label)} division" aria-label="${esc(meta.label)} division">${esc(meta.abbr)}</span>${mine?'<span class="player-you-tag">You</span>':''}</span>`;
+  return `<span class="schedule-player-name ${mine?'player-name-self':''}">${esc(displayName||playerName(id))}<span class="schedule-division-badge" title="${esc(meta.label)} division" aria-label="${esc(meta.label)} division">${esc(meta.abbr)}</span>${mine?'<span class="player-you-tag">You</span>':''}</span>`;
 }
-function renderScheduleTeam(ids){
-  const players=(ids||[]).map(renderSchedulePlayerName);
+function renderScheduleTeam(ids, scopeIds){
+  const players=(ids||[]).map(pid=>renderSchedulePlayerName(pid,scopeIds?scheduleShortPlayerName(pid,scopeIds):null));
   return `<span class="team-names">${players.length?players.join('<span class="team-separator">&amp;</span>'):'-'}</span>`;
 }
 function formatDateTimeValue(value){
@@ -3606,6 +3636,45 @@ function rebuildOpenScheduleAfterLateAdd(sch,nextPlayerIds){
   });
   return nextRounds;
 }
+function rebuildOpenScheduleAfterPlayerRemoval(sch,removePlayerId){
+  const nextPlayerIds=schedulePlayers(sch).filter(id=>id!==removePlayerId);
+  const oldRounds=Array.isArray(sch.rounds)?sch.rounds:[];
+  const firstAffected=oldRounds.findIndex(rd=>
+    (rd.sitOuts||[]).includes(removePlayerId) ||
+    (rd.courts||[]).some(ct=>!scheduleHasRecordedSlot(sch,rd.round,ct.court) && [...(ct.team1||[]),...(ct.team2||[])].includes(removePlayerId))
+  );
+  if(firstAffected<0) return null;
+  const format=sch.format||'doubles';
+  const capacityPerCourt=format==='singles'?2:4;
+  if(nextPlayerIds.length<capacityPerCourt) return null;
+  const priorityRank={};
+  nextPlayerIds.forEach((id,index)=>{ priorityRank[id]=index; });
+  const counts=emptyScheduleCounts(nextPlayerIds);
+  const nextRounds=[];
+  oldRounds.forEach((rd,index)=>{
+    if(index<firstAffected){
+      nextRounds.push(rd);
+      applyRoundToScheduleCounts(rd,counts);
+      return;
+    }
+    const keptCourts=(rd.courts||[]).filter(ct=>scheduleHasRecordedSlot(sch,rd.round,ct.court));
+    const openCourtNumbers=(rd.courts||[]).filter(ct=>!scheduleHasRecordedSlot(sch,rd.round,ct.court)).map(ct=>ct.court);
+    const keptRound={...rd,courts:keptCourts,sitOuts:(rd.sitOuts||[]).filter(id=>id!==removePlayerId)};
+    applyRoundToScheduleCounts(keptRound,counts);
+    const occupied=new Set(keptCourts.flatMap(ct=>[...(ct.team1||[]),...(ct.team2||[])]));
+    const available=nextPlayerIds.filter(id=>!occupied.has(id));
+    const openCourts=Math.max(0,(rd.courts||[]).length-keptCourts.length);
+    const usable=Math.max(0,Math.min(openCourts,Math.floor(available.length/capacityPerCourt)));
+    const rebuilt=usable>0
+      ? buildGreedyRound(available,usable,usable*capacityPerCourt,format,counts.partnerCount,counts.opponentCount,counts.sitOutCount,priorityRank)
+      : {sitOuts:[],courts:[]};
+    const courts=[...keptCourts,...rebuilt.courts.map((ct,i)=>({...ct,court:openCourtNumbers[i]||ct.court}))].sort((a,b)=>Number(a.court)-Number(b.court));
+    const playing=new Set(courts.flatMap(ct=>[...(ct.team1||[]),...(ct.team2||[])]));
+    const sitOuts=nextPlayerIds.filter(id=>!playing.has(id));
+    nextRounds.push({...rd,courts,sitOuts});
+  });
+  return {rounds:nextRounds,nextPlayerIds};
+}
 async function addLatePlayerToSchedule(scheduleId){
   const sch=scheduleById(scheduleId);
   if(!sch||!canManageSchedule(sch)){ toast('Only the Game Plan owner or an admin can add players'); return; }
@@ -3632,6 +3701,25 @@ async function addLatePlayerToSchedule(scheduleId){
   catch(e){ console.error(e); toast('Could not add this player to the Game Plan'); return; }
   upsertScheduleLocal(scheduleDocId(sch),updated);
   toast('Player added - upcoming games were rebalanced');
+  render();
+}
+async function removePlayerFromScheduleQueue(scheduleId,playerId){
+  const sch=scheduleById(scheduleId);
+  if(!sch||!canManageSchedule(sch)){ toast('Only the Game Plan owner or an admin can remove players'); return; }
+  if(isScheduleClosed(sch)){ toast('Ended or cancelled Game Plans cannot remove players'); return; }
+  if(sch.mode!=='open'){ toast('Player removal is available for Open Play Game Plans'); return; }
+  if(!schedulePlayers(sch).includes(playerId)){ toast('This player is not in the Game Plan'); return; }
+  if(!playerHasUnplayedScheduleSlot(sch,playerId)){ toast('This player has no remaining unplayed games'); return; }
+  const name=playerName(playerId);
+  const affected=playerUnplayedScheduleSlotCount(sch,playerId);
+  if(!confirm(`Remove ${name} from ${affected} remaining unplayed game${affected===1?'':'s'} or queue slot${affected===1?'':'s'}? Saved results will stay unchanged.`)) return;
+  const rebuilt=rebuildOpenScheduleAfterPlayerRemoval(sch,playerId);
+  if(!rebuilt){ toast('Could not rebalance the remaining games after removal'); return; }
+  const updated={...stripScheduleMeta(sch),selectedPlayerIds:rebuilt.nextPlayerIds,rounds:rebuilt.rounds,numberOfRounds:rebuilt.rounds.length,status:sch.status==='published'&&scheduleRecordedCount(sch)>0?'in_progress':sch.status,updatedAt:new Date().toISOString()};
+  try{ await SCHEDULES_COL.doc(scheduleDocId(sch)).set(updated); }
+  catch(e){ console.error(e); toast('Could not remove this player from the Game Plan'); return; }
+  upsertScheduleLocal(scheduleDocId(sch),updated);
+  toast(`${name} removed from remaining unplayed games`);
   render();
 }
 function autoPairTeams(){
@@ -5386,6 +5474,7 @@ function renderScheduleView(sch){
   const endedAt=formatDateTimeValue(sch.endedAt||sch.completedAt);
   const endedBy=sch.endedByName||'an authorized organizer';
   const showLeaderboardModal=state.scheduleLeaderboardOpenId===id;
+  const canRemoveQueuedPlayers=canManage&&!closed&&sch.mode==='open';
   return `
   <div class="panel">
     <div class="schedule-page-head">
@@ -5409,7 +5498,7 @@ function renderScheduleView(sch){
     ${ended?`<div class="ended-note"><strong>Game Plan ended${endedAt?` ${esc(endedAt)}`:''}.</strong> ${unplayedCount?`${unplayedCount} scheduled game${unplayedCount===1?' was':'s were'} not played because the session ended before every round finished.`:'All scheduled games have saved results.'} Ended by ${esc(endedBy)}.</div>`:''}
     <div class="divider"></div>
     <div class="eyebrow">Playing</div>
-    <div class="participant-list">${players.map(pid=>`<span class="participant-pill">${renderSchedulePlayerName(pid)}</span>`).join('')||'<span class="small muted">No players listed.</span>'}</div>
+    <div class="participant-list">${players.map(pid=>`<span class="participant-pill">${renderSchedulePlayerName(pid)}${canRemoveQueuedPlayers&&playerHasUnplayedScheduleSlot(sch,pid)?`<button class="participant-remove" type="button" title="Remove from remaining unplayed games" aria-label="Remove ${esc(playerName(pid))} from remaining unplayed games" onclick="removePlayerFromScheduleQueue(${jsArg(id)},${jsArg(pid)})">&times;</button>`:''}</span>`).join('')||'<span class="small muted">No players listed.</span>'}</div>
   </div>
   ${sch.mode==='dupr'&&canManage&&!closed?renderDuprAppendForm(sch):''}
   ${canManage&&!closed&&sch.mode==='open'?renderLatePlayerPanel(sch):''}
@@ -5453,6 +5542,7 @@ function renderSchedule(){
 }
 function renderScheduleResult(sch){
   const rounds=Array.isArray(sch.rounds)?sch.rounds:[];
+  const compactNameScope=schedulePlayers(sch);
   const totalSlots=scheduleGameCount(sch);
   const recordedCount=scheduleRecordedCount(sch);
   const complete=totalSlots>0&&recordedCount>=totalSlots;
@@ -5497,9 +5587,9 @@ function renderScheduleResult(sch){
           return `<div class="court-card">
             <div class="court-head"><span>${sch.mode==='dupr'?'MATCH '+ct.court:'COURT '+ct.court}</span>${recordedMatch?verificationBadge(recordedMatch):(ended?`<span class="status-badge completed">Not played</span>`:'')}</div>
             <div class="court-body">
-              <div class="team-row">${paddleSVG('#fff')} ${renderScheduleTeam(ct.team1)}</div>
+              <div class="team-row">${paddleSVG('#fff')} ${renderScheduleTeam(ct.team1,compactNameScope)}</div>
               <div class="net-line">net</div>
-              <div class="team-row">${paddleSVG('#fff')} ${renderScheduleTeam(ct.team2)}</div>
+              <div class="team-row">${paddleSVG('#fff')} ${renderScheduleTeam(ct.team2,compactNameScope)}</div>
               ${recordedMatch ? (state.editingResultId===recordedMatch.id ? `
                 <div class="score-inputs">
                   <input type="number" min="0" id="edit_res_${rd.round}_${ct.court}_1" value="${Number(recordedMatch.score1)}" aria-label="Correct Team 1 score"/>
