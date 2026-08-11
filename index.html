@@ -2246,6 +2246,14 @@ function divisionPartnerSpread(team){
   if(!team||team.length<2) return 0;
   return Math.max(...team.map(playerDivisionRank))-Math.min(...team.map(playerDivisionRank));
 }
+function playerIsNoviceDivision(playerId){
+  const player=state.players.find(p=>p.id===playerId);
+  return playerDivisionValue(player)==='novice';
+}
+function novicePartnerPenalty(team){
+  if(!team||team.length!==2) return 0;
+  return playerIsNoviceDivision(team[0])===playerIsNoviceDivision(team[1]) ? 1 : 0;
+}
 function divisionMismatchPenalty(teamA,teamB){
   const all=[...(teamA||[]),...(teamB||[])];
   if(all.length<2) return 0;
@@ -2263,6 +2271,12 @@ function sameDivisionCourtPool(pool,size){
   if(!candidates.length) return null;
   candidates.sort((a,b)=>b.length-a.length || Math.random()-0.5);
   return shuffle(candidates[0]).slice(0,size);
+}
+function balancedNoviceDoublesCourtPool(pool){
+  const novices=shuffle(pool.filter(playerIsNoviceDivision));
+  const nonNovices=shuffle(pool.filter(id=>!playerIsNoviceDivision(id)));
+  if(novices.length>=2 && nonNovices.length>=2) return [...novices.slice(0,2),...nonNovices.slice(0,2)];
+  return null;
 }
 function removeCourtPool(pool,courtPool){
   const picked=new Set(courtPool);
@@ -2304,7 +2318,7 @@ function openPlayOpponentScore(teamA,teamB,opponentCount){
 }
 function openPlayPartnerScore(team,partnerCount){
   const repeat=team.length===2 ? (partnerCount[pairKey(team[0],team[1])]||0) : 0;
-  return divisionPartnerSpread(team)*100 + repeat*2;
+  return novicePartnerPenalty(team)*1000 + divisionPartnerSpread(team)*100 + repeat*2;
 }
 
 // Guaranteed round robin - used whenever the group actually fits on the courts available,
@@ -2370,8 +2384,9 @@ function buildGreedyRound(playerIds, usableCourts, capacity, format, partnerCoun
   for(let c=1; c<=usableCourts; c++){
     const needed=format==='singles'?2:4;
     if(pool.length < needed) break;
-    const sameDivisionPool=sameDivisionCourtPool(pool,needed);
-    let courtPool=sameDivisionPool || [...pool];
+    const sameDivisionPool=format==='singles' ? sameDivisionCourtPool(pool,needed) : null;
+    const balancedDoublesPool=format==='doubles' ? balancedNoviceDoublesCourtPool(pool) : null;
+    let courtPool=balancedDoublesPool || sameDivisionPool || [...pool];
     if(format==='singles'){
       const a = courtPool.shift();
       courtPool.sort((x,y)=> (divisionMismatchPenalty([a],[x])*100 + opponentCount[key(a,x)] + divisionMatchSpread([a],[x])*0.35) - (divisionMismatchPenalty([a],[y])*100 + opponentCount[key(a,y)] + divisionMatchSpread([a],[y])*0.35));
@@ -3726,9 +3741,14 @@ function autoPairTeams(){
   const ids=shuffle(Array.from(state.scheduleSelection));
   if(ids.length<4){ toast('Pick at least 4 players to form two teams'); return; }
   const teams=[];
-  for(let i=0;i+1<ids.length;i+=2) teams.push([ids[i],ids[i+1]]);
+  while(ids.length>=2){
+    const a=ids.shift();
+    ids.sort((x,y)=> openPlayPartnerScore([a,x],{}) - openPlayPartnerScore([a,y],{}));
+    const b=ids.shift();
+    teams.push([a,b]);
+  }
   state.tournamentTeams=teams;
-  state.tournamentLeftover=ids.length%2===1 ? ids[ids.length-1] : null;
+  state.tournamentLeftover=ids.length ? ids[0] : null;
   render();
 }
 function duprSelectedIds(draft){
