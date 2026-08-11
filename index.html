@@ -842,6 +842,18 @@
   :root[data-theme="dark"] select,
   :root[data-theme="dark"] textarea,
   :root[data-theme="dark"] .exact-date-field input{background:#0F1D1B;color:var(--ink);}
+  :root[data-theme="dark"] .invite-search-menu summary{background:#0F1D1B;color:#F7FFFC;border-color:#4C6F68;}
+  :root[data-theme="dark"] .invite-search-menu[open] summary{border-color:#DCEB45;box-shadow:0 0 0 1px rgba(220,235,69,.3);}
+  :root[data-theme="dark"] .invite-search-menu summary::after{color:#DCEB45;}
+  :root[data-theme="dark"] .invite-search-options{background:#102522;border-color:#4C6F68;box-shadow:0 18px 45px rgba(0,0,0,.48);}
+  :root[data-theme="dark"] .invite-search-field{background:#102522;}
+  :root[data-theme="dark"] .invite-search-field input{background:#091816;color:#F7FFFC;border-color:#5C7D76;}
+  :root[data-theme="dark"] .invite-search-field input::placeholder{color:#BFD4CF;opacity:1;}
+  :root[data-theme="dark"] .guest-search-option{color:#F7FFFC;}
+  :root[data-theme="dark"] .guest-search-option:hover,
+  :root[data-theme="dark"] .guest-search-option:focus-visible{background:#1B3934;}
+  :root[data-theme="dark"] .guest-search-option span{color:#CFE5E0;}
+  :root[data-theme="dark"] .guest-search-option strong{color:#F7FFFC;}
   :root[data-theme="dark"] .date-range-option:not(.active):hover{background:#1B302D;color:var(--ink);}
   :root[data-theme="dark"] .modal-overlay{background:rgba(0,0,0,.76);}
   :root[data-theme="dark"] .modal-close{color:var(--ink);}
@@ -4791,7 +4803,7 @@ function renderExactDateSelector(contextLabel){
   </div>`;
 }
 function renderDateRangePicker(embedded){
-  if(!embedded&&(state.tab==='clubs'||state.tab==='chat'||state.tab==='roster'||state.tab==='profile')) return '';
+  if(!embedded&&(state.tab==='schedule'||state.tab==='clubs'||state.tab==='chat'||state.tab==='roster'||state.tab==='profile')) return '';
   if(embedded||state.tab==='history') return renderExactDateSelector(state.tab==='profile'?'Profile statistics and match history':state.tab==='history'?'History records':'Selected statistics');
   return `
   <div class="date-range-bar" aria-label="Date range filter">
