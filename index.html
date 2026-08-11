@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-build="courtrush-profile-invitations-v13">
 <head>
 <meta charset="UTF-8" />
@@ -3912,7 +3912,7 @@ function scheduleBaseRoster(clubId){
 function scheduleExternalPlayerPool(clubId){
   if(!clubId||clubId==='independent') return [];
   return state.players
-    .filter(player=>!player.guest&&!playerIsMemberOfClub(player,clubId))
+    .filter(player=>!playerIsMemberOfClub(player,clubId))
     .sort((a,b)=>a.name.localeCompare(b.name));
 }
 function normalizePlayerSearch(value){
@@ -3920,7 +3920,8 @@ function normalizePlayerSearch(value){
 }
 function playerMatchesRegisteredSearch(player,query){
   if(!query) return false;
-  const haystack=normalizePlayerSearch(`${player&&player.name||''} ${activePlayerClubIds(player).map(clubName).join(' ')}`);
+  const guestLabel=player&&player.guest?'guest':'';
+  const haystack=normalizePlayerSearch(`${player&&player.name||''} ${guestLabel} ${activePlayerClubIds(player).map(clubName).join(' ')}`);
   return query.split(/\s+/).every(term=>haystack.includes(term));
 }
 function setScheduleRegisteredSearchOpen(open){
@@ -5744,14 +5745,14 @@ function renderParticipantPicker(){
         ${roster.map(p=>`<div class="chip ${state.scheduleSelection.has(p.id)?'on':''}" onclick="toggleScheduleSelect(${jsArg(p.id)})">${state.scheduleSelection.has(p.id)?'* ':''}${esc(p.name)}</div>`).join('')}
       </div>`}
       ${clubId&&clubId!=='independent'?`<div class="guest-search-panel">
-        <label>Invite registered player</label>
+        <label>Search independent or guest players</label>
         <details class="invite-search-menu" ${state.scheduleGuestSearchOpen||normalizedSearch?'open':''} ontoggle="setScheduleRegisteredSearchOpen(this.open)">
-          <summary>${search?`Search: ${esc(state.scheduleGuestSearch)}`:'Search registered players'}</summary>
+          <summary>${search?`Search: ${esc(state.scheduleGuestSearch)}`:'Search independent or guest players'}</summary>
           <div class="invite-search-options">
-            <div class="invite-search-field"><input type="search" id="registeredPlayerSearch" value="${esc(state.scheduleGuestSearch||'')}" placeholder="Search registered players..." aria-label="Search registered players" oninput="applyScheduleRegisteredSearch(this)" onclick="event.stopPropagation()"/></div>
-            <div class="guest-search-results">${externalPool.map(p=>{const clubs=activePlayerClubIds(p);const searchLabel=normalizePlayerSearch(`${p.name||''} ${clubs.map(clubName).join(' ')}`);const visible=playerMatchesRegisteredSearch(p,normalizedSearch);return `<button class="guest-search-option" type="button" data-player-search="${esc(searchLabel)}" ${visible?'':'hidden'} onclick="addRegisteredPlayerToSchedule(${jsArg(p.id)})"><span><strong>${esc(p.name)}</strong><span>${clubs.length?clubs.map(clubName).map(esc).join(', '):'Independent'}</span></span>${playerDivisionBadge(p)}</button>`;}).join('')}</div>
-            <div class="guest-search-empty" data-guest-search-hint ${search?'hidden':''}>Type a player name to invite non-club or independent registered players.</div>
-            <div class="guest-search-empty" data-guest-search-empty ${normalizedSearch&&!externalPool.some(p=>playerMatchesRegisteredSearch(p,normalizedSearch))?'':'hidden'}>No registered players found outside this club.</div>
+            <div class="invite-search-field"><input type="search" id="registeredPlayerSearch" value="${esc(state.scheduleGuestSearch||'')}" placeholder="Search independent or guest players..." aria-label="Search independent or guest players" oninput="applyScheduleRegisteredSearch(this)" onclick="event.stopPropagation()"/></div>
+            <div class="guest-search-results">${externalPool.map(p=>{const clubs=activePlayerClubIds(p);const searchLabel=normalizePlayerSearch(`${p.name||''} ${p.guest?'guest':''} ${clubs.map(clubName).join(' ')}`);const visible=playerMatchesRegisteredSearch(p,normalizedSearch);return `<button class="guest-search-option" type="button" data-player-search="${esc(searchLabel)}" ${visible?'':'hidden'} onclick="addRegisteredPlayerToSchedule(${jsArg(p.id)})"><span><strong>${esc(p.name)}${p.guest?'<span class="guest-tag">Guest</span>':''}</strong><span>${p.guest?'Guest':clubs.length?clubs.map(clubName).map(esc).join(', '):'Independent'}</span></span>${p.guest?'':playerDivisionBadge(p)}</button>`;}).join('')}</div>
+            <div class="guest-search-empty" data-guest-search-hint ${search?'hidden':''}>Type a player name to invite independent or previous guest players.</div>
+            <div class="guest-search-empty" data-guest-search-empty ${normalizedSearch&&!externalPool.some(p=>playerMatchesRegisteredSearch(p,normalizedSearch))?'':'hidden'}>No independent or guest players found outside this club.</div>
           </div>
         </details>
       </div>`:''}
