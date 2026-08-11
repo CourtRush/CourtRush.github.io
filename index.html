@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-build="courtrush-profile-invitations-v13">
 <head>
 <meta charset="UTF-8" />
@@ -645,23 +645,20 @@
   .profile-division-panel{margin-top:0;margin-bottom:16px;padding:13px;}
   .profile-division-panel .section-title{margin-bottom:9px;}
   .profile-division-panel .section-title h2{font-size:19px;}
-  .division-panel-grid{display:grid;grid-template-columns:minmax(190px,280px) minmax(260px,520px);gap:10px;align-items:stretch;}
+  .division-panel-grid{display:grid;grid-template-columns:minmax(190px,280px) minmax(260px,520px);gap:10px;align-items:stretch;justify-content:space-between;}
   .division-select-wrap{display:grid;gap:7px;align-content:start;}
   .division-select-head{display:flex;align-items:center;justify-content:space-between;gap:10px;}
   .division-tip-slider{min-width:0;position:relative;background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:12px 13px;min-height:92px;display:flex;flex-direction:column;justify-content:space-between;}
   .division-tip-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:5px;}
-  .division-tip-controls{display:flex;align-items:center;gap:5px;}
-  .division-tip-btn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--court-deep);font-size:16px;font-weight:800;line-height:1;cursor:pointer;}
-  .division-tip-btn:hover,.division-tip-btn:focus-visible{border-color:var(--court);outline:none;}
-  .division-tip-viewport{overflow:hidden;min-width:0;}
+  .division-tip-viewport{overflow:hidden;min-width:0;cursor:grab;touch-action:pan-y;user-select:none;}
+  .division-tip-viewport.dragging{cursor:grabbing;}
   .division-tip-track{display:flex;transition:transform .22s ease;}
   .division-tip{width:100%;flex:0 0 100%;padding-right:0;}
   .division-tip strong{display:block;color:var(--court-deep);font-size:13px;line-height:1.3;padding-right:4px;}
   .division-tip span{display:block;margin-top:4px;color:var(--muted);font-size:11px;line-height:1.35;}
   .division-tip-dots{display:flex;gap:4px;margin-top:9px;}
   .division-tip-dots span{width:5px;height:5px;border-radius:50%;background:var(--line);}
-  .division-tip-dots button{width:7px;height:7px;border:0;border-radius:50%;background:var(--line);padding:0;cursor:pointer;}
-  .division-tip-dots button.active{background:var(--court);}
+  .division-tip-dots span.active{background:var(--court);}
   .btn-profile-edit{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.38);}
   .btn-profile-edit:hover{background:rgba(255,255,255,.2);border-color:#fff;}
   .profile-name-editor{width:100%;display:flex;align-items:flex-end;gap:9px;margin-top:14px;padding:12px;background:rgba(0,0,0,.16);border:1px solid rgba(255,255,255,.2);border-radius:11px;}
@@ -918,7 +915,7 @@
     .profile-game-detail{grid-template-columns:minmax(82px,.42fr) minmax(0,1fr);}
     .profile-kpi-grid{grid-template-columns:repeat(auto-fit,minmax(min(135px,100%),1fr));}
     .profile-hero-stats{grid-template-columns:repeat(auto-fit,minmax(min(130px,100%),1fr));}
-    .division-panel-grid{grid-template-columns:1fr;}
+    .division-panel-grid{grid-template-columns:1fr;justify-content:stretch;}
     .profile-insight-grid{grid-template-columns:1fr;}
     .profile-settings-grid{grid-template-columns:1fr;}
     .profile-functions-grid{grid-template-columns:1fr;}
@@ -2754,13 +2751,66 @@ function setDivisionTipIndex(index,total){
 function shiftDivisionTip(delta,total){
   setDivisionTipIndex((Number(state.divisionTipIndex)||0)+(Number(delta)||0),total);
 }
+let divisionTipAutoTimer=null;
+let divisionTipAutoPausedUntil=0;
+function pauseDivisionTipAuto(ms){
+  divisionTipAutoPausedUntil=Date.now()+(Number(ms)||0);
+}
+function scheduleDivisionTipAuto(total){
+  clearTimeout(divisionTipAutoTimer);
+  const count=Number(total)||0;
+  if(count<2) return;
+  const wait=Math.max(0,divisionTipAutoPausedUntil-Date.now())||4200;
+  divisionTipAutoTimer=setTimeout(()=>{
+    const slider=document.querySelector('.division-tip-slider');
+    if(!slider) return;
+    if(document.hidden){ scheduleDivisionTipAuto(count); return; }
+    shiftDivisionTip(1,count);
+  },wait);
+}
+function wireDivisionTipSlider(){
+  const slider=document.querySelector('.division-tip-slider');
+  if(!slider) return;
+  const viewport=slider.querySelector('.division-tip-viewport');
+  const total=Number(slider.dataset.totalTips)||0;
+  if(!viewport||total<2){ scheduleDivisionTipAuto(total); return; }
+  let startX=0;
+  let startY=0;
+  let tracking=false;
+  viewport.addEventListener('pointerdown',event=>{
+    tracking=true;
+    startX=event.clientX;
+    startY=event.clientY;
+    viewport.classList.add('dragging');
+    try{ viewport.setPointerCapture(event.pointerId); }catch(_){}
+    pauseDivisionTipAuto(6500);
+  });
+  viewport.addEventListener('pointerup',event=>{
+    if(!tracking) return;
+    tracking=false;
+    viewport.classList.remove('dragging');
+    const deltaX=event.clientX-startX;
+    const deltaY=event.clientY-startY;
+    if(Math.abs(deltaX)>42&&Math.abs(deltaX)>Math.abs(deltaY)){
+      shiftDivisionTip(deltaX<0?1:-1,total);
+      return;
+    }
+    scheduleDivisionTipAuto(total);
+  });
+  viewport.addEventListener('pointercancel',()=>{
+    tracking=false;
+    viewport.classList.remove('dragging');
+    scheduleDivisionTipAuto(total);
+  });
+  scheduleDivisionTipAuto(total);
+}
 function renderDivisionTips(player){
   const tips=divisionTips(player);
   const active=((Number(state.divisionTipIndex)||0)%tips.length+tips.length)%tips.length;
-  return `<div class="division-tip-slider" aria-label="${esc(playerDivisionLabel(player))} improvement tips">
-    <div class="division-tip-head"><div class="eyebrow">Division tips</div><div class="division-tip-controls"><button class="division-tip-btn" type="button" aria-label="Previous division tip" onclick="shiftDivisionTip(-1,${tips.length})">&lsaquo;</button><button class="division-tip-btn" type="button" aria-label="Next division tip" onclick="shiftDivisionTip(1,${tips.length})">&rsaquo;</button></div></div>
+  return `<div class="division-tip-slider" data-total-tips="${tips.length}" aria-label="${esc(playerDivisionLabel(player))} improvement tips">
+    <div class="division-tip-head"><div class="eyebrow">Division tips</div></div>
     <div class="division-tip-viewport"><div class="division-tip-track" style="transform:translateX(-${active*100}%);">${tips.map(([title,copy],index)=>`<div class="division-tip" aria-hidden="${index===active?'false':'true'}"><strong>${esc(title)}</strong><span>${esc(copy)}</span></div>`).join('')}</div></div>
-    <div class="division-tip-dots" aria-label="Choose division tip">${tips.map((_,index)=>`<button type="button" class="${index===active?'active':''}" aria-label="Show division tip ${index+1}" onclick="setDivisionTipIndex(${index},${tips.length})"></button>`).join('')}</div>
+    <div class="division-tip-dots" aria-label="Division tip progress">${tips.map((_,index)=>`<span class="${index===active?'active':''}"></span>`).join('')}</div>
   </div>`;
 }
 function profileViewDay(){ return todayStr(); }
@@ -4497,6 +4547,7 @@ function render(){
     ${state.supportPanelOpen ? renderSupportModal() : ''}
   `;
   wireTabBodyEvents();
+  wireDivisionTipSlider();
 }
 
 function renderTopbar(){
