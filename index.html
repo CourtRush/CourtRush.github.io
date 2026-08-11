@@ -645,9 +645,11 @@
   .profile-division-panel{margin-top:0;margin-bottom:16px;padding:13px;}
   .profile-division-panel .section-title{margin-bottom:9px;}
   .profile-division-panel .section-title h2{font-size:19px;}
-  .division-panel-grid{display:grid;grid-template-columns:minmax(190px,280px) minmax(260px,520px);gap:10px;align-items:stretch;justify-content:space-between;}
+  .division-panel-grid{display:grid;grid-template-columns:minmax(190px,280px) minmax(300px,520px);gap:28px;align-items:start;justify-content:space-between;}
   .division-select-wrap{display:grid;gap:7px;align-content:start;}
   .division-select-head{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .division-tip-wrap{width:100%;max-width:520px;justify-self:end;display:grid;gap:7px;}
+  .division-tip-note{justify-self:end;color:var(--muted);font-size:12px;line-height:1.35;text-align:right;}
   .division-tip-slider{min-width:0;position:relative;background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:12px 13px;min-height:92px;display:flex;flex-direction:column;justify-content:space-between;}
   .division-tip-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:5px;}
   .division-tip-viewport{overflow:hidden;min-width:0;cursor:grab;touch-action:pan-y;user-select:none;}
@@ -916,6 +918,8 @@
     .profile-kpi-grid{grid-template-columns:repeat(auto-fit,minmax(min(135px,100%),1fr));}
     .profile-hero-stats{grid-template-columns:repeat(auto-fit,minmax(min(130px,100%),1fr));}
     .division-panel-grid{grid-template-columns:1fr;justify-content:stretch;}
+    .division-tip-wrap{max-width:none;justify-self:stretch;}
+    .division-tip-note{justify-self:start;text-align:left;}
     .profile-insight-grid{grid-template-columns:1fr;}
     .profile-settings-grid{grid-template-columns:1fr;}
     .profile-functions-grid{grid-template-columns:1fr;}
@@ -1054,6 +1058,7 @@ let state = {
   adminClubIds: [],
   staffClubIds: [],
   clubHubSelectedId: null,
+  clubDetailSource: null,
   clubProfileRoleFilter: 'all',
   playerModalContext: null,
   clubWorkspaceView: 'hub', // 'hub' | 'chat' | 'members'
@@ -2807,11 +2812,11 @@ function wireDivisionTipSlider(){
 function renderDivisionTips(player){
   const tips=divisionTips(player);
   const active=((Number(state.divisionTipIndex)||0)%tips.length+tips.length)%tips.length;
-  return `<div class="division-tip-slider" data-total-tips="${tips.length}" aria-label="${esc(playerDivisionLabel(player))} improvement tips">
+  return `<div class="division-tip-wrap"><span class="division-tip-note">Tips like these can improve your gameplay, so give them a quick read.</span><div class="division-tip-slider" data-total-tips="${tips.length}" aria-label="${esc(playerDivisionLabel(player))} improvement tips">
     <div class="division-tip-head"><div class="eyebrow">Division tips</div></div>
     <div class="division-tip-viewport"><div class="division-tip-track" style="transform:translateX(-${active*100}%);">${tips.map(([title,copy],index)=>`<div class="division-tip" aria-hidden="${index===active?'false':'true'}"><strong>${esc(title)}</strong><span>${esc(copy)}</span></div>`).join('')}</div></div>
     <div class="division-tip-dots" aria-label="Division tip progress">${tips.map((_,index)=>`<span class="${index===active?'active':''}"></span>`).join('')}</div>
-  </div>`;
+  </div></div>`;
 }
 function profileViewDay(){ return todayStr(); }
 function profileViewId(playerId,uid,day){ return `${playerId}_${day}_${uid}`; }
@@ -4518,7 +4523,8 @@ function setTab(t){
     const active=ids.includes(state.chatClubId)?state.chatClubId:ids[0];
     if(active){ state.chatClubId=active; markChatRead(active); }
   }
-  if(t!=='clubs') state.clubHubSelectedId=null;
+  if(t!=='clubs'&&state.clubDetailSource!=='profile') state.clubHubSelectedId=null;
+  if(t!=='profile'&&state.clubDetailSource==='profile') state.clubDetailSource=null;
   if(t==='schedule'&&state.dateRange==='custom') state.scheduleFilter='dates';
   state.navOpen=false;
   if(t!=='profile'){ state.profileNameEditing=false; state.profileNameBusy=false; }
@@ -4544,6 +4550,7 @@ function render(){
     ${state.playerModalId ? renderPlayerModal() : ''}
     ${state.showAddPlayer ? renderAddPlayerModal() : ''}
     ${state.showAuthModal ? renderAuthModal() : ''}
+    ${state.clubHubSelectedId && state.clubDetailSource==='profile' ? renderProfileClubDetailModal() : ''}
     ${state.supportPanelOpen ? renderSupportModal() : ''}
   `;
   wireTabBodyEvents();
@@ -4758,8 +4765,10 @@ function renderDashboard(){
 }
 
 /* ============================= CLUB HUB ============================= */
-function selectClubHub(clubId){ state.clubHubSelectedId=clubId; state.clubProfileRoleFilter='all'; render(); }
-function closeClubHubProfile(){ state.clubHubSelectedId=null; render(); }
+function selectClubHub(clubId){ state.clubHubSelectedId=clubId; state.clubDetailSource=null; state.clubProfileRoleFilter='all'; render(); }
+function openProfileClubDetail(clubId){ state.clubHubSelectedId=clubId; state.clubDetailSource='profile'; state.clubProfileRoleFilter='all'; render(); }
+function goToClubHubFromProfile(clubId){ state.clubDetailSource=null; state.clubWorkspaceView='hub'; state.clubHubSelectedId=clubId; setTab('clubs'); }
+function closeClubHubProfile(){ state.clubHubSelectedId=null; state.clubDetailSource=null; render(); }
 function setClubProfileRoleFilter(role){
   state.clubProfileRoleFilter=['all','club_admin','co_admin','staff','member'].includes(role)?role:'all';
   render();
@@ -4890,6 +4899,32 @@ function renderClubDirectory() {
     <div class="club-role-filters" role="tablist" aria-label="Filter club members by role">${['all','club_admin','co_admin','staff','member'].map(role=>`<button class="club-role-filter ${activeRoleFilter===role?'active':''}" type="button" role="tab" aria-selected="${activeRoleFilter===role?'true':'false'}" onclick="setClubProfileRoleFilter(${jsArg(role)})">${esc(roleFilterLabels[role])} - ${roleFilterCounts[role]||0}</button>`).join('')}</div>
     ${selectedMembers.length?filteredMembers.length?`<div class="club-members-grid" style="margin-top:12px;">${filteredMembers.map(player=>{const stats=computePlayerClubStats(player.id,selected.id,false),mvp=selectedMvpCounts[player.id]||0,role=clubRoleForPlayer(selected.id,player);return `<div class="club-member-row"><button type="button" class="club-member-profile" onclick="openPlayerProfile(${jsArg(player.id)},{source:'clubHub',clubId:${jsArg(selected.id)}})">${avatarHTML(player,38)}<span class="club-member-row-copy"><strong class="club-member-name-line"><span>${esc(playerFirstName(player))}</span><span class="my-profile-badge">${esc(playerDivisionLabel(player))}</span></strong>${isSignedIn()?`<span class="club-member-row-stats"><span><b>${stats.gamesPlayed}</b> games</span><span><b>${stats.wins}-${stats.losses}</b> W/L</span><span><b>${mvp}</b> MVP</span></span>`:'<span class="profile-stats-locked">Sign in to view stats</span>'}</span></button>${role!=='member'?`<span class="club-chip ${role==='staff'?'staff':'admin'}">${esc(clubRoleLabel(role))}</span>`:''}${canManage&&player.id!==state.myPlayerId&&role!=='club_admin'?`<button class="btn btn-danger btn-sm" type="button" onclick="removeClubMember(${jsArg(selected.id)},${jsArg(player.id)})">Remove</button>`:''}${player.id===state.myPlayerId&&role==='club_admin'?'<span class="club-chip admin">You - Admin</span>':''}</div>`;}).join('')}</div>`:`<div class="empty"><p>No members match this role filter.</p></div>`:`<div class="empty"><h3>No approved members yet</h3><p>${canManage?'Review pending requests or add an existing CourtRush player.':'This club has not listed members yet.'}</p></div>`}    ${canManage?renderClubAdminPanel(selected,availablePlayers):''}
   </section></div></div>`:''}`;
+}
+
+function renderProfileClubDetailModal(){
+  const selected=clubById(state.clubHubSelectedId);
+  if(!selected) return '';
+  const selectedMembers=membersForClub(selected.id);
+  const selectedGames=clubMemberMatches(selected.id,false);
+  const selectedMvpCounts=computeMvpCounts(false);
+  const leaders=clubMvpLeaders(selected.id,false);
+  const totalMvp=selectedMembers.reduce((sum,p)=>sum+(selectedMvpCounts[p.id]||0),0);
+  const filteredMembers=sortClubMembersByRole(selected.id,selectedMembers);
+  return `
+  <div class="modal-overlay club-detail-overlay" role="dialog" aria-modal="true" aria-labelledby="profileClubDetailTitle" onclick="if(event.target===this){closeClubHubProfile();}">
+  <div class="modal club-detail-modal">
+    <button class="modal-close" type="button" onclick="closeClubHubProfile()" aria-label="Close ${esc(selected.name)} club details">&times;</button>
+    <div class="club-detail-header section-title"><div><div class="eyebrow">${esc(selected.origin||'Origin unavailable')}</div><h2 id="profileClubDetailTitle">${esc(selected.name)} club profile</h2></div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><button class="btn btn-primary btn-sm" type="button" onclick="goToClubHubFromProfile(${jsArg(selected.id)})">Go to Club Hub</button><span class="diff-pill diff-zero">Profile view</span></div></div>
+    <section id="profileClubProfile">
+      <div class="club-profile-summary"><div class="club-profile-stat"><strong>${selectedMembers.length}</strong><span>Club members</span></div><div class="club-profile-stat"><strong>${selectedGames.length}</strong><span>Club Games</span></div><div class="club-profile-stat"><strong>${totalMvp}</strong><span>MVP awards</span></div></div>
+      <div class="section-title"><div><div class="eyebrow">Most MVP awards</div><h2>Top players</h2></div><span class="small muted">Overall club stats</span></div>
+      ${!isSignedIn()?`<div class="empty" style="padding:22px 10px;"><h3>Sign in to view player stats</h3><p>Top player records are available after signing in or registering.</p><button class="btn btn-ball" type="button" onclick="openAuthModal('login')">Sign in</button></div>`:leaders.length?`<div class="club-leaderboard">${leaders.map(row=>`<button type="button" class="club-leader" onclick="openPlayerProfile(${jsArg(row.player.id)},{source:'clubHub',clubId:${jsArg(selected.id)}})"><span class="club-leader-rank">${row.rank}</span>${avatarHTML(row.player,36)}<span class="club-leader-copy"><strong>${esc(row.player.name)}</strong><span>${row.stats.wins}-${row.stats.losses} W/L &middot; ${row.stats.gamesPlayed} games</span></span>${mvpPill(row.mvp)}</button>`).join('')}</div>`:`<div class="empty" style="padding:22px 10px;"><p>No club member has earned an MVP award overall.</p></div>`}
+      <div class="divider"></div>
+      <div class="section-title"><div><div class="eyebrow">Club directory</div><h2>${esc(selected.name)} members</h2></div><span class="diff-pill diff-zero">${filteredMembers.length}/${selectedMembers.length} shown</span></div>
+      ${selectedMembers.length?`<div class="club-members-grid" style="margin-top:12px;">${filteredMembers.map(player=>{const stats=computePlayerClubStats(player.id,selected.id,false),mvp=selectedMvpCounts[player.id]||0,role=clubRoleForPlayer(selected.id,player);return `<div class="club-member-row"><button type="button" class="club-member-profile" onclick="openPlayerProfile(${jsArg(player.id)},{source:'clubHub',clubId:${jsArg(selected.id)}})">${avatarHTML(player,38)}<span class="club-member-row-copy"><strong class="club-member-name-line"><span>${esc(playerFirstName(player))}</span><span class="my-profile-badge">${esc(playerDivisionLabel(player))}</span></strong>${isSignedIn()?`<span class="club-member-row-stats"><span><b>${stats.gamesPlayed}</b> games</span><span><b>${stats.wins}-${stats.losses}</b> W/L</span><span><b>${mvp}</b> MVP</span></span>`:'<span class="profile-stats-locked">Sign in to view stats</span>'}</span></button>${role!=='member'?`<span class="club-chip ${role==='staff'?'staff':'admin'}">${esc(clubRoleLabel(role))}</span>`:''}${player.id===state.myPlayerId&&role==='club_admin'?'<span class="club-chip admin">You - Admin</span>':''}</div>`;}).join('')}</div>`:`<div class="empty"><h3>No approved members yet</h3><p>This club has not listed members yet.</p></div>`}
+    </section>
+  </div>
+  </div>`;
 }
 
 /* ============================= CLUB CHAT ============================= */
@@ -5112,12 +5147,12 @@ function renderMyClubMembershipOption(club,player,profileClubIds){
     return `<article class="my-club-card invite"><div class="my-club-card-head"><div><div class="eyebrow">Invitation received</div><h3>${esc(club.name)}</h3><p class="small muted">${esc(club.origin||'Origin unavailable')} &middot; A Club Admin or Co-Admin invited you.</p></div><span class="invite-alert-dot" aria-label="New club invitation">!</span></div><div class="club-membership-actions"><button class="btn btn-primary btn-sm" type="button" onclick="respondToClubInvite(${jsArg(club.id)},true)" ${state.profileClubBusy?'disabled':''}>Accept</button><button class="btn btn-danger btn-sm" type="button" onclick="respondToClubInvite(${jsArg(club.id)},false)" ${state.profileClubBusy?'disabled':''}>Decline</button></div></article>`;
   }
   if(joined){
-    return `<article class="my-club-card"><div class="my-club-card-head"><div><div class="eyebrow">${locked?'Club Admin':'Joined club'}</div><h3>${esc(club.name)}</h3><p class="small muted">${esc(club.origin||'Origin unavailable')}${locked?' &middot; Transfer Club Admin to another linked member before leaving.':''}</p></div>${locked?'<span class="club-chip admin">Admin</span>':'<span class="club-chip">Member</span>'}</div><div class="club-membership-actions"><button class="btn btn-primary btn-sm" type="button" onclick="state.clubWorkspaceView='hub';state.clubHubSelectedId=${jsArg(club.id)};setTab('clubs')">${locked?'Transfer role':'View Club'}</button><button class="btn btn-ghost btn-sm" type="button" onclick="setMyClubMembership(${jsArg(club.id)},false)" ${state.profileClubBusy||locked?'disabled':''}>Leave club</button></div></article>`;
+    return `<article class="my-club-card"><div class="my-club-card-head"><div><div class="eyebrow">${locked?'Club Admin':'Joined club'}</div><h3>${esc(club.name)}</h3><p class="small muted">${esc(club.origin||'Origin unavailable')}${locked?' &middot; Transfer Club Admin to another linked member before leaving.':''}</p></div>${locked?'<span class="club-chip admin">Admin</span>':'<span class="club-chip">Member</span>'}</div><div class="club-membership-actions"><button class="btn btn-primary btn-sm" type="button" onclick="openProfileClubDetail(${jsArg(club.id)})">View Club</button><button class="btn btn-ghost btn-sm" type="button" onclick="setMyClubMembership(${jsArg(club.id)},false)" ${state.profileClubBusy||locked?'disabled':''}>Leave club</button></div></article>`;
   }
   if(pending){
-    return `<article class="my-club-card"><div class="my-club-card-head"><div><div class="eyebrow">Request pending</div><h3>${esc(club.name)}</h3><p class="small muted">${esc(club.origin||'Origin unavailable')} &middot; Awaiting Club Admin approval.</p></div><span class="club-chip">Pending</span></div><button class="btn btn-ghost btn-sm" type="button" onclick="state.clubWorkspaceView='hub';state.clubHubSelectedId=${jsArg(club.id)};setTab('clubs')">View Club</button></article>`;
+    return `<article class="my-club-card"><div class="my-club-card-head"><div><div class="eyebrow">Request pending</div><h3>${esc(club.name)}</h3><p class="small muted">${esc(club.origin||'Origin unavailable')} &middot; Awaiting Club Admin approval.</p></div><span class="club-chip">Pending</span></div><button class="btn btn-ghost btn-sm" type="button" onclick="openProfileClubDetail(${jsArg(club.id)})">View Club</button></article>`;
   }
-  return `<article class="my-club-card"><div><div class="eyebrow">Available club</div><h3>${esc(club.name)}</h3><p class="small muted">${esc(club.origin||'Origin unavailable')}</p></div><div class="club-membership-actions"><button class="btn btn-primary btn-sm" type="button" onclick="state.clubWorkspaceView='hub';state.clubHubSelectedId=${jsArg(club.id)};setTab('clubs')">View Club</button><button class="btn btn-ghost btn-sm" type="button" onclick="setMyClubMembership(${jsArg(club.id)},true)" ${state.profileClubBusy?'disabled':''}>Request to join</button></div></article>`;
+  return `<article class="my-club-card"><div><div class="eyebrow">Available club</div><h3>${esc(club.name)}</h3><p class="small muted">${esc(club.origin||'Origin unavailable')}</p></div><div class="club-membership-actions"><button class="btn btn-primary btn-sm" type="button" onclick="openProfileClubDetail(${jsArg(club.id)})">View Club</button><button class="btn btn-ghost btn-sm" type="button" onclick="setMyClubMembership(${jsArg(club.id)},true)" ${state.profileClubBusy?'disabled':''}>Request to join</button></div></article>`;
 }
 function renderMyProfile(){
   if(!isSignedIn()) return `
