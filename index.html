@@ -873,8 +873,8 @@
     .board-grid{grid-template-columns:1fr;}
     .field-row{grid-template-columns:1fr;}
     .mode-grid{grid-template-columns:1fr;}
-    .modal-overlay{padding:0;align-items:stretch;}
-    .modal{max-width:100%;width:100%;min-height:100%;border-radius:0;padding:18px 16px 32px;}
+    .modal-overlay{padding:0;align-items:stretch;min-height:100dvh;}
+    .modal{max-width:100%;width:100%;min-height:100dvh;border-radius:0;padding:18px 16px 32px;}
     table{display:block;width:100%;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;}
     .inline-row{flex-direction:column;align-items:stretch;}
     .brand-name{font-size:26px;}
@@ -896,22 +896,23 @@
     .court-board-filter{width:100%;align-items:stretch;}
     .court-board-filter .field{width:100%;min-width:0;}
     .history-plan-head{flex-direction:column;}
-    .player-profile-overlay{background:#fff;overflow-x:hidden;}
+    .player-profile-overlay{background:#fff;overflow:hidden;min-height:100dvh;}
     .player-profile-modal{
-      min-height:100svh;max-width:100%;width:100%;
+      min-height:100dvh;max-height:100dvh;max-width:100%;width:100%;
       border-radius:0;padding:18px 16px 38px;
-      overflow-x:hidden;
+      overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;
     }
-    .player-profile-header{gap:11px;padding-right:38px;}
-    .player-profile-modal .score-tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+    .player-profile-header{gap:11px;padding-right:38px;align-items:flex-start;}
+    .player-profile-header-copy h2{font-size:clamp(21px,7vw,26px)!important;}
+    .player-profile-modal .score-tiles{grid-template-columns:repeat(auto-fit,minmax(min(132px,100%),1fr));gap:10px;}
     .player-profile-modal .score-tile{padding:12px 11px;}
     .player-profile-modal .score-tile .num{font-size:24px;}
     .player-profile-modal .score-tile .lbl{font-size:9.5px;}
     .profile-game-grid{grid-template-columns:1fr;}
     .profile-game-card{padding:12px;}
-    .profile-game-detail{grid-template-columns:105px minmax(0,1fr);}
-    .profile-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
-    .profile-hero-stats{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .profile-game-detail{grid-template-columns:minmax(82px,.42fr) minmax(0,1fr);}
+    .profile-kpi-grid{grid-template-columns:repeat(auto-fit,minmax(min(135px,100%),1fr));}
+    .profile-hero-stats{grid-template-columns:repeat(auto-fit,minmax(min(130px,100%),1fr));}
     .division-panel-grid{grid-template-columns:1fr;}
     .profile-insight-grid{grid-template-columns:1fr;}
     .profile-settings-grid{grid-template-columns:1fr;}
@@ -957,11 +958,13 @@
   }
   @media (max-width: 360px){
     .player-profile-modal{padding-left:12px;padding-right:12px;}
-    .player-profile-header{gap:9px;}
+    .player-profile-header{gap:9px;display:grid;grid-template-columns:auto minmax(0,1fr);padding-right:34px;}
+    .player-profile-header .avatar-frame{width:52px!important;height:52px!important;}
     .profile-game-card{padding:10px;}
     .profile-game-stats{gap:6px;}
-    .profile-game-detail{grid-template-columns:88px minmax(0,1fr);gap:8px;}
+    .profile-game-detail{grid-template-columns:1fr;gap:4px;}
     .profile-game-score{padding:7px 8px;font-size:13px;}
+    .player-profile-modal .score-tiles{grid-template-columns:1fr;}
   }
 </style>
 </head>
