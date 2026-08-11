@@ -1187,9 +1187,16 @@ function managedClubIds(){
   if(state.currentUser&&state.currentUser.role==='club_admin') ids.add(state.currentUser.clubId||ACTIVE_CLUB_ID);
   return [...ids];
 }
+function canInvitePlayersToClub(clubId){
+  return !!(state.currentUser&&clubId&&clubById(clubId)&&(isAdminForClub(clubId)||myClubIds().includes(clubId)));
+}
+function inviteClubIds(){
+  if(isSuperAdmin()) return clubsForDisplay().map(c=>c.id);
+  return [...new Set([...myClubIds(),...managedClubIds()])].filter(id=>!!clubById(id));
+}
 function managedInviteClubsForPlayer(player){
   if(!player) return [];
-  return managedClubIds().map(clubById).filter(club=>club&&!playerIsMemberOfClub(player,club.id));
+  return inviteClubIds().map(clubById).filter(club=>club&&!playerIsMemberOfClub(player,club.id));
 }
 function chatClubIds(){
   return [...new Set([...myClubIds(),...managedClubIds(),...state.staffClubIds])].filter(id=>!!clubById(id));
@@ -2752,7 +2759,7 @@ function upsertClubMembershipLocal(record){
   else state.clubMemberships=[...state.clubMemberships,next];
 }
 async function invitePlayerToClub(clubId,playerId){
-  if(!isAdminForClub(clubId)){ toast('Only this club Admin or Co-Admin can invite players'); return; }
+  if(!canInvitePlayersToClub(clubId)){ toast('Only joined club members can invite players to this club'); return; }
   const club=clubById(clubId);
   const player=state.players.find(p=>p.id===playerId);
   if(!club||!player){ toast('Club or player profile not found'); return; }
@@ -4946,7 +4953,7 @@ function renderProfileSettings(){
 
 function renderManagedClubInvites(player,inviteClubs){
   if(!inviteClubs.length) return '';
-  return `<section class="player-club-invites" aria-label="Club invitations"><div class="eyebrow">Invite to a club you manage</div><div class="player-club-invite-list">${inviteClubs.map(club=>{const membership=clubMembershipRecord(club.id,player.id);const busy=state.clubInviteBusyId===clubMembershipId(club.id,player.id);const pending=membership&&membership.status==='pending';const invited=membership&&membership.status==='invited';return `<div class="player-club-invite-row"><div><strong>${esc(club.name)}</strong><span>${pending?'Player requested to join':invited?'Invitation awaiting player response':esc(club.origin||'Origin unavailable')}</span></div>${pending?`<button class="btn btn-primary btn-sm" type="button" onclick="state.playerModalId=null;state.clubWorkspaceView='hub';state.clubHubSelectedId=${jsArg(club.id)};setTab('clubs')">Review request</button>`:`<button class="btn ${invited?'btn-ghost':'btn-primary'} btn-sm" type="button" onclick="invitePlayerToClub(${jsArg(club.id)},${jsArg(player.id)})" ${invited||state.clubInviteBusyId?'disabled':''}>${busy?'Sending...':invited?'Invitation sent':'Invite player'}</button>`}</div>`;}).join('')}</div></section>`;
+  return `<section class="player-club-invites" aria-label="Club invitations"><div class="eyebrow">Invite to one of your clubs</div><div class="player-club-invite-list">${inviteClubs.map(club=>{const membership=clubMembershipRecord(club.id,player.id);const busy=state.clubInviteBusyId===clubMembershipId(club.id,player.id);const pending=membership&&membership.status==='pending';const invited=membership&&membership.status==='invited';const canReviewPending=isAdminForClub(club.id);return `<div class="player-club-invite-row"><div><strong>${esc(club.name)}</strong><span>${pending?'Player requested to join':invited?'Invitation awaiting player response':esc(club.origin||'Origin unavailable')}</span></div>${pending?(canReviewPending?`<button class="btn btn-primary btn-sm" type="button" onclick="state.playerModalId=null;state.clubWorkspaceView='hub';state.clubHubSelectedId=${jsArg(club.id)};setTab('clubs')">Review request</button>`:`<button class="btn btn-ghost btn-sm" type="button" disabled>Request pending</button>`):`<button class="btn ${invited?'btn-ghost':'btn-primary'} btn-sm" type="button" onclick="invitePlayerToClub(${jsArg(club.id)},${jsArg(player.id)})" ${invited||state.clubInviteBusyId?'disabled':''}>${busy?'Sending...':invited?'Invitation sent':'Invite player'}</button>`}</div>`;}).join('')}</div></section>`;
 }
 
 function renderPlayerModal(){
