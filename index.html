@@ -248,6 +248,9 @@
   tr.clickable:hover td{background:var(--bg);}
   .name-cell{font-weight:700;}
   .guest-tag{font-size:10px;background:var(--bg);color:var(--muted);padding:2px 7px;border-radius:20px;margin-left:6px;font-weight:700;text-transform:uppercase;}
+  .guest-division-badges{display:inline-flex;align-items:center;gap:5px;margin-left:6px;vertical-align:middle;}
+  .guest-division-badges .guest-tag,.guest-division-badges .division-tag{margin-left:0;}
+  .division-tag{font-size:10px;background:var(--ball-fill);color:var(--ball-on);padding:2px 7px;border-radius:20px;font-weight:800;text-transform:uppercase;}
   .roster-player-cell{display:flex;align-items:center;gap:10px;min-width:180px;}
   .roster-player-name{min-width:0;}
   .mvp-pill{display:inline-flex;align-items:center;justify-content:center;min-width:36px;padding:4px 9px;border-radius:20px;background:var(--ball-fill);color:var(--ball-on);font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:800;border:1px solid var(--ball-hover);}
@@ -310,11 +313,11 @@
   .club-card-metric span{display:block;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-top:2px;font-weight:800;}
   .club-members-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));gap:10px;}
   .club-member-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;border:1px solid var(--line);background:#fff;border-radius:10px;padding:12px;min-width:0;}
-  .club-member-profile{grid-column:1/-1;display:flex;align-items:center;gap:10px;min-width:0;width:100%;border:0;background:transparent;color:inherit;text-align:left;padding:0;}
+  .club-member-profile{grid-column:1/-1;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;min-width:0;width:100%;border:0;background:transparent;color:inherit;text-align:left;padding:0;}
   .club-member-row-copy{min-width:0;flex:1;}
   .club-member-row-copy > strong{display:block;line-height:1.15;overflow-wrap:break-word;}
   .club-member-name-line{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-  .club-member-name-line .my-profile-badge{padding:4px 9px;font-size:10px;margin-left:2px;}
+  .club-member-division{justify-self:end;white-space:nowrap;padding:4px 9px;font-size:10px;}
   .club-member-row-stats{display:grid;grid-template-columns:repeat(3,max-content);gap:4px 9px;margin-top:5px;}
   .club-member-row-stats > span{display:block;font-size:9px;color:var(--muted);white-space:nowrap;}
   .club-member-row-stats b{color:var(--court-deep);font-family:'IBM Plex Mono',monospace;font-size:10px;}
@@ -1085,6 +1088,8 @@ let state = {
   h2hA: null,
   h2hB: null,
   h2hClubId: 'all',
+  h2hSearchA: '',
+  h2hSearchB: '',
   currentUser: null,      // { uid, email, role:'admin'|'player', playerId }
   myPlayerId: null,       // shortcut to currentUser.playerId, kept for convenience
   showAuthModal: false,
@@ -1825,6 +1830,7 @@ function upsertScheduleLocal(docId, data){
 function scheduleRoundCount(sch){ return Array.isArray(sch&&sch.rounds) ? sch.rounds.length : 0; }
 function scheduleGameCount(sch){ return (sch&&Array.isArray(sch.rounds)) ? sch.rounds.reduce((sum,rd)=>sum+(rd.courts||[]).length,0) : 0; }
 function canManageSchedule(sch){ return !!(state.currentUser && sch && (isAdminForClub(sch.clubId||ACTIVE_CLUB_ID) || sch.createdBy===state.currentUser.uid)); }
+function canManageHistoryGroup(group){ return !!(state.currentUser && group && (canManageSchedule(group.schedule) || group.createdBy===state.currentUser.uid || group.matches.some(m=>m.gamePlanCreatedBy===state.currentUser.uid||isAdminForClub(m.clubId||group.clubId||ACTIVE_CLUB_ID)))); }
 function isScheduleEnded(sch){ return !!(sch && sch.status==='completed'); }
 function isScheduleClosed(sch){ return !!(sch && (sch.status==='completed' || sch.status==='cancelled')); }
 function scheduleStatusLabel(status){
@@ -2044,15 +2050,26 @@ function computeGamePlanMvp(matches){
     .sort((a,b)=>playerName(a.id).localeCompare(playerName(b.id)));
   return {leaders,players,topWins,topLosses,bestDiff};
 }
+function mvpRaceDetail(mvp){
+  const leaders=(mvp&&mvp.leaders)||[];
+  if(!leaders.length) return '';
+  const top=leaders[0];
+  const leaderNames=leaders.map(row=>esc(playerName(row.id))).join(' &amp; ');
+  const tiedLower=(mvp.players||[]).filter(row=>row.wins===top.wins&&row.losses===top.losses&&row.diff<top.diff);
+  const diffText=`${top.diff>0?'+':''}${top.diff}`;
+  const base=`${leaderNames} became ${leaders.length>1?'Co-MVPs':'MVP'} by tying the best W/L at ${top.wins}-${top.losses} and leading the +/- tiebreaker with ${diffText}.`;
+  return tiedLower.length ? `${base} Player${tiedLower.length===1?'':'s'} with the same W/L had lower +/-, so they missed the award.` : base;
+}
 function computeScheduleLeaderboard(sch){
   const rows={};
   schedulePlayers(sch).forEach(pid=>{
-    rows[pid]={id:pid,games:0,wins:0,losses:0,winrate:0};
+    rows[pid]={id:pid,games:0,wins:0,losses:0,diff:0,winrate:0};
   });
   const add=(pid,myScore,oppScore)=>{
     if(!pid) return;
-    const row=rows[pid]||(rows[pid]={id:pid,games:0,wins:0,losses:0,winrate:0});
+    const row=rows[pid]||(rows[pid]={id:pid,games:0,wins:0,losses:0,diff:0,winrate:0});
     row.games++;
+    row.diff+=myScore-oppScore;
     if(myScore>oppScore) row.wins++;
     else if(myScore<oppScore) row.losses++;
   };
@@ -2066,7 +2083,7 @@ function computeScheduleLeaderboard(sch){
   return Object.values(rows).map(row=>({
     ...row,
     winrate:row.games?row.wins/row.games*100:0
-  })).sort((a,b)=>b.wins-a.wins||b.winrate-a.winrate||a.losses-b.losses||playerName(a.id).localeCompare(playerName(b.id),undefined,{sensitivity:'base'}));
+  })).sort((a,b)=>b.wins-a.wins||a.losses-b.losses||b.diff-a.diff||playerName(a.id).localeCompare(playerName(b.id),undefined,{sensitivity:'base'}));
 }
 function openScheduleLeaderboard(id){ state.scheduleLeaderboardOpenId=id; render(); }
 function closeScheduleLeaderboard(){ state.scheduleLeaderboardOpenId=null; render(); }
@@ -2076,6 +2093,9 @@ function computeMvpCounts(useActiveRange=true){
     computeGamePlanMvp(group.matches.filter(isOfficialMatch)).leaders.forEach(row=>{ counts[row.id]=(counts[row.id]||0)+1; });
   });
   return counts;
+}
+function playerGamePlanCount(playerId,useActiveRange=true){
+  return historyGamePlanGroups(useActiveRange).filter(group=>group.matches.some(m=>[...(m.team1||[]),...(m.team2||[])].includes(playerId))).length;
 }
 function clubMemberMatches(clubId,useActiveRange){
   const memberIds=new Set(membersForClub(clubId).map(p=>p.id));
@@ -2700,6 +2720,14 @@ function playerDivisionLabel(player){
 function playerDivisionBadge(player){
   const meta=divisionMeta(playerDivisionValue(player));
   return `<span class="guest-tag" title="${esc(meta.label)} division" aria-label="${esc(meta.label)} division">${esc(meta.abbr)}</span>`;
+}
+function playerRosterBadges(player){
+  if(!player) return '';
+  if(player.guest){
+    const meta=divisionMeta(playerDivisionValue(player));
+    return `<span class="guest-division-badges"><span class="guest-tag">Guest</span><span class="division-tag" title="${esc(meta.label)} division" aria-label="${esc(meta.label)} division">${esc(meta.abbr)}</span></span>`;
+  }
+  return playerDivisionBadge(player);
 }
 const DIVISION_TIPS={
   novice:[
@@ -3552,6 +3580,69 @@ async function deletePlayer(id){
   render();
   toast('Player removed');
 }
+function replacePlayerIdList(list,fromId,toId){
+  return [...new Set((list||[]).map(id=>id===fromId?toId:id))];
+}
+function replacePlayerIdInRounds(rounds,fromId,toId){
+  return (rounds||[]).map(rd=>({
+    ...rd,
+    sitOuts:replacePlayerIdList(rd.sitOuts,fromId,toId),
+    courts:(rd.courts||[]).map(ct=>({
+      ...ct,
+      team1:replacePlayerIdList(ct.team1,fromId,toId),
+      team2:replacePlayerIdList(ct.team2,fromId,toId)
+    }))
+  }));
+}
+async function migrateGuestToRegisteredPlayer(guestId){
+  if(!isSuperAdmin()){ toast('Only a platform administrator can migrate guest history'); return; }
+  const guest=state.players.find(p=>p.id===guestId&&p.guest);
+  if(!guest){ toast('Choose a guest player to migrate'); return; }
+  const candidates=state.players.filter(p=>p.id!==guestId&&!p.guest&&p.ownerUid).sort((a,b)=>{
+    const sameA=normalizePlayerSearch(a.name)===normalizePlayerSearch(guest.name)?0:1;
+    const sameB=normalizePlayerSearch(b.name)===normalizePlayerSearch(guest.name)?0:1;
+    return sameA-sameB||a.name.localeCompare(b.name);
+  }).slice(0,12);
+  if(!candidates.length){ toast('No registered player profiles found to migrate into'); return; }
+  const choice=prompt(`Migrate ${guest.name}'s guest history to which registered player?\n\n${candidates.map((p,i)=>`${i+1}. ${p.name}`).join('\n')}\n\nEnter a number.`);
+  const index=Number(choice)-1;
+  const target=candidates[index];
+  if(!target){ toast('Migration cancelled'); return; }
+  if(!confirm(`Move all games and Game Plan slots from guest ${guest.name} to registered player ${target.name}, then remove the guest profile?`)) return;
+  const now=new Date().toISOString();
+  const affectedMatches=state.matches.filter(m=>[...(m.team1||[]),...(m.team2||[])].includes(guestId));
+  const affectedSchedules=state.schedules.filter(s=>schedulePlayers(s).includes(guestId));
+  const targetUpdate={
+    guest:false,
+    migratedGuestIds:[...new Set([...(target.migratedGuestIds||[]),guestId])],
+    migratedGuestNames:[...new Set([...(target.migratedGuestNames||[]),guest.name])],
+    updatedAt:now
+  };
+  if(!target.division&&guest.division) targetUpdate.division=guest.division;
+  try{
+    if(typeof db.batch==='function'){
+      const batch=db.batch();
+      affectedMatches.forEach(m=>batch.set(MATCHES_COL.doc(m.id),{team1:replacePlayerIdList(m.team1,guestId,target.id),team2:replacePlayerIdList(m.team2,guestId,target.id),updatedAt:now,migratedGuestId:guestId,migratedToPlayerId:target.id},{merge:true}));
+      affectedSchedules.forEach(s=>batch.set(SCHEDULES_COL.doc(scheduleDocId(s)),{selectedPlayerIds:replacePlayerIdList(schedulePlayers(s),guestId,target.id),rounds:replacePlayerIdInRounds(s.rounds,guestId,target.id),updatedAt:now,migratedGuestId:guestId,migratedToPlayerId:target.id},{merge:true}));
+      batch.set(PLAYERS_COL.doc(target.id),targetUpdate,{merge:true});
+      batch.delete(PLAYERS_COL.doc(guestId));
+      await batch.commit();
+    }else{
+      await Promise.all([
+        ...affectedMatches.map(m=>MATCHES_COL.doc(m.id).set({team1:replacePlayerIdList(m.team1,guestId,target.id),team2:replacePlayerIdList(m.team2,guestId,target.id),updatedAt:now,migratedGuestId:guestId,migratedToPlayerId:target.id},{merge:true})),
+        ...affectedSchedules.map(s=>SCHEDULES_COL.doc(scheduleDocId(s)).set({selectedPlayerIds:replacePlayerIdList(schedulePlayers(s),guestId,target.id),rounds:replacePlayerIdInRounds(s.rounds,guestId,target.id),updatedAt:now,migratedGuestId:guestId,migratedToPlayerId:target.id},{merge:true})),
+        PLAYERS_COL.doc(target.id).set(targetUpdate,{merge:true}),
+        PLAYERS_COL.doc(guestId).delete()
+      ]);
+    }
+  }catch(e){ console.error(e); toast('Could not migrate guest history'); return; }
+  state.matches=state.matches.map(m=>affectedMatches.some(x=>x.id===m.id)?{...m,team1:replacePlayerIdList(m.team1,guestId,target.id),team2:replacePlayerIdList(m.team2,guestId,target.id),updatedAt:now}:m);
+  state.schedules=state.schedules.map(s=>affectedSchedules.some(x=>scheduleDocId(x)===scheduleDocId(s))?normalizeScheduleDoc(scheduleDocId(s),{...stripScheduleMeta(s),selectedPlayerIds:replacePlayerIdList(schedulePlayers(s),guestId,target.id),rounds:replacePlayerIdInRounds(s.rounds,guestId,target.id),updatedAt:now}):s);
+  state.players=state.players.filter(p=>p.id!==guestId).map(p=>p.id===target.id?{...p,...targetUpdate}:p);
+  state.playerModalId=null;
+  render();
+  toast(`Guest history migrated to ${target.name}`);
+}
 async function submitAddPlayerForm(ev){
   ev.preventDefault();
   if(!isSuperAdmin()){ toast('Use Club Hub to add a member inside your club'); return; }
@@ -3832,7 +3923,7 @@ async function addGuestForSchedule(){
   const divisionEl=document.getElementById('guestQuickDivision');
   const name=input ? input.value : '';
   if(!name.trim()) return;
-  const p=await addPlayer(name,true,(state.scheduleDraft&&state.scheduleDraft.clubId)||'independent',divisionEl&&divisionEl.value);
+  const p=await addPlayer(name,true,'independent',divisionEl&&divisionEl.value);
   if(p){
     if(!state.players.some(player=>player.id===p.id)) state.players=[...state.players,p];
     state.scheduleSelection.add(p.id);
@@ -3948,7 +4039,7 @@ async function addLatePlayerToSchedule(scheduleId){
   if(!playerId){
     const name=guestInput?guestInput.value:'';
     if(!name.trim()){ toast('Choose a registered player or enter a walk-in guest'); return; }
-    const p=await addPlayer(name,true,sch.clubId||'independent',divisionEl&&divisionEl.value);
+    const p=await addPlayer(name,true,'independent',divisionEl&&divisionEl.value);
     if(!p) return;
     if(!state.players.some(player=>player.id===p.id)) state.players=[...state.players,p];
     playerId=p.id;
@@ -4204,6 +4295,32 @@ async function deleteGamePlan(id){
   backToScheduleList();
   toast('Game Plan deleted');
 }
+async function deleteGamePlanHistory(key){
+  const group=historyGamePlanGroups(false).find(g=>g.key===key);
+  if(!group){ toast('History group not found'); return; }
+  if(!canManageHistoryGroup(group)){ toast('Only the Game Plan creator or this Club Admin can delete this history'); return; }
+  const matchCount=group.matches.length;
+  if(!confirm(`Delete this Game Plan history and ${matchCount} recorded game${matchCount===1?'':'s'}? This cannot be undone.`)) return;
+  try{
+    if(typeof db.batch==='function'){
+      const batch=db.batch();
+      group.matches.forEach(m=>batch.delete(MATCHES_COL.doc(m.id)));
+      if(group.scheduleId) batch.delete(SCHEDULES_COL.doc(group.scheduleId));
+      await batch.commit();
+    }else{
+      await Promise.all([
+        ...group.matches.map(m=>MATCHES_COL.doc(m.id).delete()),
+        ...(group.scheduleId?[SCHEDULES_COL.doc(group.scheduleId).delete()]:[])
+      ]);
+    }
+  }catch(e){ console.error(e); toast('Could not delete this Game Plan history'); return; }
+  const deletedIds=new Set(group.matches.map(m=>m.id));
+  state.matches=state.matches.filter(m=>!deletedIds.has(m.id));
+  if(group.scheduleId) state.schedules=state.schedules.filter(s=>scheduleDocId(s)!==group.scheduleId);
+  state.historyGroupKey=null;
+  render();
+  toast('Game Plan history deleted');
+}
 async function endGamePlan(id){
   const sch=scheduleById(id);
   if(!sch) return;
@@ -4315,7 +4432,7 @@ async function recordCourtResult(scheduleId,round,court,allowLate){
     round,status:'completed',clubId:sch.clubId||ACTIVE_CLUB_ID,recordedByUid:state.currentUser.uid,recordedByPlayerId:state.myPlayerId||null,createdAt:now,
     verificationStatus,confirmedByUid:clubAdminEntry?state.currentUser.uid:null,confirmedAt:clubAdminEntry?now:null,
     recordedAfterPlanEnd:afterEnd,
-    gamePlanTitle:sch.title||'',gamePlanVenueName:sch.venueName||'',gamePlanCreatorName:sch.creatorName||'',gamePlanCourts:Number(sch.courts)||1
+    gamePlanTitle:sch.title||'',gamePlanVenueName:sch.venueName||'',gamePlanCreatorName:sch.creatorName||'',gamePlanCreatedBy:sch.createdBy||'',gamePlanCourts:Number(sch.courts)||1
   };
   const recorded={...(sch.recorded||{}),[recKey]:matchId};
   const allGameKeys=(sch.rounds||[]).flatMap(r=>(r.courts||[]).map(c=>`${r.round}_${c.court}`));
@@ -4675,7 +4792,7 @@ function renderDashboard(){
   const mvpCounts=computeMvpCounts();
   let priorMvpCount=null,priorMvpRank=0;
   const mvpLeaders=state.players
-    .map(p=>({p,s:computePlayerStats(p.id),mvp:mvpCounts[p.id]||0}))
+    .map(p=>({p,s:computePlayerStats(p.id),mvp:mvpCounts[p.id]||0,gamePlans:playerGamePlanCount(p.id)}))
     .filter(x=>x.mvp>0)
     .sort((a,b)=>b.mvp-a.mvp||b.s.wins-a.s.wins||a.s.losses-b.s.losses||a.p.name.localeCompare(b.p.name,undefined,{sensitivity:'base'}))
     .slice(0,5)
@@ -4746,7 +4863,7 @@ function renderDashboard(){
           <div class="board-row">
             <span class="rank">${x.rank}</span>
             ${avatarHTML(x.p,26)}
-            <span class="board-name">${esc(x.p.name)}<div class="board-sub">${x.s.wins}-${x.s.losses} W/L &middot; ${x.s.gamesPlayed} games</div></span>
+            <span class="board-name">${esc(x.p.name)}<div class="board-sub">${x.s.wins}-${x.s.losses} W/L - ${x.gamePlans} Game Plan${x.gamePlans===1?'':'s'} - ${x.s.gamesPlayed} games</div></span>
             ${mvpPill(x.mvp)}
           </div>`).join(''):`<div class="empty" style="padding:24px 8px;"><p>No MVP awarded in ${esc(activeDateRangeLabel())}.</p></div>`}
       </div>
@@ -4898,7 +5015,7 @@ function renderClubDirectory() {
     <div class="divider"></div>
     <div class="section-title"><div><div class="eyebrow">Club directory</div><h2>${esc(selected.name)} members</h2></div><span class="diff-pill diff-zero">${filteredMembers.length}/${selectedMembers.length} shown</span></div>
     <div class="club-role-filters" role="tablist" aria-label="Filter club members by role">${['all','club_admin','co_admin','staff','member'].map(role=>`<button class="club-role-filter ${activeRoleFilter===role?'active':''}" type="button" role="tab" aria-selected="${activeRoleFilter===role?'true':'false'}" onclick="setClubProfileRoleFilter(${jsArg(role)})">${esc(roleFilterLabels[role])} - ${roleFilterCounts[role]||0}</button>`).join('')}</div>
-    ${selectedMembers.length?filteredMembers.length?`<div class="club-members-grid" style="margin-top:12px;">${filteredMembers.map(player=>{const stats=computePlayerClubStats(player.id,selected.id,false),mvp=selectedMvpCounts[player.id]||0,role=clubRoleForPlayer(selected.id,player);return `<div class="club-member-row"><button type="button" class="club-member-profile" onclick="openPlayerProfile(${jsArg(player.id)},{source:'clubHub',clubId:${jsArg(selected.id)}})">${avatarHTML(player,38)}<span class="club-member-row-copy"><strong class="club-member-name-line"><span>${esc(playerFirstName(player))}</span><span class="my-profile-badge">${esc(playerDivisionLabel(player))}</span></strong>${isSignedIn()?`<span class="club-member-row-stats"><span><b>${stats.gamesPlayed}</b> games</span><span><b>${stats.wins}-${stats.losses}</b> W/L</span><span><b>${mvp}</b> MVP</span></span>`:'<span class="profile-stats-locked">Sign in to view stats</span>'}</span></button>${role!=='member'?`<span class="club-chip ${role==='staff'?'staff':'admin'}">${esc(clubRoleLabel(role))}</span>`:''}${canManage&&player.id!==state.myPlayerId&&role!=='club_admin'?`<button class="btn btn-danger btn-sm" type="button" onclick="removeClubMember(${jsArg(selected.id)},${jsArg(player.id)})">Remove</button>`:''}${player.id===state.myPlayerId&&role==='club_admin'?'<span class="club-chip admin">You - Admin</span>':''}</div>`;}).join('')}</div>`:`<div class="empty"><p>No members match this role filter.</p></div>`:`<div class="empty"><h3>No approved members yet</h3><p>${canManage?'Review pending requests or add an existing CourtRush player.':'This club has not listed members yet.'}</p></div>`}    ${canManage?renderClubAdminPanel(selected,availablePlayers):''}
+    ${selectedMembers.length?filteredMembers.length?`<div class="club-members-grid" style="margin-top:12px;">${filteredMembers.map(player=>{const stats=computePlayerClubStats(player.id,selected.id,false),mvp=selectedMvpCounts[player.id]||0,role=clubRoleForPlayer(selected.id,player);return `<div class="club-member-row"><button type="button" class="club-member-profile" onclick="openPlayerProfile(${jsArg(player.id)},{source:'clubHub',clubId:${jsArg(selected.id)}})">${avatarHTML(player,38)}<span class="club-member-row-copy"><strong class="club-member-name-line"><span>${esc(playerFirstName(player))}</span></strong>${isSignedIn()?`<span class="club-member-row-stats"><span><b>${stats.gamesPlayed}</b> games</span><span><b>${stats.wins}-${stats.losses}</b> W/L</span><span><b>${mvp}</b> MVP</span></span>`:'<span class="profile-stats-locked">Sign in to view stats</span>'}</span><span class="my-profile-badge club-member-division">${esc(playerDivisionLabel(player))}</span></button>${role!=='member'?`<span class="club-chip ${role==='staff'?'staff':'admin'}">${esc(clubRoleLabel(role))}</span>`:''}${canManage&&player.id!==state.myPlayerId&&role!=='club_admin'?`<button class="btn btn-danger btn-sm" type="button" onclick="removeClubMember(${jsArg(selected.id)},${jsArg(player.id)})">Remove</button>`:''}${player.id===state.myPlayerId&&role==='club_admin'?'<span class="club-chip admin">You - Admin</span>':''}</div>`;}).join('')}</div>`:`<div class="empty"><p>No members match this role filter.</p></div>`:`<div class="empty"><h3>No approved members yet</h3><p>${canManage?'Review pending requests or add an existing CourtRush player.':'This club has not listed members yet.'}</p></div>`}    ${canManage?renderClubAdminPanel(selected,availablePlayers):''}
   </section></div></div>`:''}`;
 }
 
@@ -4922,7 +5039,7 @@ function renderProfileClubDetailModal(){
       ${!isSignedIn()?`<div class="empty" style="padding:22px 10px;"><h3>Sign in to view player stats</h3><p>Top player records are available after signing in or registering.</p><button class="btn btn-ball" type="button" onclick="openAuthModal('login')">Sign in</button></div>`:leaders.length?`<div class="club-leaderboard">${leaders.map(row=>`<button type="button" class="club-leader" onclick="openPlayerProfile(${jsArg(row.player.id)},{source:'clubHub',clubId:${jsArg(selected.id)}})"><span class="club-leader-rank">${row.rank}</span>${avatarHTML(row.player,36)}<span class="club-leader-copy"><strong>${esc(row.player.name)}</strong><span>${row.stats.wins}-${row.stats.losses} W/L &middot; ${row.stats.gamesPlayed} games</span></span>${mvpPill(row.mvp)}</button>`).join('')}</div>`:`<div class="empty" style="padding:22px 10px;"><p>No club member has earned an MVP award overall.</p></div>`}
       <div class="divider"></div>
       <div class="section-title"><div><div class="eyebrow">Club directory</div><h2>${esc(selected.name)} members</h2></div><span class="diff-pill diff-zero">${filteredMembers.length}/${selectedMembers.length} shown</span></div>
-      ${selectedMembers.length?`<div class="club-members-grid" style="margin-top:12px;">${filteredMembers.map(player=>{const stats=computePlayerClubStats(player.id,selected.id,false),mvp=selectedMvpCounts[player.id]||0,role=clubRoleForPlayer(selected.id,player);return `<div class="club-member-row"><button type="button" class="club-member-profile" onclick="openPlayerProfile(${jsArg(player.id)},{source:'clubHub',clubId:${jsArg(selected.id)}})">${avatarHTML(player,38)}<span class="club-member-row-copy"><strong class="club-member-name-line"><span>${esc(playerFirstName(player))}</span><span class="my-profile-badge">${esc(playerDivisionLabel(player))}</span></strong>${isSignedIn()?`<span class="club-member-row-stats"><span><b>${stats.gamesPlayed}</b> games</span><span><b>${stats.wins}-${stats.losses}</b> W/L</span><span><b>${mvp}</b> MVP</span></span>`:'<span class="profile-stats-locked">Sign in to view stats</span>'}</span></button>${role!=='member'?`<span class="club-chip ${role==='staff'?'staff':'admin'}">${esc(clubRoleLabel(role))}</span>`:''}${player.id===state.myPlayerId&&role==='club_admin'?'<span class="club-chip admin">You - Admin</span>':''}</div>`;}).join('')}</div>`:`<div class="empty"><h3>No approved members yet</h3><p>This club has not listed members yet.</p></div>`}
+      ${selectedMembers.length?`<div class="club-members-grid" style="margin-top:12px;">${filteredMembers.map(player=>{const stats=computePlayerClubStats(player.id,selected.id,false),mvp=selectedMvpCounts[player.id]||0,role=clubRoleForPlayer(selected.id,player);return `<div class="club-member-row"><button type="button" class="club-member-profile" onclick="openPlayerProfile(${jsArg(player.id)},{source:'clubHub',clubId:${jsArg(selected.id)}})">${avatarHTML(player,38)}<span class="club-member-row-copy"><strong class="club-member-name-line"><span>${esc(playerFirstName(player))}</span></strong>${isSignedIn()?`<span class="club-member-row-stats"><span><b>${stats.gamesPlayed}</b> games</span><span><b>${stats.wins}-${stats.losses}</b> W/L</span><span><b>${mvp}</b> MVP</span></span>`:'<span class="profile-stats-locked">Sign in to view stats</span>'}</span><span class="my-profile-badge club-member-division">${esc(playerDivisionLabel(player))}</span></button>${role!=='member'?`<span class="club-chip ${role==='staff'?'staff':'admin'}">${esc(clubRoleLabel(role))}</span>`:''}${player.id===state.myPlayerId&&role==='club_admin'?'<span class="club-chip admin">You - Admin</span>':''}</div>`;}).join('')}</div>`:`<div class="empty"><h3>No approved members yet</h3><p>This club has not listed members yet.</p></div>`}
     </section>
   </div>
   </div>`;
@@ -4994,24 +5111,24 @@ function renderRoster(){
     </div>
     ${rows.length?`<table class="roster-desktop-table">
       <thead><tr>
-        <th>${rosterSortHeader('name','Name')}</th><th>${rosterSortHeader('clubs','Clubs')}</th><th>${rosterSortHeader('games','Games')}</th><th>${rosterSortHeader('record','W - L')}</th><th>${rosterSortHeader('mvp','MVP')}</th>${isSuperAdmin() ? '<th>Delete profile</th>' : ''}
+        <th>${rosterSortHeader('name','Name')}</th><th>${rosterSortHeader('clubs','Clubs')}</th><th>${rosterSortHeader('games','Games')}</th><th>${rosterSortHeader('record','W - L')}</th><th>${rosterSortHeader('mvp','MVP')}</th>${isSuperAdmin() ? '<th>Admin action</th>' : ''}
       </tr></thead>
       <tbody>
         ${rows.map(row=>{
           const p=row.player,s=row.stats;
           return `<tr class="clickable" onclick="openPlayerProfile(${jsArg(p.id)})">
-            <td class="name-cell"><div class="roster-player-cell">${avatarHTML(p,34)}<div class="roster-player-name">${esc(p.name)}${p.guest?'<span class="guest-tag">Guest</span>':playerDivisionBadge(p)}</div></div></td>
+            <td class="name-cell"><div class="roster-player-cell">${avatarHTML(p,34)}<div class="roster-player-name">${esc(p.name)}${playerRosterBadges(p)}</div></div></td>
             <td><div class="club-chip-list">${renderPlayerTopClubChip(p)}</div></td>
             <td class="mono">${isSignedIn()?s.gamesPlayed:'--'}</td>
             <td class="mono">${isSignedIn()?`${s.wins}-${s.losses}`:'--'}</td>
             <td>${isSignedIn()?mvpPill(row.mvp):'<span class="profile-stats-locked">Sign in</span>'}</td>
-            ${isSuperAdmin() ? `<td onclick="event.stopPropagation();"><button class="btn btn-danger btn-sm" onclick="deletePlayer(${jsArg(p.id)})">Delete</button></td>` : ''}
+            ${isSuperAdmin() ? `<td onclick="event.stopPropagation();">${p.guest?`<button class="btn btn-primary btn-sm" onclick="migrateGuestToRegisteredPlayer(${jsArg(p.id)})">Migrate</button>`:`<button class="btn btn-danger btn-sm" onclick="deletePlayer(${jsArg(p.id)})">Delete</button>`}</td>` : ''}
           </tr>`;
         }).join('')}
       </tbody>
     </table>
     <div class="roster-mobile-cards">
-      ${rows.map(row=>{const p=row.player,s=row.stats;return `<article class="roster-member-card"><div class="roster-member-head" onclick="openPlayerProfile(${jsArg(p.id)})">${avatarHTML(p,38)}<strong>${esc(p.name)}${p.guest?'<span class="guest-tag">Guest</span>':playerDivisionBadge(p)}</strong></div><div class="club-chip-list">${renderPlayerTopClubChip(p)}</div>${isSignedIn()?`<div class="roster-member-stats"><div class="roster-member-stat"><strong>${s.gamesPlayed}</strong><span>Games</span></div><div class="roster-member-stat"><strong>${s.wins}-${s.losses}</strong><span>W - L</span></div><div class="roster-member-stat"><strong>${row.mvp}</strong><span>MVP</span></div></div>`:'<span class="profile-stats-locked">Sign in to view stats</span>'}${isSuperAdmin()?`<button class="btn btn-danger btn-sm" style="width:100%;margin-top:9px;" onclick="deletePlayer(${jsArg(p.id)})">Delete profile</button>`:''}</article>`;}).join('')}
+      ${rows.map(row=>{const p=row.player,s=row.stats;return `<article class="roster-member-card"><div class="roster-member-head" onclick="openPlayerProfile(${jsArg(p.id)})">${avatarHTML(p,38)}<strong>${esc(p.name)}${playerRosterBadges(p)}</strong></div><div class="club-chip-list">${renderPlayerTopClubChip(p)}</div>${isSignedIn()?`<div class="roster-member-stats"><div class="roster-member-stat"><strong>${s.gamesPlayed}</strong><span>Games</span></div><div class="roster-member-stat"><strong>${s.wins}-${s.losses}</strong><span>W - L</span></div><div class="roster-member-stat"><strong>${row.mvp}</strong><span>MVP</span></div></div>`:'<span class="profile-stats-locked">Sign in to view stats</span>'}${isSuperAdmin()?p.guest?`<button class="btn btn-primary btn-sm" style="width:100%;margin-top:9px;" onclick="migrateGuestToRegisteredPlayer(${jsArg(p.id)})">Migrate to registered player</button>`:`<button class="btn btn-danger btn-sm" style="width:100%;margin-top:9px;" onclick="deletePlayer(${jsArg(p.id)})">Delete profile</button>`:''}</article>`;}).join('')}
     </div>`:`<div class="empty"><h3>No members in the selected clubs</h3><p>Tick one or more club names to show matching members.</p><button class="btn btn-ghost" type="button" onclick="selectAllRosterClubFilters()">Show all clubs</button></div>`}`}
   </div>`;
 }
@@ -5359,14 +5476,55 @@ function renderPlayerModal(){
 function setH2H(which, id){
   if(which==='a') state.h2hA = id || null;
   else state.h2hB = id || null;
+  if(which==='a') state.h2hSearchA = '';
+  else state.h2hSearchB = '';
   render();
+}
+function setH2HSearch(which,value,input){
+  const next=String(value||'').trimStart().slice(0,80);
+  if(which==='a') state.h2hSearchA=next;
+  else state.h2hSearchB=next;
+  if(input&&input.value!==next) input.value=next;
+  const field=input?input.closest('.field'):null;
+  const select=field?field.querySelector('select'):null;
+  const query=normalizePlayerSearch(next);
+  if(select){
+    Array.from(select.options).forEach(option=>{
+      if(!option.value) return;
+      const match=!query || (option.dataset.playerSearch||'').split(/\s+/).length&&query.split(/\s+/).every(term=>(option.dataset.playerSearch||'').includes(term)) || option.selected;
+      option.hidden=!match;
+    });
+  }
 }
 function setH2HClub(clubId){
   state.h2hClubId=clubId||'all';
+  state.h2hSearchA='';
+  state.h2hSearchB='';
   const roster=state.h2hClubId==='all'?state.players:membersForClub(state.h2hClubId);
   if(!roster.some(p=>p.id===state.h2hA)) state.h2hA=null;
   if(!roster.some(p=>p.id===state.h2hB)) state.h2hB=null;
   render();
+}
+function h2hPlayerOptions(roster,selectedId,query,clubFilter){
+  const normalized=normalizePlayerSearch(query);
+  const rows=normalized ? roster.filter(p=>p.id===selectedId||playerMatchesRegisteredSearch(p,normalized)) : roster;
+  return rows.map(p=>`<option value="${esc(p.id)}" data-player-search="${esc(normalizePlayerSearch(`${p.name||''} ${activePlayerClubIds(p).map(clubName).join(' ')}`))}" ${selectedId===p.id?'selected':''}>${esc(p.name)}${clubFilter==='all'&&activePlayerClubIds(p).length?` - ${activePlayerClubIds(p).map(clubName).map(esc).join(', ')}`:''}</option>`).join('');
+}
+function h2hSearchMenu(which,roster,selectedId,query,clubFilter){
+  const normalized=normalizePlayerSearch(query);
+  const shown=normalized ? roster.filter(p=>p.id===selectedId||playerMatchesRegisteredSearch(p,normalized)) : roster.slice(0,12);
+  const selected=roster.find(p=>p.id===selectedId);
+  const label=selected ? playerName(selectedId) : (query ? `Search: ${query}` : 'Search registered players');
+  return `<details class="invite-search-menu" ${query?'open':''}>
+    <summary>${esc(label)}</summary>
+    <div class="invite-search-options" onclick="event.stopPropagation()">
+      <div class="invite-search-field"><input type="search" value="${esc(query||'')}" placeholder="Search registered players..." aria-label="Search ${which==='a'?'Player A':'Player B'}" oninput="setH2HSearch(${jsArg(which)},this.value,this)" onclick="event.stopPropagation()"/></div>
+      <div class="guest-search-results">
+        ${shown.map(p=>{const clubs=activePlayerClubIds(p);return `<button class="guest-search-option" type="button" onclick="setH2H(${jsArg(which)},${jsArg(p.id)})"><span><strong>${esc(p.name)}</strong><span>${clubFilter==='all'&&clubs.length?clubs.map(clubName).map(esc).join(', '):esc(playerDivisionLabel(p))}</span></span>${playerDivisionBadge(p)}</button>`;}).join('')}
+      </div>
+      <div class="guest-search-empty" ${normalized&&!shown.length?'':'hidden'}>No registered players found.</div>
+    </div>
+  </details>`;
 }
 function renderH2H(){
   const clubFilter=state.h2hClubId||'all';
@@ -5439,14 +5597,10 @@ function renderH2H(){
     <div class="h2h-filter-grid" style="margin-top:14px;">
       <div class="field"><label>Player pool</label><select onchange="setH2HClub(this.value)"><option value="all">All CourtRush players</option>${clubsForDisplay().map(club=>`<option value="${esc(club.id)}" ${clubFilter===club.id?'selected':''}>${esc(club.name)}</option>`).join('')}</select></div>
       <div class="field"><label>Player A</label>
-        <select onchange="setH2H('a', this.value)">
-          <option value="">Select...</option>${roster.map(p=> `<option value="${p.id}" ${a===p.id?'selected':''}>${esc(p.name)}${clubFilter==='all'&&activePlayerClubIds(p).length?` - ${activePlayerClubIds(p).map(clubName).map(esc).join(', ')}`:''}</option>`).join('')}
-        </select>
+        ${h2hSearchMenu('a',roster,a,state.h2hSearchA,clubFilter)}
       </div>
       <div class="field"><label>Player B</label>
-        <select onchange="setH2H('b', this.value)">
-          <option value="">Select...</option>${roster.map(p=> `<option value="${p.id}" ${b===p.id?'selected':''}>${esc(p.name)}${clubFilter==='all'&&activePlayerClubIds(p).length?` - ${activePlayerClubIds(p).map(clubName).map(esc).join(', ')}`:''}</option>`).join('')}
-        </select>
+        ${h2hSearchMenu('b',roster,b,state.h2hSearchB,clubFilter)}
       </div>
     </div>
     <p class="small muted" style="margin:0;">Showing ${roster.length} player${roster.length===1?'':'s'} from ${clubFilter==='all'?'all clubs':esc(clubName(clubFilter))}. Results use ${esc(activeDateRangeSummary())}.</p>
@@ -5943,9 +6097,15 @@ function renderScheduleLeaderboard(sch,full){
   const id=scheduleDocId(sch);
   const rows=computeScheduleLeaderboard(sch);
   const shown=full?rows:rows.slice(0,3);
+  const recordedIds=new Set(Object.values((sch&&sch.recorded)||{}));
+  const officialMatches=state.matches.filter(m=>recordedIds.has(m.id)&&isOfficialMatch(m));
+  const mvp=computeGamePlanMvp(officialMatches);
+  const mvpIds=new Set(mvp.leaders.map(row=>row.id));
+  const showMvpTrophy=isScheduleEnded(sch)&&mvpIds.size>0;
   const rowHtml=(row,index)=>{
     const player=state.players.find(p=>p.id===row.id);
-    const content=`<span class="game-plan-leaderboard-rank">#${index+1}</span><span class="game-plan-leaderboard-player"><span class="game-plan-leaderboard-name"><span>${esc(playerName(row.id))}</span>${player?playerDivisionBadge(player):''}</span><span class="game-plan-leaderboard-stat">${row.wins}-${row.losses} W/L - ${row.winrate.toFixed(0)}% Winrate</span></span>`;
+    const trophy=showMvpTrophy&&mvpIds.has(row.id)?'<span title="MVP">🏆</span>':'';
+    const content=`<span class="game-plan-leaderboard-rank">#${index+1}</span><span class="game-plan-leaderboard-player"><span class="game-plan-leaderboard-name"><span>${esc(playerName(row.id))}</span>${trophy}${player?playerDivisionBadge(player):''}</span><span class="game-plan-leaderboard-stat">${row.wins}-${row.losses} W/L - ${row.diff>0?'+':''}${row.diff} +/- - ${row.winrate.toFixed(0)}% Winrate</span></span>`;
     return full?`<div class="game-plan-leaderboard-row">${content}</div>`:`<button class="game-plan-leaderboard-row clickable" type="button" onclick="openScheduleLeaderboard(${jsArg(id)})">${content}</button>`;
   };
   return `<section class="game-plan-leaderboard" aria-label="Game Plan Leaderboard">
@@ -5985,6 +6145,7 @@ function historyGamePlanGroups(useActiveRange=true){
         title:(sch&&sch.title)||m.gamePlanTitle||`${mode.label} Game Plan`,
         venueName:(sch&&sch.venueName)||m.gamePlanVenueName||'',
         clubId:(sch&&sch.clubId)||m.clubId||ACTIVE_CLUB_ID,
+        createdBy:(sch&&sch.createdBy)||m.gamePlanCreatedBy||'',
         creatorName:(sch&&sch.creatorName)||m.gamePlanCreatorName||'',
         date:(sch&&sch.date)||m.date||'',
         startTime:(sch&&sch.startTime)||m.startTime||'',
@@ -6017,15 +6178,18 @@ function renderHistory(){
     const officialMatches=active.matches.filter(isOfficialMatch);
     const mvp=computeGamePlanMvp(officialMatches);
     const mvpLabel=mvp.leaders.length>1?'Co-MVPs':'MVP';
+    const mvpDetail=mvpRaceDetail(mvp);
+    const historyMvpTrophy=status==='completed'?'🏆 ':'';
     const canDeleteAny=active.matches.some(m=>isAdminForClub(m.clubId||ACTIVE_CLUB_ID));
+    const canDeleteGroup=canManageHistoryGroup(active);
     return `
     <section class="panel history-plan-card">
       <button class="link-btn" type="button" onclick="backToHistoryPlans()">&larr; Back to Game Plans</button>
       <div class="history-plan-head" style="margin-top:14px;">
         <div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span class="mode-badge">${esc(active.mode.short)}</span><span class="club-chip">${esc(active.clubId==='independent'?'Independent':clubName(active.clubId))}</span>${status?`<span class="status-badge ${esc(status)}">${esc(scheduleStatusLabel(status))}</span>`:''}</div><h2>${esc(active.title)}</h2><p class="history-plan-meta">${active.date?fmtDate(active.date):'Date unavailable'} &middot; ${formatTime(active.startTime)}${active.venueName?` &middot; ${esc(active.venueName)}`:''}${active.creatorName?` &middot; Game Plan by ${esc(active.creatorName)}`:''}</p></div>
-        <span class="diff-pill diff-zero">${officialMatches.length}/${active.matches.length} confirmed</span>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;"><span class="diff-pill diff-zero">${officialMatches.length}/${active.matches.length} confirmed</span>${canDeleteGroup?`<button class="btn btn-danger btn-sm" type="button" onclick="deleteGamePlanHistory(${jsArg(active.key)})">Delete Game Plan history</button>`:''}</div>
       </div>
-      ${mvp.leaders.length?`<div class="history-mvp"><div class="history-mvp-label">${mvpLabel}</div><div class="history-mvp-names">${mvp.leaders.map(row=>esc(playerName(row.id))).join(' &amp; ')}</div><div class="history-mvp-detail">${mvp.leaders.map(row=>`${row.wins}-${row.losses} W/L &middot; ${row.diff>0?'+':''}${row.diff} +/-`).join(' &middot; ')}</div></div>`:`<div class="history-mvp empty"><div class="history-mvp-label">MVP</div><div class="history-mvp-detail">${officialMatches.length?'No award: the best W/L record and the highest total +/- belong to different players.':'Awaiting a confirmed result before an MVP can be awarded.'}</div></div>`}
+      ${mvp.leaders.length?`<div class="history-mvp"><div class="history-mvp-label">${mvpLabel}</div><div class="history-mvp-names">${historyMvpTrophy}${mvp.leaders.map(row=>esc(playerName(row.id))).join(' &amp; ')}</div><div class="history-mvp-detail">${mvpDetail}</div></div>`:`<div class="history-mvp empty"><div class="history-mvp-label">MVP</div><div class="history-mvp-detail">${officialMatches.length?`No award: the best W/L record and the highest total +/- belong to different players. ${mvpDetail}`:'Awaiting a confirmed result before an MVP can be awarded.'}</div></div>`}
       <div class="history-table-wrap" style="margin-top:14px;"><table><thead><tr><th>Round</th><th>Court</th><th>Team 1</th><th>Team 2</th><th>Score</th><th>Status &amp; review</th>${canDeleteAny?'<th></th>':''}</tr></thead><tbody>
         ${active.matches.map(m=>`<tr><td class="mono small">${m.round?`#${esc(m.round)}`:'-'}</td><td class="mono small">${esc(m.court||'-')}</td><td>${(m.team1||[]).map(playerName).map(esc).join(' &amp; ')}</td><td>${(m.team2||[]).map(playerName).map(esc).join(' &amp; ')}</td><td class="mono">${Number(m.score1)} &ndash; ${Number(m.score2)}</td><td>${verificationBadge(m)}${m.disputeReason?`<div class="dispute-note">${esc(m.disputeReason)}</div>`:''}${resultReviewActions(m)}</td>${canDeleteAny?`<td>${isAdminForClub(m.clubId||ACTIVE_CLUB_ID)?`<button class="btn btn-danger btn-sm" onclick="deleteMatch(${jsArg(m.id)})">Delete</button>`:''}</td>`:''}</tr>`).join('')}
       </tbody></table></div>
@@ -6036,7 +6200,8 @@ function renderHistory(){
   <div class="panel"><div class="history-plan-list">${groups.map(group=>{
     const officialMatches=group.matches.filter(isOfficialMatch);
     const mvp=computeGamePlanMvp(officialMatches);
-    return `<button type="button" class="history-plan-card-button" onclick="openHistoryGroup(${jsArg(group.key)})"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span class="mode-badge">${esc(group.mode.short)}</span><span class="club-chip">${esc(group.clubId==='independent'?'Independent':clubName(group.clubId))}</span>${group.status?`<span class="status-badge ${esc(group.status)}">${esc(scheduleStatusLabel(group.status))}</span>`:''}</div><h2 style="margin-top:12px;">${esc(group.title)}</h2><p class="history-plan-meta">${group.date?fmtDate(group.date):'Date unavailable'} &middot; ${formatTime(group.startTime)}${group.venueName?` &middot; ${esc(group.venueName)}`:''}</p><div class="history-mvp-detail">${mvp.leaders.length?`${mvp.leaders.length>1?'Co-MVPs':'MVP'}: ${mvp.leaders.map(row=>esc(playerName(row.id))).join(' &amp; ')}`:(officialMatches.length?'No MVP awarded':'Awaiting confirmation')} &middot; ${officialMatches.length}/${group.matches.length} confirmed</div><span class="history-view-link">View games &rarr;</span></button>`;
+    const trophy=group.status==='completed'&&mvp.leaders.length?'🏆 ':'';
+    return `<button type="button" class="history-plan-card-button" onclick="openHistoryGroup(${jsArg(group.key)})"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span class="mode-badge">${esc(group.mode.short)}</span><span class="club-chip">${esc(group.clubId==='independent'?'Independent':clubName(group.clubId))}</span>${group.status?`<span class="status-badge ${esc(group.status)}">${esc(scheduleStatusLabel(group.status))}</span>`:''}</div><h2 style="margin-top:12px;">${esc(group.title)}</h2><p class="history-plan-meta">${group.date?fmtDate(group.date):'Date unavailable'} &middot; ${formatTime(group.startTime)}${group.venueName?` &middot; ${esc(group.venueName)}`:''}</p><div class="history-mvp-detail">${mvp.leaders.length?`${trophy}${mvp.leaders.length>1?'Co-MVPs':'MVP'}: ${mvp.leaders.map(row=>esc(playerName(row.id))).join(' &amp; ')} - ${mvp.leaders.map(row=>`${row.diff>0?'+':''}${row.diff} +/-`).join(', ')}`:(officialMatches.length?'No MVP awarded':'Awaiting confirmation')} &middot; ${officialMatches.length}/${group.matches.length} confirmed</div><span class="history-view-link">View games &rarr;</span></button>`;
   }).join('')}</div></div>`;
 }
 /* ============================= MISC WIRING ============================= */
@@ -6074,6 +6239,7 @@ document.addEventListener('keydown',event=>{
 </script>
 </body>
 </html>
+
 
 
 
