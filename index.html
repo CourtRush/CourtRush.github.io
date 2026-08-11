@@ -427,6 +427,9 @@
   .team-names{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:0;}
   .team-separator{color:rgba(255,255,255,0.72);font-weight:700;}
   .player-name-self{display:inline-flex;align-items:center;gap:5px;background:var(--ball-fill);color:var(--ball-on);padding:3px 7px;border-radius:7px;font-weight:800;box-shadow:0 0 0 1px rgba(255,255,255,0.35);}
+  .schedule-player-name{display:inline-flex;align-items:center;gap:5px;min-width:0;}
+  .schedule-division-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#F2FF45;color:#12312D;font:900 9px/1 'IBM Plex Mono',monospace;box-shadow:0 0 0 1px rgba(18,49,45,0.2);}
+  .participant-pill .schedule-division-badge,.paddle-row .schedule-division-badge{background:var(--court-deep);color:#fff;box-shadow:none;}
   .player-you-tag{font-size:8px;line-height:1;letter-spacing:0.08em;text-transform:uppercase;background:var(--hero-end);color:#fff;padding:3px 4px;border-radius:4px;}
   .paddle-row.self-player{background:rgba(214,230,43,0.22);border-color:rgba(169,184,24,0.55);}
   .paddle-row .player-name-self{box-shadow:none;}
@@ -529,6 +532,7 @@
   .invite-search-options{position:absolute;left:0;top:calc(100% + 6px);z-index:35;width:min(420px,100%);max-height:320px;overflow:auto;padding:9px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);}
   .invite-search-field{position:sticky;top:0;z-index:1;background:var(--panel);padding-bottom:8px;}
   .invite-search-field input{width:100%;padding:9px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;font-size:12px;}
+  .guest-search-option[hidden],.guest-search-empty[hidden]{display:none!important;}
   .guest-search-results{display:grid;gap:4px;}
   .guest-search-option{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;border:0;border-radius:8px;background:transparent;color:var(--ink);padding:8px;text-align:left;font:inherit;cursor:pointer;}
   .guest-search-option:hover{background:var(--bg);}
@@ -543,6 +547,19 @@
   .plan-preview::after{content:"";position:absolute;right:-45px;top:-45px;width:170px;height:170px;border-radius:50%;background:radial-gradient(circle,rgba(214,230,43,0.22),rgba(214,230,43,0));}
   .plan-preview > *{position:relative;z-index:1;}
   .plan-preview h2{font-size:27px;color:#fff;}
+  .game-plan-leaderboard{border:1.5px solid var(--line);border-radius:15px;padding:18px;background:#fff;box-shadow:0 8px 24px rgba(10,63,58,0.06);}
+  .game-plan-leaderboard h2{font-size:25px;color:var(--court-deep);line-height:1;margin:5px 0 12px;}
+  .game-plan-leaderboard-list{display:grid;gap:8px;}
+  .game-plan-leaderboard-row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:center;width:100%;border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:10px;text-align:left;color:inherit;font:inherit;}
+  .game-plan-leaderboard-row.clickable{cursor:pointer;}
+  .game-plan-leaderboard-row.clickable:hover{border-color:var(--court);}
+  .game-plan-leaderboard-rank{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:var(--hero-end);color:#fff;font:800 11px/1 'IBM Plex Mono',monospace;}
+  .game-plan-leaderboard-player{min-width:0;}
+  .game-plan-leaderboard-name{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:900;color:var(--court-deep);line-height:1.15;}
+  .game-plan-leaderboard-stat{margin-top:5px;color:var(--muted);font:800 11px/1.2 'IBM Plex Mono',monospace;}
+  .game-plan-leaderboard-empty{padding:14px;border:1px dashed var(--line);border-radius:10px;color:var(--muted);font-size:12px;line-height:1.4;}
+  .game-plan-leaderboard-full{max-width:760px;}
+  .game-plan-leaderboard-full .game-plan-leaderboard-list{margin-top:14px;}
   .preview-metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-top:14px;}
   .preview-metric{background:rgba(0,0,0,0.17);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:11px;}
   .preview-metric strong{display:block;font-family:'IBM Plex Mono',monospace;font-size:22px;color:var(--ball);}
@@ -562,6 +579,13 @@
   .court-count-filter label{margin-bottom:4px;}
   .court-board-filter{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;}
   .court-board-filter .field{margin:0;min-width:170px;}
+  .schedule-title-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;}
+  .schedule-title-tools .small{white-space:nowrap;}
+  .schedule-inline-date-form{display:flex;align-items:flex-end;gap:6px;flex-wrap:wrap;padding:6px;border:1px solid var(--line);border-radius:10px;background:var(--bg);}
+  .schedule-inline-date-form .exact-date-field{min-width:120px;}
+  .schedule-inline-date-form .exact-date-field label{margin-bottom:3px;font-size:8px;}
+  .schedule-inline-date-form .exact-date-field input{padding:6px 7px;font-size:11px;border-radius:7px;}
+  .schedule-inline-date-form .btn{padding:7px 9px;font-size:10.5px;}
   .ended-note{margin-top:16px;padding:12px 14px;border-radius:10px;background:rgba(239,99,81,0.08);border:1px solid rgba(239,99,81,0.25);color:var(--ink);font-size:12.5px;line-height:1.45;}
   .ended-note strong{color:var(--coral);}
   .history-plan-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;}
@@ -616,10 +640,10 @@
   .profile-division-panel{margin-top:0;margin-bottom:16px;padding:13px;}
   .profile-division-panel .section-title{margin-bottom:9px;}
   .profile-division-panel .section-title h2{font-size:19px;}
-  .division-panel-grid{display:grid;grid-template-columns:minmax(190px,280px) minmax(280px,1fr);gap:10px;align-items:stretch;}
+  .division-panel-grid{display:grid;grid-template-columns:minmax(190px,280px) minmax(260px,520px);gap:10px;align-items:stretch;}
   .division-select-wrap{display:grid;gap:7px;align-content:start;}
   .division-select-head{display:flex;align-items:center;justify-content:space-between;gap:10px;}
-  .division-tip-slider{min-width:0;position:relative;background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:12px 13px;min-height:76px;}
+  .division-tip-slider{min-width:0;position:relative;background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:12px 13px;min-height:92px;display:flex;flex-direction:column;justify-content:space-between;}
   .division-tip-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:5px;}
   .division-tip-controls{display:flex;align-items:center;gap:5px;}
   .division-tip-btn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--court-deep);font-size:16px;font-weight:800;line-height:1;cursor:pointer;}
@@ -627,9 +651,9 @@
   .division-tip-viewport{overflow:hidden;min-width:0;}
   .division-tip-track{display:flex;transition:transform .22s ease;}
   .division-tip{width:100%;flex:0 0 100%;padding-right:0;}
-  .division-tip strong{display:block;color:var(--court-deep);font-size:13px;line-height:1.3;}
+  .division-tip strong{display:block;color:var(--court-deep);font-size:13px;line-height:1.3;padding-right:4px;}
   .division-tip span{display:block;margin-top:4px;color:var(--muted);font-size:11px;line-height:1.35;}
-  .division-tip-dots{display:flex;gap:4px;margin-top:7px;}
+  .division-tip-dots{display:flex;gap:4px;margin-top:9px;}
   .division-tip-dots span{width:5px;height:5px;border-radius:50%;background:var(--line);}
   .division-tip-dots button{width:7px;height:7px;border:0;border-radius:50%;background:var(--line);padding:0;cursor:pointer;}
   .division-tip-dots button.active{background:var(--court);}
@@ -778,6 +802,8 @@
   :root[data-theme="dark"] .empty h3,
   :root[data-theme="dark"] .schedule-page-head h1,
   :root[data-theme="dark"] .game-plan-title,
+  :root[data-theme="dark"] .game-plan-leaderboard h2,
+  :root[data-theme="dark"] .game-plan-leaderboard-name,
   :root[data-theme="dark"] .mode-card .mtitle,
   :root[data-theme="dark"] .round-label{color:var(--ink);}
   :root[data-theme="dark"] .brand-mark{background:transparent;box-shadow:0 5px 16px rgba(0,0,0,.32);}
@@ -788,6 +814,8 @@
   :root[data-theme="dark"] .roster-member-card,
   :root[data-theme="dark"] .mode-card,
   :root[data-theme="dark"] .game-plan-card,
+  :root[data-theme="dark"] .game-plan-leaderboard,
+  :root[data-theme="dark"] .game-plan-leaderboard-row,
   :root[data-theme="dark"] .history-plan-card-button,
   :root[data-theme="dark"] .profile-game-card,
   :root[data-theme="dark"] .chip{background:var(--panel);color:var(--ink);}
@@ -820,6 +848,11 @@
     .exact-date-form{display:grid;grid-template-columns:1fr 1fr;width:100%;}
     .exact-date-field{min-width:0;}
     .exact-date-form .btn{width:100%;}
+    .schedule-title-tools{width:100%;justify-content:stretch;}
+    .schedule-title-tools .small{white-space:normal;}
+    .schedule-inline-date-form{display:grid;grid-template-columns:1fr 1fr;width:100%;}
+    .schedule-inline-date-form .exact-date-field{min-width:0;}
+    .schedule-inline-date-form .btn{width:100%;}
     .primary-nav{order:2;}
     .nav-toggle{display:flex;}
     nav.toolbar{display:none;position:absolute;left:auto;right:0;top:44px;z-index:30;width:min(280px,calc(100vw - 24px));padding:7px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 36px rgba(10,63,58,.18);}
@@ -887,6 +920,8 @@
     .club-membership-option,.player-club-invite-row{align-items:stretch;flex-direction:column;}
     .club-membership-actions,.player-club-invite-row .btn{width:100%;}
     .club-membership-actions .btn{flex:1;}
+    .club-role-row .club-membership-actions{align-items:stretch;flex-direction:column;}
+    .club-role-row .club-membership-actions select,.club-role-row .club-membership-actions .btn{width:100%;}
     .profile-name-editor .btn{width:100%;}
     .history-plan-list{grid-template-columns:1fr;}
     .club-grid,.club-members-grid{grid-template-columns:1fr;}
@@ -1030,6 +1065,8 @@ let state = {
   showAddPlayer: false,
   scheduleSelection: new Set(),
   scheduleGuestSearch: '',
+  scheduleGuestSearchOpen: false,
+  scheduleLeaderboardOpenId: null,
   h2hA: null,
   h2hB: null,
   h2hClubId: 'all',
@@ -1200,6 +1237,9 @@ function canAssignClubRoles(clubId){
   if(!state.currentUser) return false;
   const mine=state.clubRoles.find(role=>role.clubId===clubId&&role.uid===state.currentUser.uid);
   return !!(mine&&mine.role==='club_admin') || (state.currentUser.role==='club_admin'&&(state.currentUser.clubId||ACTIVE_CLUB_ID)===clubId);
+}
+function canTransferPrimaryClubAdmin(clubId){
+  return !!(clubId&&state.currentUser&&(isSuperAdmin()||isClubAdmin(clubId)));
 }
 function themeValue(){ return document.documentElement.dataset.theme==='dark'?'dark':'light'; }
 function iconSVG(name){
@@ -1702,13 +1742,20 @@ function scheduleUnplayedGameKeys(sch){
       return !matchId || !state.matches.some(m=>m.id===matchId);
     });
 }
+function scheduleGameKey(round,court){ return `${round}_${court}`; }
+function scheduleHasRecordedSlot(sch,round,court){
+  const matchId=(sch&&sch.recorded||{})[scheduleGameKey(round,court)];
+  return !!(matchId&&state.matches.some(m=>m.id===matchId));
+}
 function scheduleCourtNumbers(sch){
   return [...new Set((sch&&sch.rounds||[]).flatMap(rd=>(rd.courts||[]).map(ct=>Number(ct.court))))]
     .filter(Number.isFinite).sort((a,b)=>a-b);
 }
 function renderSchedulePlayerName(id){
   const mine=!!state.myPlayerId && id===state.myPlayerId;
-  return `<span class="${mine?'player-name-self':''}">${esc(playerName(id))}${mine?'<span class="player-you-tag">You</span>':''}</span>`;
+  const player=state.players.find(p=>p.id===id);
+  const meta=divisionMeta(player&&player.division);
+  return `<span class="schedule-player-name ${mine?'player-name-self':''}">${esc(playerName(id))}<span class="schedule-division-badge" title="${esc(meta.label)} division" aria-label="${esc(meta.label)} division">${esc(meta.abbr)}</span>${mine?'<span class="player-you-tag">You</span>':''}</span>`;
 }
 function renderScheduleTeam(ids){
   const players=(ids||[]).map(renderSchedulePlayerName);
@@ -1868,6 +1915,32 @@ function computeGamePlanMvp(matches){
     .sort((a,b)=>playerName(a.id).localeCompare(playerName(b.id)));
   return {leaders,players,topWins,topLosses,bestDiff};
 }
+function computeScheduleLeaderboard(sch){
+  const rows={};
+  schedulePlayers(sch).forEach(pid=>{
+    rows[pid]={id:pid,games:0,wins:0,losses:0,winrate:0};
+  });
+  const add=(pid,myScore,oppScore)=>{
+    if(!pid) return;
+    const row=rows[pid]||(rows[pid]={id:pid,games:0,wins:0,losses:0,winrate:0});
+    row.games++;
+    if(myScore>oppScore) row.wins++;
+    else if(myScore<oppScore) row.losses++;
+  };
+  const recordedIds=new Set(Object.values((sch&&sch.recorded)||{}));
+  state.matches.filter(m=>recordedIds.has(m.id)&&isOfficialMatch(m)).forEach(match=>{
+    const score1=Number(match.score1),score2=Number(match.score2);
+    if(!Number.isFinite(score1)||!Number.isFinite(score2)) return;
+    (match.team1||[]).forEach(pid=>add(pid,score1,score2));
+    (match.team2||[]).forEach(pid=>add(pid,score2,score1));
+  });
+  return Object.values(rows).map(row=>({
+    ...row,
+    winrate:row.games?row.wins/row.games*100:0
+  })).sort((a,b)=>b.wins-a.wins||b.winrate-a.winrate||a.losses-b.losses||playerName(a.id).localeCompare(playerName(b.id),undefined,{sensitivity:'base'}));
+}
+function openScheduleLeaderboard(id){ state.scheduleLeaderboardOpenId=id; render(); }
+function closeScheduleLeaderboard(){ state.scheduleLeaderboardOpenId=null; render(); }
 function computeMvpCounts(useActiveRange=true){
   const counts={};
   historyGamePlanGroups(useActiveRange).forEach(group=>{
@@ -2254,10 +2327,11 @@ function generateScheduleRoundRobin({playerIds, format}){
 // Fallback for when there are more players than the available courts can hold at once -
 // a perfect one-time-only pairing cannot be guaranteed here, so this rotates fairly and
 // minimizes repeats as best it can across the auto-calculated round count.
-function buildGreedyRound(playerIds, usableCourts, capacity, format, partnerCount, opponentCount, sitOutCount){
+function buildGreedyRound(playerIds, usableCourts, capacity, format, partnerCount, opponentCount, sitOutCount, priorityRank){
   const key = pairKey;
   const numSitOut = playerIds.length - capacity;
-  const order = [...playerIds].sort((a,b)=> sitOutCount[a]-sitOutCount[b] || (Math.random()-0.5));
+  const rank=priorityRank||{};
+  const order = [...playerIds].sort((a,b)=> sitOutCount[a]-sitOutCount[b] || (rank[a]||0)-(rank[b]||0) || (Math.random()-0.5));
   const sitOuts = numSitOut>0 ? order.slice(0, numSitOut) : [];
   sitOuts.forEach(id=> sitOutCount[id]++);
   let pool = shuffle(playerIds.filter(id=> !sitOuts.includes(id)));
@@ -3167,11 +3241,11 @@ async function removeClubFromHub(clubId){
   toast(`${club.name} removed from Club Hub. Historical records were kept.`);
   render();
 }
-async function addPlayer(name, guest, clubId){
+async function addPlayer(name, guest, clubId, division){
   name = name.trim();
   if(!name) return null;
   const targetClubId=clubId||ACTIVE_CLUB_ID;
-  const p = { id: uid('pl'), name, guest: !!guest, clubId:targetClubId==='independent'?null:targetClubId, clubIds:targetClubId==='independent'?[]:[targetClubId], createdAt: new Date().toISOString() };
+  const p = { id: uid('pl'), name, guest: !!guest, division:playerDivisionValue({division}), clubId:targetClubId==='independent'?null:targetClubId, clubIds:targetClubId==='independent'?[]:[targetClubId], createdAt: new Date().toISOString() };
   if(guest && state.currentUser) p.createdByUid = state.currentUser.uid;
   try{ await PLAYERS_COL.doc(p.id).set(p); }
   catch(e){ toast('Could not save - check your connection'); return null; }
@@ -3247,12 +3321,14 @@ function setActiveCourtFilter(value){ state.activeCourtFilter=value||'all'; rend
 function backToScheduleList(){
   state.scheduleScreen='list';
   state.activeScheduleId=null;
+  state.scheduleLeaderboardOpenId=null;
   state.activeCourtFilter='all';
   state.editingResultId=null;
   state.lateResultKey=null;
   state.scheduleDraft=null;
   state.scheduleSelection=new Set();
   state.scheduleGuestSearch='';
+  state.scheduleGuestSearchOpen=false;
   state.tournamentTeams=null;
   state.tournamentLeftover=null;
   render();
@@ -3262,9 +3338,11 @@ function openCreateGamePlan(){
   state.scheduleDraft=defaultScheduleDraft();
   state.scheduleSelection=new Set();
   state.scheduleGuestSearch='';
+  state.scheduleGuestSearchOpen=false;
   state.tournamentTeams=null;
   state.tournamentLeftover=null;
   state.activeScheduleId=null;
+  state.scheduleLeaderboardOpenId=null;
   state.activeCourtFilter='all';
   state.editingResultId=null;
   state.lateResultKey=null;
@@ -3275,6 +3353,7 @@ function openGamePlan(id){
   const sch=scheduleById(id);
   if(!sch){ toast('Game Plan could not be found'); return; }
   state.activeScheduleId=scheduleDocId(sch);
+  state.scheduleLeaderboardOpenId=null;
   state.activeCourtFilter='all';
   state.editingResultId=null;
   state.lateResultKey=null;
@@ -3306,9 +3385,11 @@ function editGamePlan(id){
   };
   state.scheduleSelection=new Set(schedulePlayers(sch));
   state.scheduleGuestSearch='';
+  state.scheduleGuestSearchOpen=false;
   state.tournamentTeams=Array.isArray(sch.teams) ? sch.teams.map(t=>[...t]) : null;
   state.tournamentLeftover=sch.leftover||null;
   state.activeScheduleId=scheduleDocId(sch);
+  state.scheduleLeaderboardOpenId=null;
   state.editingResultId=null;
   state.lateResultKey=null;
   state.scheduleScreen='edit';
@@ -3325,6 +3406,7 @@ function updateScheduleDraft(field, value, rerender){
   if(field==='clubId'){
     state.scheduleSelection=new Set();
     state.scheduleGuestSearch='';
+    state.scheduleGuestSearchOpen=false;
     state.tournamentTeams=null;
     state.tournamentLeftover=null;
   }
@@ -3347,6 +3429,43 @@ function toggleScheduleSelect(id){
   }
   render();
 }
+async function transferPrimaryClubAdmin(clubId,playerId){
+  if(!canTransferPrimaryClubAdmin(clubId)){ toast('Only the current Club Admin can transfer this role'); return; }
+  const nextPlayer=state.players.find(p=>p.id===playerId);
+  if(!nextPlayer||!playerIsMemberOfClub(nextPlayer,clubId)){ toast('Choose an approved club member'); return; }
+  if(!nextPlayer.ownerUid){ toast(`${nextPlayer.name} needs a signed-in CourtRush account before becoming Club Admin`); return; }
+  const current=state.clubRoles.find(role=>role.clubId===clubId&&role.role==='club_admin');
+  if(current&&current.playerId===playerId){ toast(`${nextPlayer.name} is already the Club Admin`); return; }
+  if(!confirm(`Transfer primary Club Admin of ${clubName(clubId)} to ${nextPlayer.name}? You will become a Co-Admin and can leave the club afterward.`)) return;
+  const now=new Date().toISOString();
+  const nextId=clubAdminId(clubId,nextPlayer.ownerUid);
+  const nextRecord={id:nextId,clubId,uid:nextPlayer.ownerUid,playerId:nextPlayer.id,role:'club_admin',assignedByUid:state.currentUser.uid,createdAt:(current&&current.createdAt)||now,updatedAt:now};
+  const previousPlayer=state.players.find(p=>p.id===(current&&current.playerId))||state.players.find(p=>p.ownerUid===state.currentUser.uid);
+  const previousUid=(current&&current.uid)||(previousPlayer&&previousPlayer.ownerUid)||(state.currentUser&&state.currentUser.uid);
+  const previousPlayerId=(current&&current.playerId)||(previousPlayer&&previousPlayer.id)||state.myPlayerId;
+  const previousId=clubAdminId(clubId,previousUid);
+  const previousRecord=previousUid&&previousPlayerId?{id:previousId,clubId,uid:previousUid,playerId:previousPlayerId,role:'co_admin',assignedByUid:state.currentUser.uid,createdAt:now,updatedAt:now}:null;
+  try{
+    if(typeof db.batch==='function'){
+      const batch=db.batch();
+      if(current&&current.id&&current.id!==nextId&&current.id!==previousId) batch.delete(CLUB_ADMINS_COL.doc(current.id));
+      if(previousRecord&&previousId!==nextId) batch.set(CLUB_ADMINS_COL.doc(previousId),previousRecord,{merge:true});
+      batch.set(CLUB_ADMINS_COL.doc(nextId),nextRecord,{merge:true});
+      await batch.commit();
+    }else{
+      if(current&&current.id&&current.id!==nextId&&current.id!==previousId) await CLUB_ADMINS_COL.doc(current.id).delete();
+      if(previousRecord&&previousId!==nextId) await CLUB_ADMINS_COL.doc(previousId).set(previousRecord,{merge:true});
+      await CLUB_ADMINS_COL.doc(nextId).set(nextRecord,{merge:true});
+    }
+    state.clubRoles=[
+      ...state.clubRoles.filter(role=>!(role.clubId===clubId&&(role.role==='club_admin'||role.id===nextId||role.id===previousId))),
+      ...(previousRecord&&previousId!==nextId?[previousRecord]:[]),
+      nextRecord
+    ];
+    toast(`${nextPlayer.name} is now the Club Admin`);
+  }catch(e){ console.error(e); toast('Could not transfer Club Admin. Check Firestore rules and try again.'); }
+  render();
+}
 function scheduleBaseRoster(clubId){
   return [...(clubId&&clubId!=='independent'?membersForClub(clubId):state.players)].sort((a,b)=>a.name.localeCompare(b.name));
 }
@@ -3356,19 +3475,31 @@ function scheduleExternalPlayerPool(clubId){
     .filter(player=>!player.guest&&!playerIsMemberOfClub(player,clubId))
     .sort((a,b)=>a.name.localeCompare(b.name));
 }
+function normalizePlayerSearch(value){
+  return String(value||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+}
+function playerMatchesRegisteredSearch(player,query){
+  if(!query) return false;
+  const haystack=normalizePlayerSearch(`${player&&player.name||''} ${activePlayerClubIds(player).map(clubName).join(' ')}`);
+  return query.split(/\s+/).every(term=>haystack.includes(term));
+}
+function setScheduleRegisteredSearchOpen(open){
+  state.scheduleGuestSearchOpen=!!open;
+}
 function setScheduleGuestSearch(value){
   state.scheduleGuestSearch=String(value||'').trimStart().slice(0,80);
 }
 function applyScheduleRegisteredSearch(input){
   const value=(input&&input.value?input.value:'').trimStart().slice(0,80);
   state.scheduleGuestSearch=value;
+  state.scheduleGuestSearchOpen=true;
   if(input&&input.value!==value) input.value=value;
   const panel=input?input.closest('.guest-search-panel'):null;
   if(!panel) return;
-  const query=value.trim().toLowerCase();
+  const query=normalizePlayerSearch(value);
   let visible=0;
   panel.querySelectorAll('.guest-search-option').forEach(option=>{
-    const match=!!query&&(option.dataset.playerLabel||'').includes(query);
+    const match=!!query&&(option.dataset.playerSearch||'').includes(query) || (!!query&&query.split(/\s+/).every(term=>(option.dataset.playerSearch||'').includes(term)));
     option.hidden=!match;
     if(match) visible++;
   });
@@ -3382,6 +3513,7 @@ function addRegisteredPlayerToSchedule(playerId){
   if(!player) return;
   state.scheduleSelection.add(playerId);
   state.scheduleGuestSearch='';
+  state.scheduleGuestSearchOpen=false;
   if(state.scheduleDraft && state.scheduleDraft.mode==='tournament'){
     state.tournamentTeams=null;
     state.tournamentLeftover=null;
@@ -3405,10 +3537,100 @@ function clearSchedulePlayers(){
 async function addGuestForSchedule(){
   if(!isSignedIn()){ toast('Sign in to add a walk-in guest'); return; }
   const input=document.getElementById('guestQuickAdd');
+  const divisionEl=document.getElementById('guestQuickDivision');
   const name=input ? input.value : '';
   if(!name.trim()) return;
-  const p=await addPlayer(name,true,(state.scheduleDraft&&state.scheduleDraft.clubId)||'independent');
-  if(p) state.scheduleSelection.add(p.id);
+  const p=await addPlayer(name,true,(state.scheduleDraft&&state.scheduleDraft.clubId)||'independent',divisionEl&&divisionEl.value);
+  if(p){
+    if(!state.players.some(player=>player.id===p.id)) state.players=[...state.players,p];
+    state.scheduleSelection.add(p.id);
+  }
+  render();
+}
+function emptyScheduleCounts(playerIds){
+  const partnerCount={},opponentCount={},sitOutCount={};
+  playerIds.forEach(id=>{ sitOutCount[id]=0; });
+  playerIds.forEach(a=>playerIds.forEach(b=>{ if(a!==b){ partnerCount[pairKey(a,b)]=0; opponentCount[pairKey(a,b)]=0; } }));
+  return {partnerCount,opponentCount,sitOutCount};
+}
+function applyRoundToScheduleCounts(round,counts){
+  const courts=round&&round.courts||[];
+  courts.forEach(ct=>{
+    const team1=ct.team1||[],team2=ct.team2||[];
+    if(team1.length>1) counts.partnerCount[pairKey(team1[0],team1[1])] = (counts.partnerCount[pairKey(team1[0],team1[1])]||0)+1;
+    if(team2.length>1) counts.partnerCount[pairKey(team2[0],team2[1])] = (counts.partnerCount[pairKey(team2[0],team2[1])]||0)+1;
+    team1.forEach(a=>team2.forEach(b=>{ counts.opponentCount[pairKey(a,b)] = (counts.opponentCount[pairKey(a,b)]||0)+1; }));
+  });
+  (round&&round.sitOuts||[]).forEach(id=>{ counts.sitOutCount[id]=(counts.sitOutCount[id]||0)+1; });
+}
+function rebuildOpenScheduleAfterLateAdd(sch,nextPlayerIds){
+  const oldRounds=Array.isArray(sch.rounds)?sch.rounds:[];
+  const firstAffected=oldRounds.findIndex(rd=>(rd.courts||[]).some(ct=>!scheduleHasRecordedSlot(sch,rd.round,ct.court)));
+  if(firstAffected<0) return null;
+  const format=sch.format||'doubles';
+  const capacityPerCourt=format==='singles'?2:4;
+  const usableCourts=Math.max(1,Math.min(Math.max(1,Number(sch.courts)||1),Math.floor(nextPlayerIds.length/capacityPerCourt)));
+  const capacity=usableCourts*capacityPerCourt;
+  if(nextPlayerIds.length<capacityPerCourt) return null;
+  const previousIds=schedulePlayers(sch);
+  const priorityRank={};
+  previousIds.forEach((id,index)=>{ priorityRank[id]=index; });
+  nextPlayerIds.forEach((id,index)=>{ if(priorityRank[id]===undefined) priorityRank[id]=previousIds.length+index; });
+  const counts=emptyScheduleCounts(nextPlayerIds);
+  const nextRounds=[];
+  oldRounds.forEach((rd,index)=>{
+    if(index<firstAffected){
+      nextRounds.push(rd);
+      applyRoundToScheduleCounts(rd,counts);
+      return;
+    }
+    const keptCourts=(rd.courts||[]).filter(ct=>scheduleHasRecordedSlot(sch,rd.round,ct.court));
+    const openCourtNumbers=(rd.courts||[]).filter(ct=>!scheduleHasRecordedSlot(sch,rd.round,ct.court)).map(ct=>ct.court);
+    const keptRound={...rd,courts:keptCourts,sitOuts:[]};
+    applyRoundToScheduleCounts(keptRound,counts);
+    const occupied=new Set(keptCourts.flatMap(ct=>[...(ct.team1||[]),...(ct.team2||[])]));
+    const openCourts=Math.max(0,(rd.courts||[]).length-keptCourts.length);
+    let rebuilt={sitOuts:[],courts:[]};
+    if(openCourts>0){
+      const available=nextPlayerIds.filter(id=>!occupied.has(id));
+      const lateUsable=Math.max(0,Math.min(openCourts,Math.floor(available.length/capacityPerCourt)));
+      if(lateUsable>0){
+        rebuilt=buildGreedyRound(available,lateUsable,lateUsable*capacityPerCourt,format,counts.partnerCount,counts.opponentCount,counts.sitOutCount,priorityRank);
+      }
+    }
+    const courts=[...keptCourts,...rebuilt.courts.map((ct,i)=>({...ct,court:openCourtNumbers[i]||ct.court}))].sort((a,b)=>Number(a.court)-Number(b.court));
+    const playing=new Set(courts.flatMap(ct=>[...(ct.team1||[]),...(ct.team2||[])]));
+    const sitOuts=nextPlayerIds.filter(id=>!playing.has(id));
+    nextRounds.push({...rd,courts,sitOuts});
+  });
+  return nextRounds;
+}
+async function addLatePlayerToSchedule(scheduleId){
+  const sch=scheduleById(scheduleId);
+  if(!sch||!canManageSchedule(sch)){ toast('Only the Game Plan owner or an admin can add players'); return; }
+  if(isScheduleClosed(sch)){ toast('Ended or cancelled Game Plans cannot add players'); return; }
+  if(sch.mode!=='open'){ toast('Late player rebalancing is available for Open Play Game Plans'); return; }
+  const source=document.getElementById('lateSchedulePlayer');
+  const guestInput=document.getElementById('lateGuestName');
+  const divisionEl=document.getElementById('lateGuestDivision');
+  let playerId=source&&source.value;
+  if(!playerId){
+    const name=guestInput?guestInput.value:'';
+    if(!name.trim()){ toast('Choose a registered player or enter a walk-in guest'); return; }
+    const p=await addPlayer(name,true,sch.clubId||'independent',divisionEl&&divisionEl.value);
+    if(!p) return;
+    if(!state.players.some(player=>player.id===p.id)) state.players=[...state.players,p];
+    playerId=p.id;
+  }
+  if(schedulePlayers(sch).includes(playerId)){ toast('This player is already in the Game Plan'); return; }
+  const nextPlayerIds=[...new Set([...schedulePlayers(sch),playerId])];
+  const rounds=rebuildOpenScheduleAfterLateAdd(sch,nextPlayerIds);
+  if(!rounds){ toast('No upcoming games are available to rebalance'); return; }
+  const updated={...stripScheduleMeta(sch),selectedPlayerIds:nextPlayerIds,rounds,numberOfRounds:rounds.length,status:sch.status==='published'&&scheduleRecordedCount(sch)>0?'in_progress':sch.status,updatedAt:new Date().toISOString()};
+  try{ await SCHEDULES_COL.doc(scheduleDocId(sch)).set(updated); }
+  catch(e){ console.error(e); toast('Could not add this player to the Game Plan'); return; }
+  upsertScheduleLocal(scheduleDocId(sch),updated);
+  toast('Player added - upcoming games were rebalanced');
   render();
 }
 function autoPairTeams(){
@@ -4009,7 +4231,7 @@ function renderExactDateSelector(contextLabel){
 }
 function renderDateRangePicker(embedded){
   if(!embedded&&(state.tab==='clubs'||state.tab==='chat'||state.tab==='roster'||state.tab==='profile')) return '';
-  if(embedded||state.tab==='history'||state.tab==='schedule') return renderExactDateSelector(state.tab==='profile'?'Profile statistics and match history':state.tab==='history'?'History records':state.tab==='schedule'?'Game Plans':'Selected statistics');
+  if(embedded||state.tab==='history') return renderExactDateSelector(state.tab==='profile'?'Profile statistics and match history':state.tab==='history'?'History records':'Selected statistics');
   return `
   <div class="date-range-bar" aria-label="Date range filter">
     <div class="date-range-copy">
@@ -4205,7 +4427,7 @@ function renderClubAdminPanel(selected,availablePlayers){
       <div><div class="field"><label for="clubExistingPlayer">Add existing player</label><select id="clubExistingPlayer" ${state.clubBusy?'disabled':''}><option value="">Choose a player...</option>${availablePlayers.map(player=>`<option value="${esc(player.id)}">${esc(player.name)}</option>`).join('')}</select></div><button class="btn btn-ghost btn-sm" type="button" onclick="addExistingClubMember(${jsArg(selected.id)})" ${availablePlayers.length&&!state.clubBusy?'':'disabled'}>Add existing player</button></div>
       <div><div class="field"><label for="clubNewMemberName">Create new member profile</label><input id="clubNewMemberName" type="text" maxlength="80" placeholder="Player full name" ${state.clubBusy?'disabled':''}/></div><button class="btn btn-ghost btn-sm" type="button" onclick="createClubMember(${jsArg(selected.id)})" ${state.clubBusy?'disabled':''}>Create &amp; add member</button></div>
     </div>
-    ${canAssignClubRoles(selected.id)?`<div class="divider"></div><div class="section-title"><div><div class="eyebrow">Club leadership</div><h2>Co-Admins &amp; Staff</h2></div><span class="small muted">Roles require a signed-in member account</span></div><div class="club-role-list">${roleMembers.map(player=>{const role=clubRoleForPlayer(selected.id,player);const locked=role==='club_admin';return `<div class="club-role-row"><div class="club-role-person">${avatarHTML(player,36)}<div><strong>${esc(player.name)}</strong><span>${player.ownerUid?clubRoleLabel(role):'Member - account not linked'}</span></div></div><select aria-label="Role for ${esc(player.name)}" onchange="setClubMemberRole(${jsArg(selected.id)},${jsArg(player.id)},this.value)" ${locked||!player.ownerUid?'disabled':''}><option value="member" ${role==='member'?'selected':''}>Member</option><option value="staff" ${role==='staff'?'selected':''}>Staff</option><option value="co_admin" ${role==='co_admin'?'selected':''}>Co-Admin</option>${locked?'<option value="club_admin" selected>Club Admin</option>':''}</select></div>`;}).join('')}</div>`:''}
+    ${canAssignClubRoles(selected.id)?`<div class="divider"></div><div class="section-title"><div><div class="eyebrow">Club leadership</div><h2>Admin transfer &amp; roles</h2></div><span class="small muted">Roles require a signed-in member account</span></div><div class="club-role-list">${roleMembers.map(player=>{const role=clubRoleForPlayer(selected.id,player);const locked=role==='club_admin';const canTransfer=canTransferPrimaryClubAdmin(selected.id)&&player.ownerUid&&!locked;return `<div class="club-role-row"><div class="club-role-person">${avatarHTML(player,36)}<div><strong>${esc(player.name)}</strong><span>${player.ownerUid?clubRoleLabel(role):'Member - account not linked'}</span></div></div><div class="club-membership-actions"><select aria-label="Role for ${esc(player.name)}" onchange="setClubMemberRole(${jsArg(selected.id)},${jsArg(player.id)},this.value)" ${locked||!player.ownerUid?'disabled':''}><option value="member" ${role==='member'?'selected':''}>Member</option><option value="staff" ${role==='staff'?'selected':''}>Staff</option><option value="co_admin" ${role==='co_admin'?'selected':''}>Co-Admin</option>${locked?'<option value="club_admin" selected>Club Admin</option>':''}</select>${canTransfer?`<button class="btn btn-primary btn-sm" type="button" onclick="transferPrimaryClubAdmin(${jsArg(selected.id)},${jsArg(player.id)})">Make Club Admin</button>`:''}</div></div>`;}).join('')}</div>`:''}
     ${detailsForm}
     <div class="club-danger-zone">
       <div><strong>Remove club from Club Hub</strong><span>Members, Game Plans, results, and historical statistics will be preserved. The club will disappear from the directory and cannot accept new activity.</span></div>
@@ -4520,7 +4742,7 @@ function renderMyClubMembershipOption(club,player,profileClubIds){
     return `<article class="my-club-card invite"><div class="my-club-card-head"><div><div class="eyebrow">Invitation received</div><h3>${esc(club.name)}</h3><p class="small muted">${esc(club.origin||'Origin unavailable')} &middot; A Club Admin or Co-Admin invited you.</p></div><span class="invite-alert-dot" aria-label="New club invitation">!</span></div><div class="club-membership-actions"><button class="btn btn-primary btn-sm" type="button" onclick="respondToClubInvite(${jsArg(club.id)},true)" ${state.profileClubBusy?'disabled':''}>Accept</button><button class="btn btn-danger btn-sm" type="button" onclick="respondToClubInvite(${jsArg(club.id)},false)" ${state.profileClubBusy?'disabled':''}>Decline</button></div></article>`;
   }
   if(joined){
-    return `<article class="my-club-card"><div class="my-club-card-head"><div><div class="eyebrow">${locked?'Club Admin':'Joined club'}</div><h3>${esc(club.name)}</h3><p class="small muted">${esc(club.origin||'Origin unavailable')}${locked?' &middot; Assign another administrator before leaving.':''}</p></div>${locked?'<span class="club-chip admin">Admin</span>':'<span class="club-chip">Member</span>'}</div><div class="club-membership-actions"><button class="btn btn-primary btn-sm" type="button" onclick="state.clubWorkspaceView='hub';state.clubHubSelectedId=${jsArg(club.id)};setTab('clubs')">View Club</button><button class="btn btn-ghost btn-sm" type="button" onclick="setMyClubMembership(${jsArg(club.id)},false)" ${state.profileClubBusy||locked?'disabled':''}>Leave club</button></div></article>`;
+    return `<article class="my-club-card"><div class="my-club-card-head"><div><div class="eyebrow">${locked?'Club Admin':'Joined club'}</div><h3>${esc(club.name)}</h3><p class="small muted">${esc(club.origin||'Origin unavailable')}${locked?' &middot; Transfer Club Admin to another linked member before leaving.':''}</p></div>${locked?'<span class="club-chip admin">Admin</span>':'<span class="club-chip">Member</span>'}</div><div class="club-membership-actions"><button class="btn btn-primary btn-sm" type="button" onclick="state.clubWorkspaceView='hub';state.clubHubSelectedId=${jsArg(club.id)};setTab('clubs')">${locked?'Transfer role':'View Club'}</button><button class="btn btn-ghost btn-sm" type="button" onclick="setMyClubMembership(${jsArg(club.id)},false)" ${state.profileClubBusy||locked?'disabled':''}>Leave club</button></div></article>`;
   }
   if(pending){
     return `<article class="my-club-card"><div class="my-club-card-head"><div><div class="eyebrow">Request pending</div><h3>${esc(club.name)}</h3><p class="small muted">${esc(club.origin||'Origin unavailable')} &middot; Awaiting Club Admin approval.</p></div><span class="club-chip">Pending</span></div><button class="btn btn-ghost btn-sm" type="button" onclick="state.clubWorkspaceView='hub';state.clubHubSelectedId=${jsArg(club.id)};setTab('clubs')">View Club</button></article>`;
@@ -4852,6 +5074,7 @@ function renderParticipantPicker(){
     ? Array.from(state.scheduleSelection).map(id=>state.players.find(p=>p.id===id)).filter(p=>p&&!rosterIds.has(p.id))
     : [];
   const search=String(state.scheduleGuestSearch||'').trim().toLowerCase();
+  const normalizedSearch=normalizePlayerSearch(state.scheduleGuestSearch);
   const externalPool=scheduleExternalPlayerPool(clubId).filter(p=>!state.scheduleSelection.has(p.id));
   const selCount=state.scheduleSelection.size;
   const selectionScope=clubId&&clubId!=='independent'
@@ -4875,19 +5098,20 @@ function renderParticipantPicker(){
       </div>`}
       ${clubId&&clubId!=='independent'?`<div class="guest-search-panel">
         <label>Invite registered player</label>
-        <details class="invite-search-menu" open>
+        <details class="invite-search-menu" ${state.scheduleGuestSearchOpen||normalizedSearch?'open':''} ontoggle="setScheduleRegisteredSearchOpen(this.open)">
           <summary>${search?`Search: ${esc(state.scheduleGuestSearch)}`:'Search registered players'}</summary>
           <div class="invite-search-options">
             <div class="invite-search-field"><input type="search" id="registeredPlayerSearch" value="${esc(state.scheduleGuestSearch||'')}" placeholder="Search registered players..." aria-label="Search registered players" oninput="applyScheduleRegisteredSearch(this)" onclick="event.stopPropagation()"/></div>
-            <div class="guest-search-results">${externalPool.map(p=>{const label=(p.name||'').toLowerCase();const visible=search&&label.includes(search);const clubs=activePlayerClubIds(p);return `<button class="guest-search-option" type="button" data-player-label="${esc(label)}" ${visible?'':'hidden'} onclick="addRegisteredPlayerToSchedule(${jsArg(p.id)})"><span><strong>${esc(p.name)}</strong><span>${clubs.length?clubs.map(clubName).map(esc).join(', '):'Independent'}</span></span>${playerDivisionBadge(p)}</button>`;}).join('')}</div>
+            <div class="guest-search-results">${externalPool.map(p=>{const clubs=activePlayerClubIds(p);const searchLabel=normalizePlayerSearch(`${p.name||''} ${clubs.map(clubName).join(' ')}`);const visible=playerMatchesRegisteredSearch(p,normalizedSearch);return `<button class="guest-search-option" type="button" data-player-search="${esc(searchLabel)}" ${visible?'':'hidden'} onclick="addRegisteredPlayerToSchedule(${jsArg(p.id)})"><span><strong>${esc(p.name)}</strong><span>${clubs.length?clubs.map(clubName).map(esc).join(', '):'Independent'}</span></span>${playerDivisionBadge(p)}</button>`;}).join('')}</div>
             <div class="guest-search-empty" data-guest-search-hint ${search?'hidden':''}>Type a player name to invite non-club or independent registered players.</div>
-            <div class="guest-search-empty" data-guest-search-empty ${search&&!externalPool.some(p=>(p.name||'').toLowerCase().includes(search))?'':'hidden'}>No registered players found outside this club.</div>
+            <div class="guest-search-empty" data-guest-search-empty ${normalizedSearch&&!externalPool.some(p=>playerMatchesRegisteredSearch(p,normalizedSearch))?'':'hidden'}>No registered players found outside this club.</div>
           </div>
         </details>
       </div>`:''}
       ${selectedOutsiders.length?`<div class="schedule-selected-outsiders" aria-label="Selected invited players">${selectedOutsiders.map(p=>`<div class="chip on" onclick="toggleScheduleSelect(${jsArg(p.id)})">* ${esc(p.name)}${p.guest?'<span class="guest-tag">Guest</span>':playerDivisionBadge(p)}</div>`).join('')}</div>`:''}
       <div class="guest-optional-row">
         <div class="field"><label>Walk-in / guest</label><input type="text" id="guestQuickAdd" placeholder="Add a guest for this Game Plan"/></div>
+        <div class="field"><label>Division</label><select id="guestQuickDivision">${PLAYER_DIVISIONS.map(item=>`<option value="${esc(item.value)}">${esc(item.label)}</option>`).join('')}</select></div>
         <button class="btn btn-ghost btn-sm" type="button" onclick="addGuestForSchedule()">Add &amp; select</button>
       </div>
     </div>`;
@@ -5116,6 +5340,7 @@ function renderScheduleLanding(){
   const courtCounts=availableScheduleCourtCounts(basePlans);
   const plans=filteredGamePlans(basePlans);
   const heading=state.scheduleFilter==='today'?"Today's Game Plans":state.scheduleFilter==='upcoming'?'Upcoming Game Plans':state.scheduleFilter==='dates'?'Selected Date Game Plans':'My Created Game Plans';
+  const titleTools=state.scheduleFilter==='dates'?`<div class="schedule-title-tools"><span class="small muted">${esc(activeDateRangeSummary())}</span>${renderScheduleInlineDateSelector()}</div>`:`<span class="small muted">${plans.length} plan${plans.length===1?'':'s'}</span>`;
   return `
   <div class="panel">
     <div class="schedule-page-head">
@@ -5143,7 +5368,7 @@ function renderScheduleLanding(){
     </div>
   </div>
   <div class="panel">
-    <div class="section-title"><h2>${heading}</h2><span class="small muted">${plans.length} plan${plans.length===1?'':'s'}</span></div>
+    <div class="section-title"><h2>${heading}</h2>${titleTools}</div>
     ${state.scheduleFilter==='mine'&&!isSignedIn()?`<div class="empty"><h3>Sign in to see your Game Plans</h3><p>My Created only shows plans owned by the current account.</p><button class="btn btn-ball" onclick="openAuthModal('login')">Sign in</button></div>`:
       plans.length?`<div class="game-plan-grid">${plans.map(renderGamePlanCard).join('')}</div>`:
       `<div class="empty"><h3>No ${state.scheduleFilter==='today'?'Game Plans today':state.scheduleFilter==='upcoming'?'upcoming Game Plans':state.scheduleFilter==='dates'?'Game Plans in the selected dates':'Game Plans created by you'}</h3><p>${isSignedIn()?'Create a Game Plan and select the players who are attending.':'Sign in to create the club next court rotation.'}</p>${isSignedIn()?`<button class="btn btn-ball" onclick="openCreateGamePlan()">+ Create Game Plan</button>`:''}</div>`}
@@ -5159,232 +5384,7 @@ function renderScheduleView(sch){
   const unplayedCount=scheduleUnplayedGameKeys(sch).length;
   const endedAt=formatDateTimeValue(sch.endedAt||sch.completedAt);
   const endedBy=sch.endedByName||'an authorized organizer';
+  const showLeaderboardModal=state.scheduleLeaderboardOpenId===id;
   return `
   <div class="panel">
     <div class="schedule-page-head">
-      <div>
-        <button class="link-btn" onclick="backToScheduleList()">&larr; Back to Game Plan</button>
-        <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:12px;"><span class="mode-badge">${esc(mode.short)}</span><span class="status-badge ${esc(sch.status||'published')}">${esc(scheduleStatusLabel(sch.status||'published'))}</span></div>
-        <h1 style="margin-top:10px;">${esc(sch.title||`${sch.creatorName||'Club'}'s ${mode.label}`)}</h1>
-        <p class="small muted">${fmtDate(sch.date)} - ${formatTime(sch.startTime)} - ${esc(sch.clubId&&sch.clubId!=='independent'?clubName(sch.clubId):'Independent')}${sch.venueName?` - ${esc(sch.venueName)}`:''} - Game Plan by ${esc(sch.creatorName||'Club player')}</p>
-      </div>
-      ${canManage?`<div class="game-plan-actions">
-        ${!closed?`<button class="btn btn-ghost btn-sm" onclick="editGamePlan(${jsArg(id)})">Edit</button><button class="btn btn-end btn-sm" onclick="endGamePlan(${jsArg(id)})">End Game Plan</button>`:''}
-        <button class="btn btn-danger btn-sm" onclick="deleteGamePlan(${jsArg(id)})">Delete</button>
-      </div>`:''}
-    </div>
-    <div class="plan-summary">
-      <div class="plan-summary-item"><strong>${players.length}</strong><span>Players</span></div>
-      <div class="plan-summary-item"><strong>${sch.courts||1}</strong><span>Courts</span></div>
-      <div class="plan-summary-item"><strong>${scheduleRoundCount(sch)}</strong><span>Rounds</span></div>
-      <div class="plan-summary-item"><strong>${scheduleGameCount(sch)}</strong><span>Games</span></div>
-    </div>
-    ${ended?`<div class="ended-note"><strong>Game Plan ended${endedAt?` ${esc(endedAt)}`:''}.</strong> ${unplayedCount?`${unplayedCount} scheduled game${unplayedCount===1?' was':'s were'} not played because the session ended before every round finished.`:'All scheduled games have saved results.'} Ended by ${esc(endedBy)}.</div>`:''}
-    <div class="divider"></div>
-    <div class="eyebrow">Playing</div>
-    <div class="participant-list">${players.map(pid=>`<span class="participant-pill">${renderSchedulePlayerName(pid)}</span>`).join('')||'<span class="small muted">No players listed.</span>'}</div>
-  </div>
-  ${sch.mode==='dupr'&&canManage&&!closed?renderDuprAppendForm(sch):''}
-  ${renderScheduleResult(sch)}
-  ${canManage&&!closed&&sch.mode!=='dupr'?`<div class="panel"><div class="game-plan-actions"><button class="btn btn-ball" onclick="addExtraRound(${jsArg(id)})">+ Add Games</button><button class="btn btn-danger" onclick="removeExtraRound(${jsArg(id)})" ${scheduleRoundCount(sch)<=1?'disabled title="A Game Plan must keep at least one round"':''}>- Remove Games</button><button class="btn btn-end" onclick="endGamePlan(${jsArg(id)})">End Game Plan</button></div><p class="small muted" style="margin:8px 0 0;">Add Games creates another complete round across the available courts. Remove Games removes only the latest unplayed round. End Game Plan immediately closes the session and marks every remaining game without a saved result as not played.</p></div>`:''}`;
-}
-function renderSchedule(){
-  if(state.scheduleScreen==='create') return renderGamePlanBuilder(false);
-  if(state.scheduleScreen==='edit'){
-    const sch=scheduleById(state.activeScheduleId);
-    if(!sch){ state.scheduleScreen='list'; return renderScheduleLanding(); }
-    return renderGamePlanBuilder(true);
-  }
-  if(state.scheduleScreen==='view'){
-    const sch=scheduleById(state.activeScheduleId);
-    if(!sch){ state.scheduleScreen='list'; return renderScheduleLanding(); }
-    return renderScheduleView(sch);
-  }
-  return renderScheduleLanding();
-}
-function renderScheduleResult(sch){
-  const rounds=Array.isArray(sch.rounds)?sch.rounds:[];
-  const totalSlots=scheduleGameCount(sch);
-  const recordedCount=scheduleRecordedCount(sch);
-  const complete=totalSlots>0&&recordedCount>=totalSlots;
-  const standings=sch.mode==='tournament'?computeTeamStandings(sch):null;
-  const canManage=canManageSchedule(sch);
-  const closed=isScheduleClosed(sch);
-  const ended=isScheduleEnded(sch);
-  const id=scheduleDocId(sch);
-  const courtNumbers=scheduleCourtNumbers(sch);
-  const requestedCourt=state.activeCourtFilter==='all'?'all':Number(state.activeCourtFilter);
-  const activeCourt=requestedCourt==='all'||courtNumbers.includes(requestedCourt)?requestedCourt:'all';
-  const visibleRounds=rounds.map(rd=>({
-    ...rd,
-    courts:(rd.courts||[]).filter(ct=>activeCourt==='all'||Number(ct.court)===activeCourt)
-  })).filter(rd=>rd.courts.length>0);
-  const unplayedCount=Math.max(0,totalSlots-recordedCount);
-  const allLabel=sch.mode==='dupr'?'All matches':'All courts';
-  const itemLabel=sch.mode==='dupr'?'Match':'Court';
-  return `
-  <div class="panel">
-    <div class="section-title">
-      <h2>${allLabel}</h2>
-      <div class="court-board-filter">
-        ${totalSlots?`<span class="diff-pill ${complete?'diff-pos':'diff-zero'}">${ended?`${recordedCount} saved - ${unplayedCount} not played`:`${recordedCount}/${totalSlots} results recorded`}</span>`:''}
-        ${courtNumbers.length?`<div class="field"><label for="activeCourtFilter">Show</label><select id="activeCourtFilter" onchange="setActiveCourtFilter(this.value)"><option value="all" ${activeCourt==='all'?'selected':''}>${allLabel}</option>${courtNumbers.map(c=>`<option value="${c}" ${activeCourt===c?'selected':''}>${itemLabel} ${c}</option>`).join('')}</select></div>`:''}
-      </div>
-    </div>
-    ${totalSlots===0?`<p class="small muted">No games have been added to this Game Plan.</p>`:''}
-    ${standings&&standings.length?`
-      <div class="eyebrow" style="margin-top:6px;">Standings</div>
-      <table style="margin-bottom:6px;"><thead><tr><th>Team</th><th>W&nbsp;-&nbsp;L</th><th>+/-</th></tr></thead><tbody>
-      ${standings.map(row=>`<tr><td class="name-cell">${renderScheduleTeam(row.team)}</td><td class="mono">${row.wins}-${row.losses}</td><td>${diffPill(row.diff,0)}</td></tr>`).join('')}
-      </tbody></table>`:''}
-    ${visibleRounds.map(rd=>`
-      <div class="round-label">${paddleSVG('var(--court)')} ${sch.mode==='dupr'?'Matches':'Round '+rd.round}</div>
-      <div class="court-grid">
-        ${(rd.courts||[]).map(ct=>{
-          const recKey=`${rd.round}_${ct.court}`;
-          const recordedId=(sch.recorded||{})[recKey];
-          const recordedMatch=recordedId?state.matches.find(m=>m.id===recordedId):null;
-          const lateKey=lateCourtResultKey(id,rd.round,ct.court);
-          return `<div class="court-card">
-            <div class="court-head"><span>${sch.mode==='dupr'?'MATCH '+ct.court:'COURT '+ct.court}</span>${recordedMatch?verificationBadge(recordedMatch):(ended?`<span class="status-badge completed">Not played</span>`:'')}</div>
-            <div class="court-body">
-              <div class="team-row">${paddleSVG('#fff')} ${renderScheduleTeam(ct.team1)}</div>
-              <div class="net-line">net</div>
-              <div class="team-row">${paddleSVG('#fff')} ${renderScheduleTeam(ct.team2)}</div>
-              ${recordedMatch ? (state.editingResultId===recordedMatch.id ? `
-                <div class="score-inputs">
-                  <input type="number" min="0" id="edit_res_${rd.round}_${ct.court}_1" value="${Number(recordedMatch.score1)}" aria-label="Correct Team 1 score"/>
-                  <span class="score-vs">VS</span>
-                  <input type="number" min="0" id="edit_res_${rd.round}_${ct.court}_2" value="${Number(recordedMatch.score2)}" aria-label="Correct Team 2 score"/>
-                  <button class="btn btn-ball btn-sm" onclick="updateCourtResult(${jsArg(id)},${jsArg(recordedMatch.id)},${rd.round},${ct.court})">Update Result</button>
-                  <button class="btn btn-score-edit btn-sm" onclick="cancelEditCourtResult()">Cancel</button>
-                </div>` : `
-                <div class="score-inputs">
-                  <span style="color:#fff;font-family:'IBM Plex Mono',monospace;font-weight:700;">${recordedMatch.score1} <span class="score-vs">-</span> ${recordedMatch.score2}</span>
-                  ${canManage?`<button class="btn btn-score-edit btn-sm" onclick="beginEditCourtResult(${jsArg(id)},${jsArg(recordedMatch.id)})">Edit Result</button>`:''}
-                </div>${recordedMatch.disputeReason?`<div class="dispute-note">Dispute: ${esc(recordedMatch.disputeReason)}</div>`:''}${resultReviewActions(recordedMatch)}`) :
-                closed?(ended&&canManage?(state.lateResultKey===lateKey?`<div class="score-inputs" style="flex-wrap:wrap;"><input type="number" min="0" id="res_${rd.round}_${ct.court}_1" placeholder="0" aria-label="Late Team 1 score"/><span class="score-vs">VS</span><input type="number" min="0" id="res_${rd.round}_${ct.court}_2" placeholder="0" aria-label="Late Team 2 score"/><button class="btn btn-ball btn-sm" onclick="recordCourtResult(${jsArg(id)},${rd.round},${ct.court},true)">Save Late Result</button><button class="btn btn-score-edit btn-sm" onclick="cancelLateCourtResult()">Cancel</button></div>`:`<div class="score-inputs" style="flex-wrap:wrap;"><span class="small" style="color:rgba(255,255,255,0.82);font-weight:700;">Not played - Game Plan ended.</span><button class="btn btn-score-edit btn-sm" onclick="beginLateCourtResult(${jsArg(id)},${rd.round},${ct.court})">Add Late Result</button></div>`):`<div class="score-inputs"><span class="small" style="color:rgba(255,255,255,0.82);font-weight:700;">Not played - Game Plan cancelled.</span></div>`):
-                canManage?`<div class="score-inputs"><input type="number" min="0" id="res_${rd.round}_${ct.court}_1" placeholder="0"/><span class="score-vs">VS</span><input type="number" min="0" id="res_${rd.round}_${ct.court}_2" placeholder="0"/><button class="btn btn-ball btn-sm" onclick="recordCourtResult(${jsArg(id)},${rd.round},${ct.court})">Save</button></div>`:
-                `<div class="score-inputs"><span class="small" style="color:rgba(255,255,255,0.7);">Waiting for an admin to put the result.</span></div>`}
-            </div>
-          </div>`;
-        }).join('')}
-      </div>
-      ${(rd.sitOuts||[]).length?`<div style="margin-top:10px;"><div class="eyebrow">Sitting out this round</div><div class="paddle-stack">${rd.sitOuts.map((pid,i)=>`<div class="paddle-row ${state.myPlayerId===pid?'self-player':''}"><span class="p-order">${i+1}</span>${paddleSVG('var(--court)')}<span class="p-name">${renderSchedulePlayerName(pid)}</span></div>`).join('')}</div></div>`:''}
-    `).join('')}
-    ${totalSlots>0&&!visibleRounds.length?`<div class="empty"><h3>No games on this court</h3><p>Choose another court or return to ${allLabel.toLowerCase()}.</p></div>`:''}
-  </div>`;
-}
-
-/* ============================= HISTORY ============================= */
-function historyGamePlanGroups(useActiveRange=true){
-  const groups=new Map();
-  const matches=[...(useActiveRange?recordedMatchesInActiveRange():recordedMatchesAllRanges())]
-    .sort((a,b)=>{
-      const dateCmp=String(b.date||'').localeCompare(String(a.date||''));
-      if(dateCmp) return dateCmp;
-      const timeCmp=String(b.startTime||'').localeCompare(String(a.startTime||''));
-      if(timeCmp) return timeCmp;
-      return (Number(a.round)||0)-(Number(b.round)||0) || (Number(a.court)||0)-(Number(b.court)||0);
-    });
-  matches.forEach(m=>{
-    const linkedId=m.scheduleId||null;
-    const key=linkedId?`schedule:${linkedId}`:`legacy:${m.date||'unknown'}:${m.startTime||''}:${m.mode||'open'}`;
-    if(!groups.has(key)){
-      const sch=linkedId?scheduleById(linkedId):null;
-      const modeKey=(sch&&sch.mode)||m.mode||'open';
-      const mode=MODE_META[modeKey]||{label:modeKey,short:modeKey};
-      groups.set(key,{
-        key,
-        scheduleId:linkedId,
-        schedule:sch,
-        title:(sch&&sch.title)||m.gamePlanTitle||`${mode.label} Game Plan`,
-        venueName:(sch&&sch.venueName)||m.gamePlanVenueName||'',
-        clubId:(sch&&sch.clubId)||m.clubId||ACTIVE_CLUB_ID,
-        creatorName:(sch&&sch.creatorName)||m.gamePlanCreatorName||'',
-        date:(sch&&sch.date)||m.date||'',
-        startTime:(sch&&sch.startTime)||m.startTime||'',
-        modeKey,
-        mode,
-        status:(sch&&sch.status)||'',
-        matches:[]
-      });
-    }
-    groups.get(key).matches.push(m);
-  });
-  return [...groups.values()].map(group=>({
-    ...group,
-    matches:group.matches.sort((a,b)=>(Number(a.round)||0)-(Number(b.round)||0)||(Number(a.court)||0)-(Number(b.court)||0))
-  })).sort((a,b)=>`${b.date}T${b.startTime||'00:00'}`.localeCompare(`${a.date}T${a.startTime||'00:00'}`));
-}
-function openHistoryGroup(key){ state.historyGroupKey=key; render(); }
-function backToHistoryPlans(){ state.historyGroupKey=null; render(); }
-function renderHistory(){
-  const groups=historyGamePlanGroups();
-  const totalGames=groups.reduce((sum,g)=>sum+g.matches.length,0);
-  if(totalGames===0){
-    state.historyGroupKey=null;
-    return `<div class="panel"><div class="empty"><h3>No matches in ${esc(activeDateRangeLabel())}</h3><p>Choose another date range, or record results from a Game Plan.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;"><button class="btn btn-ghost" onclick="setDateRange('overall')">Show Overall</button><button class="btn btn-ball" onclick="setTab('schedule')">Go to Game Plan</button></div></div></div>`;
-  }
-  const active=state.historyGroupKey ? groups.find(group=>group.key===state.historyGroupKey) : null;
-  if(state.historyGroupKey&&!active) state.historyGroupKey=null;
-  if(active){
-    const status=active.status;
-    const officialMatches=active.matches.filter(isOfficialMatch);
-    const mvp=computeGamePlanMvp(officialMatches);
-    const mvpLabel=mvp.leaders.length>1?'Co-MVPs':'MVP';
-    const canDeleteAny=active.matches.some(m=>isAdminForClub(m.clubId||ACTIVE_CLUB_ID));
-    return `
-    <section class="panel history-plan-card">
-      <button class="link-btn" type="button" onclick="backToHistoryPlans()">&larr; Back to Game Plans</button>
-      <div class="history-plan-head" style="margin-top:14px;">
-        <div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span class="mode-badge">${esc(active.mode.short)}</span><span class="club-chip">${esc(active.clubId==='independent'?'Independent':clubName(active.clubId))}</span>${status?`<span class="status-badge ${esc(status)}">${esc(scheduleStatusLabel(status))}</span>`:''}</div><h2>${esc(active.title)}</h2><p class="history-plan-meta">${active.date?fmtDate(active.date):'Date unavailable'} &middot; ${formatTime(active.startTime)}${active.venueName?` &middot; ${esc(active.venueName)}`:''}${active.creatorName?` &middot; Game Plan by ${esc(active.creatorName)}`:''}</p></div>
-        <span class="diff-pill diff-zero">${officialMatches.length}/${active.matches.length} confirmed</span>
-      </div>
-      ${mvp.leaders.length?`<div class="history-mvp"><div class="history-mvp-label">${mvpLabel}</div><div class="history-mvp-names">${mvp.leaders.map(row=>esc(playerName(row.id))).join(' &amp; ')}</div><div class="history-mvp-detail">${mvp.leaders.map(row=>`${row.wins}-${row.losses} W/L &middot; ${row.diff>0?'+':''}${row.diff} +/-`).join(' &middot; ')}</div></div>`:`<div class="history-mvp empty"><div class="history-mvp-label">MVP</div><div class="history-mvp-detail">${officialMatches.length?'No award: the best W/L record and the highest total +/- belong to different players.':'Awaiting a confirmed result before an MVP can be awarded.'}</div></div>`}
-      <div class="history-table-wrap" style="margin-top:14px;"><table><thead><tr><th>Round</th><th>Court</th><th>Team 1</th><th>Team 2</th><th>Score</th><th>Status &amp; review</th>${canDeleteAny?'<th></th>':''}</tr></thead><tbody>
-        ${active.matches.map(m=>`<tr><td class="mono small">${m.round?`#${esc(m.round)}`:'-'}</td><td class="mono small">${esc(m.court||'-')}</td><td>${(m.team1||[]).map(playerName).map(esc).join(' &amp; ')}</td><td>${(m.team2||[]).map(playerName).map(esc).join(' &amp; ')}</td><td class="mono">${Number(m.score1)} &ndash; ${Number(m.score2)}</td><td>${verificationBadge(m)}${m.disputeReason?`<div class="dispute-note">${esc(m.disputeReason)}</div>`:''}${resultReviewActions(m)}</td>${canDeleteAny?`<td>${isAdminForClub(m.clubId||ACTIVE_CLUB_ID)?`<button class="btn btn-danger btn-sm" onclick="deleteMatch(${jsArg(m.id)})">Delete</button>`:''}</td>`:''}</tr>`).join('')}
-      </tbody></table></div>
-    </section>`;
-  }
-  return `
-  <div class="panel"><div class="section-title"><h2>History</h2><span class="small muted">${activeDateRangeLabel()} &middot; ${groups.length} Game Plan${groups.length===1?'':'s'} &middot; ${totalGames} recorded game${totalGames===1?'':'s'}</span></div><p class="small muted" style="margin:0;">Choose a Game Plan to review results. Only confirmed results count toward statistics, standings, and MVP awards.</p></div>
-  <div class="panel"><div class="history-plan-list">${groups.map(group=>{
-    const officialMatches=group.matches.filter(isOfficialMatch);
-    const mvp=computeGamePlanMvp(officialMatches);
-    return `<button type="button" class="history-plan-card-button" onclick="openHistoryGroup(${jsArg(group.key)})"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span class="mode-badge">${esc(group.mode.short)}</span><span class="club-chip">${esc(group.clubId==='independent'?'Independent':clubName(group.clubId))}</span>${group.status?`<span class="status-badge ${esc(group.status)}">${esc(scheduleStatusLabel(group.status))}</span>`:''}</div><h2 style="margin-top:12px;">${esc(group.title)}</h2><p class="history-plan-meta">${group.date?fmtDate(group.date):'Date unavailable'} &middot; ${formatTime(group.startTime)}${group.venueName?` &middot; ${esc(group.venueName)}`:''}</p><div class="history-mvp-detail">${mvp.leaders.length?`${mvp.leaders.length>1?'Co-MVPs':'MVP'}: ${mvp.leaders.map(row=>esc(playerName(row.id))).join(' &amp; ')}`:(officialMatches.length?'No MVP awarded':'Awaiting confirmation')} &middot; ${officialMatches.length}/${group.matches.length} confirmed</div><span class="history-view-link">View games &rarr;</span></button>`;
-  }).join('')}</div></div>`;
-}
-/* ============================= MISC WIRING ============================= */
-function wireTabBodyEvents(){
-  if(state.tab==='chat'){
-    const chat=document.getElementById('clubChatMessages');
-    if(chat) requestAnimationFrame(()=>{ chat.scrollTop=chat.scrollHeight; });
-  }
-}
-
-/* ============================= INIT ============================= */
-(async function init(){
-  state.loading = false;
-  render();
-  await offlinePersistenceReady;
-  startSync();
-})();
-document.addEventListener('keydown',event=>{
-  if(event.key!=='Escape') return;
-  if(state.supportPanelOpen){ closeSupportPanel(); return; }
-  if(state.playerModalId){ state.playerModalId=null; render(); return; }
-  if(state.showAddPlayer){ state.showAddPlayer=false; render(); return; }
-  if(state.showAuthModal){ state.showAuthModal=false; render(); return; }
-  if(state.clubHubSelectedId){ closeClubHubProfile(); }
-});
-</script>
-</body>
-</html>
-
-
-
-
-
-
-
