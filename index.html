@@ -645,11 +645,11 @@
   .profile-division-panel{margin-top:0;margin-bottom:16px;padding:13px;}
   .profile-division-panel .section-title{margin-bottom:9px;}
   .profile-division-panel .section-title h2{font-size:19px;}
-  .division-panel-grid{display:grid;grid-template-columns:minmax(190px,280px) minmax(300px,520px);gap:28px;align-items:start;justify-content:space-between;}
+  .division-panel-grid{display:grid;grid-template-columns:minmax(190px,280px) minmax(520px,760px);gap:28px;align-items:start;justify-content:space-between;}
   .division-select-wrap{display:grid;gap:7px;align-content:start;}
   .division-select-head{display:flex;align-items:center;justify-content:space-between;gap:10px;}
-  .division-tip-wrap{width:100%;max-width:520px;justify-self:end;display:grid;gap:7px;}
-  .division-tip-note{justify-self:end;color:var(--muted);font-size:12px;line-height:1.35;text-align:right;}
+  .division-tip-wrap{width:100%;max-width:760px;justify-self:end;display:grid;grid-template-columns:minmax(170px,1fr) minmax(300px,520px);gap:12px;align-items:start;}
+  .division-tip-note{justify-self:start;color:var(--muted);font-size:12px;line-height:1.35;text-align:left;padding-top:1px;}
   .division-tip-slider{min-width:0;position:relative;background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:12px 13px;min-height:92px;display:flex;flex-direction:column;justify-content:space-between;}
   .division-tip-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:5px;}
   .division-tip-viewport{overflow:hidden;min-width:0;cursor:grab;touch-action:pan-y;user-select:none;}
@@ -918,7 +918,7 @@
     .profile-kpi-grid{grid-template-columns:repeat(auto-fit,minmax(min(135px,100%),1fr));}
     .profile-hero-stats{grid-template-columns:repeat(auto-fit,minmax(min(130px,100%),1fr));}
     .division-panel-grid{grid-template-columns:1fr;justify-content:stretch;}
-    .division-tip-wrap{max-width:none;justify-self:stretch;}
+    .division-tip-wrap{max-width:none;justify-self:stretch;grid-template-columns:1fr;gap:7px;}
     .division-tip-note{justify-self:start;text-align:left;}
     .profile-insight-grid{grid-template-columns:1fr;}
     .profile-settings-grid{grid-template-columns:1fr;}
