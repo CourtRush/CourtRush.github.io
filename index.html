@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-build="courtrush-profile-invitations-v13">
 <head>
 <meta charset="UTF-8" />
@@ -2478,11 +2478,11 @@ function oppScore(teamA, teamB, opponentCount){
   return s;
 }
 function openPlayOpponentScore(teamA,teamB,opponentCount){
-  return divisionMismatchPenalty(teamA,teamB)*100 + oppScore(teamA,teamB,opponentCount) + divisionMatchSpread(teamA,teamB)*0.35;
+  return oppScore(teamA,teamB,opponentCount)*10 + divisionMismatchPenalty(teamA,teamB)*0.15 + divisionMatchSpread(teamA,teamB)*0.05;
 }
 function openPlayPartnerScore(team,partnerCount){
   const repeat=team.length===2 ? (partnerCount[pairKey(team[0],team[1])]||0) : 0;
-  return novicePartnerPenalty(team)*1000 + divisionPartnerSpread(team)*100 + repeat*2;
+  return repeat*10 + novicePartnerPenalty(team)*0.2 + divisionPartnerSpread(team)*0.05;
 }
 
 // Guaranteed round robin - used whenever the group actually fits on the courts available,
@@ -2536,26 +2536,52 @@ function generateScheduleRoundRobin({playerIds, format}){
 // Fallback for when there are more players than the available courts can hold at once -
 // a perfect one-time-only pairing cannot be guaranteed here, so this rotates fairly and
 // minimizes repeats as best it can across the auto-calculated round count.
-function buildGreedyRound(playerIds, usableCourts, capacity, format, partnerCount, opponentCount, sitOutCount, priorityRank){
+function buildGreedyRound(playerIds, usableCourts, capacity, format, partnerCount, opponentCount, sitOutCount, priorityRank, gameCount, lastPlayedIds){
   const key = pairKey;
-  const numSitOut = playerIds.length - capacity;
+  const neededPerCourt=format==='singles'?2:4;
+  const totalNeeded=Math.min(playerIds.length,Math.max(1,usableCourts)*neededPerCourt);
+  const numSitOut = Math.max(0, playerIds.length - totalNeeded);
   const rank=priorityRank||{};
-  const order = [...playerIds].sort((a,b)=> sitOutCount[a]-sitOutCount[b] || (rank[a]||0)-(rank[b]||0) || (Math.random()-0.5));
-  const sitOuts = numSitOut>0 ? order.slice(0, numSitOut) : [];
+  const games=gameCount||{};
+  const previous=new Set(lastPlayedIds||[]);
+  const order = [...playerIds].sort((a,b)=>
+    (games[a]||0)-(games[b]||0) ||
+    (previous.has(a)?1:0)-(previous.has(b)?1:0) ||
+    (sitOutCount[b]||0)-(sitOutCount[a]||0) ||
+    (rank[a]||0)-(rank[b]||0) ||
+    playerName(a).localeCompare(playerName(b),undefined,{sensitivity:'base'}) ||
+    (Math.random()-0.5)
+  );
+  let playPool=order.slice(0,totalNeeded);
+  if(previous.size && playerIds.length-previous.size>=neededPerCourt){
+    const fresh=order.filter(id=>!previous.has(id));
+    const repeats=order.filter(id=>previous.has(id));
+    playPool=[...fresh.slice(0,totalNeeded),...repeats].slice(0,totalNeeded);
+  }
+  const playSet=new Set(playPool);
+  const sitOuts = numSitOut>0 ? playerIds.filter(id=>!playSet.has(id)).sort((a,b)=>
+    (games[b]||0)-(games[a]||0) ||
+    (sitOutCount[a]||0)-(sitOutCount[b]||0) ||
+    playerName(a).localeCompare(playerName(b),undefined,{sensitivity:'base'})
+  ) : [];
   sitOuts.forEach(id=> sitOutCount[id]++);
-  let pool = shuffle(playerIds.filter(id=> !sitOuts.includes(id)));
+  let pool = [...playPool].sort((a,b)=>
+    (games[a]||0)-(games[b]||0) ||
+    (previous.has(a)?1:0)-(previous.has(b)?1:0) ||
+    playerName(a).localeCompare(playerName(b),undefined,{sensitivity:'base'}) ||
+    (Math.random()-0.5)
+  );
   const courtsArr = [];
   for(let c=1; c<=usableCourts; c++){
-    const needed=format==='singles'?2:4;
+    const needed=neededPerCourt;
     if(pool.length < needed) break;
-    const sameDivisionPool=format==='singles' ? sameDivisionCourtPool(pool,needed) : null;
-    const balancedDoublesPool=format==='doubles' ? balancedNoviceDoublesCourtPool(pool) : null;
-    let courtPool=balancedDoublesPool || sameDivisionPool || [...pool];
+    let courtPool=[...pool];
     if(format==='singles'){
       const a = courtPool.shift();
       courtPool.sort((x,y)=> (divisionMismatchPenalty([a],[x])*100 + opponentCount[key(a,x)] + divisionMatchSpread([a],[x])*0.35) - (divisionMismatchPenalty([a],[y])*100 + opponentCount[key(a,y)] + divisionMatchSpread([a],[y])*0.35));
       const b = courtPool.shift();
       pool=removeCourtPool(pool,[a,b]);
+      [a,b].forEach(id=>games[id]=(games[id]||0)+1);
       opponentCount[key(a,b)]++;
       courtsArr.push({court:c, team1:[a], team2:[b]});
     } else {
@@ -2576,6 +2602,7 @@ function buildGreedyRound(playerIds, usableCourts, capacity, format, partnerCoun
       });
       const d1 = courtPool.shift();
       pool=removeCourtPool(pool,[a,b,c1,d1]);
+      [a,b,c1,d1].forEach(id=>games[id]=(games[id]||0)+1);
       partnerCount[key(c1,d1)]++;
       [a,b].forEach(p1=> [c1,d1].forEach(p2=> opponentCount[key(p1,p2)]++));
       courtsArr.push({court:c, team1:[a,b], team2:[c1,d1]});
@@ -2589,11 +2616,13 @@ function generateScheduleGreedy({playerIds, courts, format}){
   const usableCourts = Math.max(1, Math.min(courts, Math.floor(playerIds.length/capacityPerCourt)));
   const capacity = usableCourts*capacityPerCourt;
   const sitOutCount = {}; playerIds.forEach(id=> sitOutCount[id]=0);
+  const gameCount = {}; playerIds.forEach(id=> gameCount[id]=0);
   const partnerCount = {}, opponentCount = {};
   playerIds.forEach(a=> playerIds.forEach(b=>{ if(a!==b){ partnerCount[pairKey(a,b)]=0; opponentCount[pairKey(a,b)]=0; } }));
   const roundsOut = [];
   for(let r=1; r<=rounds; r++){
-    const { sitOuts, courts:courtsArr } = buildGreedyRound(playerIds, usableCourts, capacity, format, partnerCount, opponentCount, sitOutCount);
+    const previous=roundsOut.length?playersInRound(roundsOut[roundsOut.length-1]):[];
+    const { sitOuts, courts:courtsArr } = buildGreedyRound(playerIds, usableCourts, capacity, format, partnerCount, opponentCount, sitOutCount, null, gameCount, previous);
     roundsOut.push({round:r, sitOuts, courts:courtsArr});
   }
   return roundsOut;
@@ -4011,15 +4040,16 @@ async function addGuestForSchedule(){
   render();
 }
 function emptyScheduleCounts(playerIds){
-  const partnerCount={},opponentCount={},sitOutCount={};
-  playerIds.forEach(id=>{ sitOutCount[id]=0; });
+  const partnerCount={},opponentCount={},sitOutCount={},gameCount={};
+  playerIds.forEach(id=>{ sitOutCount[id]=0; gameCount[id]=0; });
   playerIds.forEach(a=>playerIds.forEach(b=>{ if(a!==b){ partnerCount[pairKey(a,b)]=0; opponentCount[pairKey(a,b)]=0; } }));
-  return {partnerCount,opponentCount,sitOutCount};
+  return {partnerCount,opponentCount,sitOutCount,gameCount};
 }
 function applyRoundToScheduleCounts(round,counts){
   const courts=round&&round.courts||[];
   courts.forEach(ct=>{
     const team1=ct.team1||[],team2=ct.team2||[];
+    [...team1,...team2].forEach(id=>counts.gameCount[id]=(counts.gameCount[id]||0)+1);
     if(team1.length>1) counts.partnerCount[pairKey(team1[0],team1[1])] = (counts.partnerCount[pairKey(team1[0],team1[1])]||0)+1;
     if(team2.length>1) counts.partnerCount[pairKey(team2[0],team2[1])] = (counts.partnerCount[pairKey(team2[0],team2[1])]||0)+1;
     team1.forEach(a=>team2.forEach(b=>{ counts.opponentCount[pairKey(a,b)] = (counts.opponentCount[pairKey(a,b)]||0)+1; }));
@@ -4029,7 +4059,7 @@ function applyRoundToScheduleCounts(round,counts){
 function rebuildOpenScheduleAfterLateAdd(sch,nextPlayerIds){
   const oldRounds=Array.isArray(sch.rounds)?sch.rounds:[];
   const firstAffected=oldRounds.findIndex(rd=>(rd.courts||[]).some(ct=>!scheduleHasRecordedSlot(sch,rd.round,ct.court)));
-  if(firstAffected<0) return null;
+  if(firstAffected<0) return oldRounds;
   const format=sch.format||'doubles';
   const capacityPerCourt=format==='singles'?2:4;
   const usableCourts=Math.max(1,Math.min(Math.max(1,Number(sch.courts)||1),Math.floor(nextPlayerIds.length/capacityPerCourt)));
@@ -4058,13 +4088,15 @@ function rebuildOpenScheduleAfterLateAdd(sch,nextPlayerIds){
       const available=nextPlayerIds.filter(id=>!occupied.has(id));
       const lateUsable=Math.max(0,Math.min(openCourts,Math.floor(available.length/capacityPerCourt)));
       if(lateUsable>0){
-        rebuilt=buildGreedyRound(available,lateUsable,lateUsable*capacityPerCourt,format,counts.partnerCount,counts.opponentCount,counts.sitOutCount,priorityRank);
+        const previous=nextRounds.length?playersInRound(nextRounds[nextRounds.length-1]):[];
+        rebuilt=buildGreedyRound(available,lateUsable,lateUsable*capacityPerCourt,format,counts.partnerCount,counts.opponentCount,counts.sitOutCount,priorityRank,counts.gameCount,previous);
       }
     }
     const courts=[...keptCourts,...rebuilt.courts.map((ct,i)=>({...ct,court:openCourtNumbers[i]||ct.court}))].sort((a,b)=>Number(a.court)-Number(b.court));
     const playing=new Set(courts.flatMap(ct=>[...(ct.team1||[]),...(ct.team2||[])]));
     const sitOuts=nextPlayerIds.filter(id=>!playing.has(id));
     nextRounds.push({...rd,courts,sitOuts});
+    applyRoundToScheduleCounts({courts:rebuilt.courts,sitOuts:[]},counts);
   });
   return nextRounds;
 }
@@ -4098,12 +4130,13 @@ function rebuildOpenScheduleAfterPlayerRemoval(sch,removePlayerId){
     const openCourts=Math.max(0,(rd.courts||[]).length-keptCourts.length);
     const usable=Math.max(0,Math.min(openCourts,Math.floor(available.length/capacityPerCourt)));
     const rebuilt=usable>0
-      ? buildGreedyRound(available,usable,usable*capacityPerCourt,format,counts.partnerCount,counts.opponentCount,counts.sitOutCount,priorityRank)
+      ? buildGreedyRound(available,usable,usable*capacityPerCourt,format,counts.partnerCount,counts.opponentCount,counts.sitOutCount,priorityRank,counts.gameCount,nextRounds.length?playersInRound(nextRounds[nextRounds.length-1]):[])
       : {sitOuts:[],courts:[]};
     const courts=[...keptCourts,...rebuilt.courts.map((ct,i)=>({...ct,court:openCourtNumbers[i]||ct.court}))].sort((a,b)=>Number(a.court)-Number(b.court));
     const playing=new Set(courts.flatMap(ct=>[...(ct.team1||[]),...(ct.team2||[])]));
     const sitOuts=nextPlayerIds.filter(id=>!playing.has(id));
     nextRounds.push({...rd,courts,sitOuts});
+    applyRoundToScheduleCounts({courts:rebuilt.courts,sitOuts:[]},counts);
   });
   return {rounds:nextRounds,nextPlayerIds};
 }
@@ -4128,11 +4161,12 @@ async function addLatePlayerToSchedule(scheduleId){
   const nextPlayerIds=[...new Set([...schedulePlayers(sch),playerId])];
   const rounds=rebuildOpenScheduleAfterLateAdd(sch,nextPlayerIds);
   if(!rounds){ toast('No upcoming games are available to rebalance'); return; }
+  const hadUpcoming=(sch.rounds||[]).some(rd=>(rd.courts||[]).some(ct=>!scheduleHasRecordedSlot(sch,rd.round,ct.court)));
   const updated={...stripScheduleMeta(sch),selectedPlayerIds:nextPlayerIds,rounds,numberOfRounds:rounds.length,status:sch.status==='published'&&scheduleRecordedCount(sch)>0?'in_progress':sch.status,updatedAt:new Date().toISOString()};
   try{ await SCHEDULES_COL.doc(scheduleDocId(sch)).set(updated); }
   catch(e){ console.error(e); toast('Could not add this player to the Game Plan'); return; }
   upsertScheduleLocal(scheduleDocId(sch),updated);
-  toast('Player added - upcoming games were rebalanced');
+  toast(hadUpcoming?'Player added - upcoming games were rebalanced':'Player added to queue');
   render();
 }
 async function removePlayerFromScheduleQueue(scheduleId,playerId){
@@ -4191,7 +4225,9 @@ function buildOpenRoundsForDraft(playerIds,draft){
     const capacityPerCourt=draft.format==='singles'?2:4;
     const usableCourts=Math.max(1,Math.min(draft.courts,Math.floor(ids.length/capacityPerCourt)));
     const capacity=usableCourts*capacityPerCourt;
-    const next=buildGreedyRound(ids,usableCourts,capacity,draft.format,partnerCount,opponentCount,sitOutCount);
+    const last=rounds.length?playersInRound(rounds[rounds.length-1]):[];
+    const gameCount=deriveGameCountFromRounds(rounds,ids);
+    const next=buildGreedyRound(ids,usableCourts,capacity,draft.format,partnerCount,opponentCount,sitOutCount,null,gameCount,last);
     rounds.push({round:rounds.length+1,sitOuts:next.sitOuts,courts:next.courts});
   }
   return rounds;
@@ -4236,6 +4272,19 @@ function buildDuprForDraft(draft){
   const team2=draft.format==='singles'?[draft.duprT2a]:[draft.duprT2a,draft.duprT2b];
   return {rounds:[{round:1,sitOuts:[],courts:[{court:1,team1,team2}]}],selectedPlayerIds:[...team1,...team2]};
 }
+function playersInRound(round){
+  return Array.from(new Set(((round&&round.courts)||[]).flatMap(ct=>[...(ct.team1||[]),...(ct.team2||[])])));
+}
+function deriveGameCountFromRounds(rounds,playerIds){
+  const counts={};
+  (playerIds||[]).forEach(id=>counts[id]=0);
+  (rounds||[]).forEach(rd=>{
+    (rd.courts||[]).forEach(ct=>{
+      [...(ct.team1||[]),...(ct.team2||[])].forEach(id=>counts[id]=(counts[id]||0)+1);
+    });
+  });
+  return counts;
+}
 function scheduleStructureSignature({mode,format,courts,durationMinutes,avgGameMinutes,selectedPlayerIds,teams,rounds}){
   const effectiveCourts=mode==='dupr'?1:(Number(courts)||1);
   const duprGames=mode==='dupr'?(rounds||[]).flatMap(rd=>(rd.courts||[]).map(ct=>({
@@ -4261,7 +4310,8 @@ async function saveGamePlan(){
     selectedPlayerIds=Array.from(state.scheduleSelection);
     const min=draft.format==='singles'?2:4;
     if(selectedPlayerIds.length<min){ toast(`Pick at least ${min} players`); return; }
-    rounds=buildOpenRoundsForDraft(selectedPlayerIds,draft);
+    const existingOpen=state.scheduleScreen==='edit' ? scheduleById(state.activeScheduleId) : null;
+    rounds=existingOpen&&existingOpen.mode==='open'&&Array.isArray(existingOpen.rounds) ? existingOpen.rounds : [];
   } else if(draft.mode==='tournament'){
     if(draft.format==='singles' && state.scheduleSelection.size<2){ toast('Pick at least 2 players'); return; }
     if(draft.format==='doubles'){
@@ -4278,7 +4328,7 @@ async function saveGamePlan(){
     const built=buildDuprForDraft(draft);
     rounds=built.rounds; selectedPlayerIds=built.selectedPlayerIds;
   }
-  if(!rounds.length){ toast('Could not build this Game Plan'); return; }
+  if(draft.mode!=='open'&&!rounds.length){ toast('Could not build this Game Plan'); return; }
   const existing=state.scheduleScreen==='edit' ? scheduleById(state.activeScheduleId) : null;
   if(existing && isScheduleClosed(existing)){ toast('Ended or cancelled Game Plans cannot be regenerated'); return; }
   if(draft.date<todayStr() && (!existing || existing.date!==draft.date)){
@@ -4614,48 +4664,108 @@ async function updateCourtResult(scheduleId,matchId,round,court){
   render();
 }
 function deriveCountsFromSchedule(sch){
-  const playerIds=Array.from(new Set((sch.rounds||[]).flatMap(rd=>[
+  const playerIds=Array.from(new Set([
+    ...schedulePlayers(sch),
+    ...(sch.rounds||[]).flatMap(rd=>[
     ...(rd.courts||[]).flatMap(c=>[...(c.team1||[]),...(c.team2||[])]),
     ...(rd.sitOuts||[])
-  ])));
-  const partnerCount={},opponentCount={},sitOutCount={};
-  playerIds.forEach(a=>{ sitOutCount[a]=0; playerIds.forEach(b=>{ if(a!==b){ partnerCount[pairKey(a,b)]=0; opponentCount[pairKey(a,b)]=0; } }); });
+    ])
+  ]));
+  const partnerCount={},opponentCount={},sitOutCount={},gameCount={};
+  playerIds.forEach(a=>{ sitOutCount[a]=0; gameCount[a]=0; playerIds.forEach(b=>{ if(a!==b){ partnerCount[pairKey(a,b)]=0; opponentCount[pairKey(a,b)]=0; } }); });
   (sch.rounds||[]).forEach(rd=>{
     (rd.sitOuts||[]).forEach(id=>sitOutCount[id]=(sitOutCount[id]||0)+1);
     (rd.courts||[]).forEach(ct=>{
+      [...(ct.team1||[]),...(ct.team2||[])].forEach(id=>gameCount[id]=(gameCount[id]||0)+1);
       if(ct.team1.length===2) partnerCount[pairKey(ct.team1[0],ct.team1[1])]++;
       if(ct.team2.length===2) partnerCount[pairKey(ct.team2[0],ct.team2[1])]++;
       ct.team1.forEach(p1=>ct.team2.forEach(p2=>opponentCount[pairKey(p1,p2)]++));
     });
   });
-  return {playerIds,partnerCount,opponentCount,sitOutCount};
+  return {playerIds,partnerCount,opponentCount,sitOutCount,gameCount};
 }
-async function addExtraRound(scheduleId){
+function openPlayCourtNumbers(sch){
+  const total=Math.max(1,Number(sch&&sch.courts)||1);
+  return Array.from({length:total},(_,i)=>i+1);
+}
+function openPlayCourtGameCounts(sch){
+  const counts={};
+  openPlayCourtNumbers(sch).forEach(c=>counts[c]=0);
+  (sch&&sch.rounds||[]).forEach(rd=>{
+    (rd.courts||[]).forEach(ct=>{
+      const court=Math.max(1,Number(ct.court)||1);
+      counts[court]=(counts[court]||0)+1;
+    });
+  });
+  return counts;
+}
+function nextOpenPlayCourtNumber(sch){
+  const counts=openPlayCourtGameCounts(sch);
+  return openPlayCourtNumbers(sch).sort((a,b)=>(counts[a]||0)-(counts[b]||0)||a-b)[0]||1;
+}
+function openPlayNextRoundSlot(sch){
+  const courtNumbers=openPlayCourtNumbers(sch);
+  const rounds=Array.isArray(sch&&sch.rounds)?sch.rounds:[];
+  const last=rounds[rounds.length-1];
+  if(last){
+    const used=new Set((last.courts||[]).map(ct=>Number(ct.court)||1));
+    const openCourt=courtNumbers.find(c=>!used.has(c));
+    if(openCourt) return {round:Number(last.round)||rounds.length,court:openCourt,index:rounds.length-1,append:false};
+  }
+  return {round:rounds.length+1,court:courtNumbers[0]||1,index:rounds.length,append:true};
+}
+function lastPlayersInAnyGame(sch){
+  const rounds=Array.isArray(sch&&sch.rounds)?sch.rounds:[];
+  for(let i=rounds.length-1;i>=0;i--){
+    const found=(rounds[i].courts||[]).slice().reverse()[0];
+    if(found) return [...(found.team1||[]),...(found.team2||[])];
+  }
+  return [];
+}
+async function addExtraRound(scheduleId,courtNumber){
   const sch=scheduleById(scheduleId);
   if(!sch) return;
-  if(!canManageSchedule(sch)){ toast('Only the owner or an admin can add rounds'); return; }
-  if(isScheduleClosed(sch)){ toast('This Game Plan has ended; rounds can no longer be added'); return; }
+  if(!canManageSchedule(sch)){ toast('Only the owner or an admin can add games'); return; }
+  if(isScheduleClosed(sch)){ toast('This Game Plan has ended; games can no longer be added'); return; }
   const nextRoundNum=scheduleRoundCount(sch)+1;
   let newRound;
+  let updatedRounds;
   if(sch.mode==='tournament'){
     const teams=sch.teams&&sch.teams.length ? sch.teams : schedulePlayers(sch).map(id=>[id]);
     const templates=buildTournamentRoundsFromTeams(teams,sch.courts,sch.leftover||null);
     if(!templates.length){ toast('Could not build another tournament round'); return; }
     const t=templates[(scheduleRoundCount(sch))%templates.length];
     newRound={...t,round:nextRoundNum,courts:t.courts.map(c=>({...c}))};
+    updatedRounds=[...(sch.rounds||[]),newRound];
   }else{
-    const {playerIds,partnerCount,opponentCount,sitOutCount}=deriveCountsFromSchedule(sch);
+    const {playerIds,partnerCount,opponentCount,sitOutCount,gameCount}=deriveCountsFromSchedule(sch);
     const capacityPerCourt=sch.format==='singles'?2:4;
-    const usableCourts=Math.max(1,Math.min(sch.courts,Math.floor(playerIds.length/capacityPerCourt)));
-    const capacity=usableCourts*capacityPerCourt;
-    const next=buildGreedyRound(playerIds,usableCourts,capacity,sch.format,partnerCount,opponentCount,sitOutCount);
-    newRound={round:nextRoundNum,sitOuts:next.sitOuts,courts:next.courts};
+    if(playerIds.length<capacityPerCourt){ toast(`Add at least ${capacityPerCourt} players before adding a game`); return; }
+    const slot=openPlayNextRoundSlot(sch);
+    const court=Math.max(1,Math.min(Math.max(1,Number(sch.courts)||1),Number(courtNumber)||slot.court));
+    const last=lastPlayersInAnyGame(sch);
+    const next=buildGreedyRound(playerIds,1,capacityPerCourt,sch.format,partnerCount,opponentCount,sitOutCount,null,gameCount,last);
+    const newCourt=(next.courts||[]).map(ct=>({...ct,court}))[0];
+    if(!newCourt){ toast('Could not build another game'); return; }
+    const rounds=[...(sch.rounds||[])];
+    if(slot.append){
+      newRound={round:slot.round,sitOuts:[],courts:[newCourt]};
+      rounds.push(newRound);
+    }else{
+      const existing={...rounds[slot.index]};
+      existing.courts=[...(existing.courts||[]),newCourt].sort((a,b)=>Number(a.court)-Number(b.court));
+      rounds[slot.index]=existing;
+    }
+    const targetIndex=slot.append?rounds.length-1:slot.index;
+    const playing=new Set((rounds[targetIndex].courts||[]).flatMap(ct=>[...(ct.team1||[]),...(ct.team2||[])]));
+    rounds[targetIndex]={...rounds[targetIndex],sitOuts:playerIds.filter(id=>!playing.has(id))};
+    updatedRounds=rounds;
   }
-  const updated={...stripScheduleMeta(sch),rounds:[...(sch.rounds||[]),newRound],numberOfRounds:nextRoundNum,updatedAt:new Date().toISOString()};
+  const updated={...stripScheduleMeta(sch),rounds:updatedRounds,numberOfRounds:updatedRounds.length,updatedAt:new Date().toISOString()};
   try{ await SCHEDULES_COL.doc(scheduleDocId(sch)).set(updated); }
-  catch(e){ console.error(e); toast('Could not add another round'); return; }
+  catch(e){ console.error(e); toast('Could not add another game'); return; }
   upsertScheduleLocal(scheduleDocId(sch),updated);
-  toast('Added another round');
+  toast('Added another game');
   render();
 }
 
@@ -4663,31 +4773,39 @@ async function removeExtraRound(scheduleId){
   const sch=scheduleById(scheduleId);
   if(!sch) return;
   if(!canManageSchedule(sch)){ toast('Only the owner or an admin can remove games'); return; }
-  if(isScheduleClosed(sch)){ toast('This Game Plan has ended; rounds can no longer be removed'); return; }
+  if(isScheduleClosed(sch)){ toast('This Game Plan has ended; games can no longer be removed'); return; }
 
   const rounds=Array.isArray(sch.rounds)?sch.rounds:[];
-  if(rounds.length<=1){ toast('A Game Plan must keep at least one round'); return; }
+  if(rounds.length<=0){ toast('No games to remove yet'); return; }
 
   const lastRound=rounds[rounds.length-1];
   const lastRoundNum=lastRound.round;
-  const lastRoundGames=Array.isArray(lastRound.courts)?lastRound.courts.length:0;
+  const lastRoundCourts=Array.isArray(lastRound.courts)?lastRound.courts:[];
+  const latestCourt=lastRoundCourts[lastRoundCourts.length-1];
+  if(!latestCourt){ toast('No games to remove yet'); return; }
   const recorded=sch.recorded||{};
-  const savedKeys=(lastRound.courts||[])
-    .map(ct=>`${lastRoundNum}_${ct.court}`)
-    .filter(key=>Boolean(recorded[key]));
+  const latestKey=`${lastRoundNum}_${latestCourt.court}`;
+  const savedKeys=recorded[latestKey]?[latestKey]:[];
 
   if(savedKeys.length){
-    toast(`Round ${lastRoundNum} has saved results and cannot be removed`);
+    toast(`Round ${lastRoundNum} Court ${latestCourt.court} has a saved result and cannot be removed`);
     return;
   }
 
-  const gameLabel=`${lastRoundGames} unplayed game${lastRoundGames===1?'':'s'}`;
-  if(!confirm(`Remove Round ${lastRoundNum} and its ${gameLabel}?`)) return;
+  if(!confirm(`Remove Round ${lastRoundNum} Court ${latestCourt.court}?`)) return;
 
-  const remainingRounds=rounds.slice(0,-1);
+  const remainingRounds=rounds.slice();
+  const remainingCourts=lastRoundCourts.slice(0,-1);
+  if(remainingCourts.length){
+    const playing=new Set(remainingCourts.flatMap(ct=>[...(ct.team1||[]),...(ct.team2||[])]));
+    const playerIds=schedulePlayers(sch);
+    remainingRounds[remainingRounds.length-1]={...lastRound,courts:remainingCourts,sitOuts:playerIds.filter(id=>!playing.has(id))};
+  }else{
+    remainingRounds.pop();
+  }
   const cleanedRecorded={};
   Object.entries(recorded).forEach(([key,value])=>{
-    if(!key.startsWith(`${lastRoundNum}_`)) cleanedRecorded[key]=value;
+    if(key!==latestKey) cleanedRecorded[key]=value;
   });
   const updated={
     ...stripScheduleMeta(sch),
@@ -4697,9 +4815,9 @@ async function removeExtraRound(scheduleId){
     updatedAt:new Date().toISOString()
   };
   try{ await SCHEDULES_COL.doc(scheduleDocId(sch)).set(updated); }
-  catch(e){ console.error(e); toast('Could not remove the latest round'); return; }
+  catch(e){ console.error(e); toast('Could not remove the latest game'); return; }
   upsertScheduleLocal(scheduleDocId(sch),updated);
-  toast(`Removed Round ${lastRoundNum} - ${gameLabel}`);
+  toast(`Removed Round ${lastRoundNum} Court ${latestCourt.court}`);
   render();
 }
 
@@ -5825,11 +5943,9 @@ function gamePlanPreview(draft){
   let players=0,rounds=0,games=0,perPlayer=0;
   if(draft.mode==='open'){
     players=state.scheduleSelection.size;
-    rounds=sessionRoundTarget(draft);
-    const perCourt=draft.format==='singles'?2:4;
-    const usable=Math.max(0,Math.min(draft.courts,Math.floor(players/perCourt)));
-    games=usable*rounds;
-    perPlayer=players?games*perCourt/players:0;
+    rounds=0;
+    games=0;
+    perPlayer=0;
   }else if(draft.mode==='tournament'){
     const built=buildTournamentForDraft(draft);
     players=built.selectedPlayerIds.length;
@@ -5914,7 +6030,7 @@ function renderGamePlanBuilder(isEdit){
         <div class="preview-finish"><span class="small">Estimated finish</span><strong>${preview.estimatedFinish}</strong></div>
       </div>
       <p class="small muted" style="margin:10px 2px 0;">A round is one simultaneous time block. Each occupied court inside that round is one game.</p>
-      ${d.mode==='open'?'<p class="small muted" style="margin:8px 2px 0;">Open Play now builds same-division games first. Mixed-division games are used only when there are not enough players in a division to fill a court.</p>':''}
+      ${d.mode==='open'?'<p class="small muted" style="margin:8px 2px 0;">Open Play starts with 0 games. After saving, admins add suggested queue-balanced games one block at a time.</p>':''}
     </div>
   </div>`;
 }
@@ -6059,6 +6175,7 @@ function renderScheduleView(sch){
   const endedBy=sch.endedByName||'an authorized organizer';
   const showLeaderboardModal=state.scheduleLeaderboardOpenId===id;
   const canRemoveQueuedPlayers=canManage&&!closed&&sch.mode==='open';
+  const addGamesButton=`<button class="btn btn-ball" onclick="addExtraRound(${jsArg(id)})">+ Add Games</button>`;
   return `
   <div class="panel">
     <div class="schedule-page-head">
@@ -6090,24 +6207,24 @@ function renderScheduleView(sch){
     <div>${renderScheduleResult(sch)}</div>
     <div class="builder-sticky">${renderScheduleLeaderboard(sch,false)}</div>
   </div>
-  ${canManage&&!closed&&sch.mode!=='dupr'?`<div class="panel"><div class="game-plan-actions"><button class="btn btn-ball" onclick="addExtraRound(${jsArg(id)})">+ Add Games</button><button class="btn btn-danger" onclick="removeExtraRound(${jsArg(id)})" ${scheduleRoundCount(sch)<=1?'disabled title="A Game Plan must keep at least one round"':''}>- Remove Games</button><button class="btn btn-end" onclick="endGamePlan(${jsArg(id)})">End Game Plan</button></div><p class="small muted" style="margin:8px 0 0;">Add Games creates another complete round across the available courts. Remove Games removes only the latest unplayed round. End Game Plan immediately closes the session and marks every remaining game without a saved result as not played.</p></div>`:''}
+  ${canManage&&!closed&&sch.mode!=='dupr'?`<div class="panel"><div class="game-plan-actions">${addGamesButton}<button class="btn btn-danger" onclick="removeExtraRound(${jsArg(id)})" ${scheduleRoundCount(sch)<=0?'disabled title="No games to remove yet"':''}>- Remove Games</button><button class="btn btn-end" onclick="endGamePlan(${jsArg(id)})">End Game Plan</button></div><p class="small muted" style="margin:8px 0 0;">Add Games suggests one queue-balanced court game at a time. The round number stays put until every court in that round has a game, then the next added game starts the next round. Remove Games removes only the latest unplayed court game. End Game Plan immediately closes the session and marks every remaining game without a saved result as not played.</p></div>`:''}
   ${showLeaderboardModal?renderScheduleLeaderboardModal(sch):''}`;
 }
 function renderLatePlayerPanel(sch){
   const selected=new Set(schedulePlayers(sch));
   const clubId=sch.clubId||'independent';
   const options=state.players
-    .filter(p=>!p.guest&&!selected.has(p.id)&&(clubId==='independent'||playerIsMemberOfClub(p,clubId)||!playerIsMemberOfClub(p,clubId)))
+    .filter(p=>!selected.has(p.id)&&(p.guest||clubId==='independent'||playerIsMemberOfClub(p,clubId)||!playerIsMemberOfClub(p,clubId)))
     .sort((a,b)=>a.name.localeCompare(b.name,undefined,{sensitivity:'base'}));
   return `<section class="panel">
-    <div class="section-title"><div><div class="eyebrow">Ongoing player list</div><h2>Add player to upcoming games</h2></div><span class="small muted">Saved results stay unchanged</span></div>
+    <div class="section-title"><div><div class="eyebrow">Player queue</div><h2>Add player or guest</h2></div><span class="small muted">Saved results stay unchanged</span></div>
     <div class="guest-optional-row">
-      <div class="field"><label>Registered player</label><select id="lateSchedulePlayer"><option value="">Choose a registered player...</option>${options.map(p=>`<option value="${esc(p.id)}">${esc(p.name)} - ${esc(playerDivisionLabel(p))}</option>`).join('')}</select></div>
-      <div class="field"><label>Walk-in / guest</label><input type="text" id="lateGuestName" placeholder="Guest name"/></div>
+      <div class="field"><label>Registered player or saved guest</label><select id="lateSchedulePlayer"><option value="">Choose a player or saved guest...</option>${options.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}${p.guest?' - Guest':''} - ${esc(playerDivisionLabel(p))}</option>`).join('')}</select></div>
+      <div class="field"><label>New walk-in guest</label><input type="text" id="lateGuestName" placeholder="Guest name"/></div>
       <div class="field"><label>Guest division</label><select id="lateGuestDivision">${PLAYER_DIVISIONS.map(item=>`<option value="${esc(item.value)}">${esc(item.label)}</option>`).join('')}</select></div>
-      <button class="btn btn-primary btn-sm" type="button" onclick="addLatePlayerToSchedule(${jsArg(scheduleDocId(sch))})">Add &amp; rebalance</button>
+      <button class="btn btn-primary btn-sm" type="button" onclick="addLatePlayerToSchedule(${jsArg(scheduleDocId(sch))})">Add to queue</button>
     </div>
-    <p class="small muted" style="margin:10px 0 0;">Upcoming games are recalculated with original listed players first when priorities tie, while still balancing total games for late arrivals.</p>
+    <p class="small muted" style="margin:10px 0 0;">Guests and registered players join the queue immediately. Any unplayed games are recalculated from the queue, prioritizing players with fewer scheduled games and avoiding immediate repeats when enough players are available.</p>
   </section>`;
 }
 function renderSchedule(){
@@ -6217,7 +6334,7 @@ function renderScheduleLeaderboard(sch,full){
   const showMvpTrophy=isScheduleEnded(sch)&&mvpIds.size>0;
   const rowHtml=(row,index)=>{
     const player=state.players.find(p=>p.id===row.id);
-    const trophy=showMvpTrophy&&mvpIds.has(row.id)?'<span title="MVP">🏆</span>':'';
+    const trophy=showMvpTrophy&&mvpIds.has(row.id)?'<span title="MVP">??</span>':'';
     const content=`<span class="game-plan-leaderboard-rank">#${index+1}</span><span class="game-plan-leaderboard-player"><span class="game-plan-leaderboard-name"><span>${esc(playerName(row.id))}</span>${trophy}${player?playerDivisionBadge(player):''}</span><span class="game-plan-leaderboard-stat">${row.wins}-${row.losses} W/L - ${row.diff>0?'+':''}${row.diff} +/- - ${row.winrate.toFixed(0)}% Winrate</span></span>`;
     return full?`<div class="game-plan-leaderboard-row">${content}</div>`:`<button class="game-plan-leaderboard-row clickable" type="button" onclick="openScheduleLeaderboard(${jsArg(id)})">${content}</button>`;
   };
@@ -6292,7 +6409,7 @@ function renderHistory(){
     const mvp=computeGamePlanMvp(officialMatches);
     const mvpLabel=mvp.leaders.length>1?'Co-MVPs':'MVP';
     const mvpDetail=mvpRaceDetail(mvp);
-    const historyMvpTrophy=status==='completed'?'🏆 ':'';
+    const historyMvpTrophy=status==='completed'?'?? ':'';
     const canDeleteAny=active.matches.some(m=>isAdminForClub(m.clubId||ACTIVE_CLUB_ID));
     const canDeleteGroup=canManageHistoryGroup(active);
     return `
@@ -6313,7 +6430,7 @@ function renderHistory(){
   <div class="panel"><div class="history-plan-list">${groups.map(group=>{
     const officialMatches=group.matches.filter(isOfficialMatch);
     const mvp=computeGamePlanMvp(officialMatches);
-    const trophy=group.status==='completed'&&mvp.leaders.length?'🏆 ':'';
+    const trophy=group.status==='completed'&&mvp.leaders.length?'?? ':'';
     return `<button type="button" class="history-plan-card-button" onclick="openHistoryGroup(${jsArg(group.key)})"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span class="mode-badge">${esc(group.mode.short)}</span><span class="club-chip">${esc(group.clubId==='independent'?'Independent':clubName(group.clubId))}</span>${group.status?`<span class="status-badge ${esc(group.status)}">${esc(scheduleStatusLabel(group.status))}</span>`:''}</div><h2 style="margin-top:12px;">${esc(group.title)}</h2><p class="history-plan-meta">${group.date?fmtDate(group.date):'Date unavailable'} &middot; ${formatTime(group.startTime)}${group.venueName?` &middot; ${esc(group.venueName)}`:''}</p><div class="history-mvp-detail">${mvp.leaders.length?`${trophy}${mvp.leaders.length>1?'Co-MVPs':'MVP'}: ${mvp.leaders.map(row=>esc(playerName(row.id))).join(' &amp; ')} - ${mvp.leaders.map(row=>`${row.diff>0?'+':''}${row.diff} +/-`).join(', ')}`:(officialMatches.length?'No MVP awarded':'Awaiting confirmation')} &middot; ${officialMatches.length}/${group.matches.length} confirmed</div><span class="history-view-link">View games &rarr;</span></button>`;
   }).join('')}</div></div>`;
 }
