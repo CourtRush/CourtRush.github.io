@@ -325,6 +325,41 @@ service cloud.firestore {
          resource.data.toUid == request.auth.uid));
     }
 
+    match /friendChats/{messageId} {
+      allow read: if userExists() &&
+        currentPlayerId() in resource.data.participants &&
+        exists(/databases/$(database)/documents/friendRequests/$(('friend_' + resource.data.participants[0]) + '_' + resource.data.participants[1])) &&
+        get(/databases/$(database)/documents/friendRequests/$(('friend_' + resource.data.participants[0]) + '_' + resource.data.participants[1])).data.status == 'accepted';
+
+      allow create: if userExists() &&
+        request.resource.data.keys().hasOnly([
+          'id', 'roomId', 'participants', 'senderUid', 'senderPlayerId',
+          'senderName', 'recipientPlayerId', 'text', 'createdAt'
+        ]) &&
+        request.resource.data.id == messageId &&
+        request.resource.data.senderUid == request.auth.uid &&
+        request.resource.data.senderPlayerId == currentPlayerId() &&
+        playerOwnedByCurrentUser(request.resource.data.senderPlayerId) &&
+        request.resource.data.participants is list &&
+        request.resource.data.participants.size() == 2 &&
+        request.resource.data.senderPlayerId in request.resource.data.participants &&
+        request.resource.data.recipientPlayerId in request.resource.data.participants &&
+        request.resource.data.senderPlayerId != request.resource.data.recipientPlayerId &&
+        request.resource.data.roomId == (('friend_chat_' + request.resource.data.participants[0]) + '_' + request.resource.data.participants[1]) &&
+        exists(/databases/$(database)/documents/friendRequests/$(('friend_' + request.resource.data.participants[0]) + '_' + request.resource.data.participants[1])) &&
+        get(/databases/$(database)/documents/friendRequests/$(('friend_' + request.resource.data.participants[0]) + '_' + request.resource.data.participants[1])).data.status == 'accepted' &&
+        request.resource.data.senderName is string &&
+        request.resource.data.senderName.size() >= 1 &&
+        request.resource.data.senderName.size() <= 80 &&
+        request.resource.data.text is string &&
+        request.resource.data.text.size() >= 1 &&
+        request.resource.data.text.size() <= 500 &&
+        request.resource.data.createdAt is string;
+
+      allow update: if false;
+      allow delete: if isSuperAdmin();
+    }
+
     match /supportRequests/{requestId} {
       allow create: if userExists() &&
         request.resource.data.keys().hasOnly([
