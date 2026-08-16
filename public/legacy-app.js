@@ -4284,6 +4284,13 @@ function setClubWorkspaceView(view){
   refreshChatSync();
   render();
 }
+document.addEventListener('click',event=>{
+  const tab=event.target&&event.target.closest?event.target.closest('[data-club-workspace-view]'):null;
+  if(!tab) return;
+  event.preventDefault();
+  event.stopPropagation();
+  setClubWorkspaceView(tab.dataset.clubWorkspaceView);
+});
 function renderClubWorkspaceNav(){
   const pendingClubRequests=pendingManagedJoinRequestCount();
   const unreadChatMentions=totalUnreadMentions();
@@ -4293,7 +4300,7 @@ function renderClubWorkspaceNav(){
     ['chat','Club Chat','Member-only conversations and mentions',unreadChatMentions],
     ['members','Club Members','Sortable roster and player lookup',0]
   ];
-  return `<div class="club-workspace-nav" role="tablist" aria-label="Club Hub workspace">${items.map(([key,title,copy,count])=>`<button class="club-workspace-tab ${active===key?'active':''}" type="button" role="tab" aria-selected="${active===key?'true':'false'}" onclick="setClubWorkspaceView('${key}')"><span><strong>${title}</strong><span>${copy}</span></span>${count?`<span class="nav-count" aria-label="${count} ${key==='chat'?'unread mention':'pending club request'}${count===1?'':'s'}">${count}</span>`:''}</button>`).join('')}</div>`;
+  return `<div class="club-workspace-nav" role="tablist" aria-label="Club Hub workspace">${items.map(([key,title,copy,count])=>`<button class="club-workspace-tab ${active===key?'active':''}" type="button" role="tab" aria-selected="${active===key?'true':'false'}" data-club-workspace-view="${esc(key)}"><span><strong>${title}</strong><span>${copy}</span></span>${count?`<span class="nav-count" aria-label="${count} ${key==='chat'?'unread mention':'pending club request'}${count===1?'':'s'}">${count}</span>`:''}</button>`).join('')}</div>`;
 }
 function renderClubHub(){
   const view=state.clubWorkspaceView||'hub';
