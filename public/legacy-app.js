@@ -4206,7 +4206,6 @@ function renderLanding(){
         <p>CourtRush helps pickleball clubs and friend groups run games faster, record results, compare progress over time, and understand the players around them.</p>
         <div class="landing-actions">
           <button class="btn btn-primary landing-primary" type="button" data-app-action="explore-landing">Explore first</button>
-          <button class="btn btn-ball landing-install" type="button" data-app-action="open-install-guide">Install app</button>
           <button class="btn btn-ghost landing-secondary" type="button" data-app-action="sign-in">Already a user? Sign in now</button>
         </div>
         <div class="landing-flow" aria-label="CourtRush flow">
@@ -4285,6 +4284,7 @@ function renderLanding(){
       <div class="landing-actions landing-final-actions">
         <button class="btn btn-primary landing-primary" type="button" data-app-action="sign-up">Create your player account</button>
         <button class="btn btn-ghost landing-secondary" type="button" data-app-action="sign-in">Sign in now</button>
+        <button class="btn btn-ball landing-install" type="button" data-app-action="open-install-guide">Install app</button>
       </div>
     </section>
   </main>`;
