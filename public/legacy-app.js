@@ -4338,11 +4338,8 @@ function renderClubMemberRow(player,club,options={}){
   const stats=computePlayerClubStats(player.id,club.id,false);
   const mvp=(options.mvpCounts&&options.mvpCounts[player.id])||0;
   const role=clubRoleForPlayer(club.id,player);
-  const email=playerEmail(player);
-  const playerCode=player.player_id||player.playerId||player.id||'';
-  const meta=showAdminMeta?`<span class="club-member-admin-meta">${email?`<span>${esc(email)}</span>`:''}${playerCode?`<span>ID: ${esc(playerCode)}</span>`:''}</span>`:'';
-  const statsBlock=showAdminMeta&&isSignedIn()?`<span class="club-member-row-stats"><span><b>${stats.gamesPlayed}</b> games</span><span><b>${stats.wins}-${stats.losses}</b> W/L</span><span><b>${mvp}</b> MVP</span></span>`:'';
-  return `<div class="club-member-row ${showAdminMeta?'admin-view':'compact-view'}"><button type="button" class="club-member-profile" onclick="openPlayerProfile(${jsArg(player.id)},{source:'clubHub',clubId:${jsArg(club.id)}})">${avatarHTML(player,38)}<span class="club-member-row-copy"><strong class="club-member-name-line"><span>${esc(showAdminMeta?player.name:playerFirstName(player))}</span></strong>${meta}${statsBlock}</span><span class="my-profile-badge club-member-division">${esc(playerDivisionLabel(player))}</span></button>${role!=='member'?`<span class="club-chip ${role==='staff'?'staff':'admin'}">${esc(clubRoleLabel(role))}</span>`:''}${canManage&&player.id!==state.myPlayerId&&role!=='club_admin'?`<button class="btn btn-danger btn-sm" type="button" onclick="removeClubMember(${jsArg(club.id)},${jsArg(player.id)})">Remove</button>`:''}${player.id===state.myPlayerId&&role==='club_admin'?'<span class="club-chip admin">You - Admin</span>':''}</div>`;
+  const statsBlock=isSignedIn()?`<span class="club-member-row-stats"><span><b>${stats.gamesPlayed}</b> games</span><span><b>${stats.wins}-${stats.losses}</b> W/L</span><span><b>${mvp}</b> MVP</span></span>`:'';
+  return `<div class="club-member-row ${showAdminMeta?'admin-view':'compact-view'}"><button type="button" class="club-member-profile" onclick="openPlayerProfile(${jsArg(player.id)},{source:'clubHub',clubId:${jsArg(club.id)}})">${avatarHTML(player,38)}<span class="club-member-row-copy"><strong class="club-member-name-line"><span>${esc(showAdminMeta?player.name:playerFirstName(player))}</span></strong>${statsBlock}</span><span class="my-profile-badge club-member-division">${esc(playerDivisionLabel(player))}</span></button>${role!=='member'?`<span class="club-chip ${role==='staff'?'staff':'admin'}">${esc(clubRoleLabel(role))}</span>`:''}${canManage&&player.id!==state.myPlayerId&&role!=='club_admin'?`<button class="btn btn-danger btn-sm" type="button" onclick="removeClubMember(${jsArg(club.id)},${jsArg(player.id)})">Remove</button>`:''}${player.id===state.myPlayerId&&role==='club_admin'?'<span class="club-chip admin">You - Admin</span>':''}</div>`;
 }
 
 function renderClubDirectory() {
@@ -4476,12 +4473,13 @@ function renderRosterMemberTile(row){
   const p=row.player;
   const primaryClub=renderPlayerTopClubChip(p);
   const division=playerDivisionValue(p);
+  const email=playerEmail(p);
   return `<article class="roster-member-tile" onclick="openPlayerProfile(${jsArg(p.id)})">
     <div class="roster-member-identity">
       ${avatarHTML(p,36)}
       <div class="roster-member-name-wrap">
         <div class="roster-member-name"><span class="roster-member-name-text">${esc(p.name||'Unnamed player')}</span>${p.guest?'<span class="guest-tag">Guest</span>':''}<span class="division-tag">${esc(divisionMeta(division).abbr)}</span></div>
-        ${isSuperAdmin()?`<div class="roster-member-admin-line">${esc(p.email||'No email')}${p.playerId?` &middot; ${esc(p.playerId)}`:''}</div>`:''}
+        ${isSuperAdmin()?`<div class="roster-member-admin-line">${esc(email||'No email')}${p.playerId?` &middot; ${esc(p.playerId)}`:''}</div>`:''}
       </div>
     </div>
     <div class="roster-member-clubs">${primaryClub}</div>
