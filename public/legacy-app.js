@@ -3854,6 +3854,10 @@ function setTab(t){
   render();
 }
 function toggleNavigation(){ if(state.showAuthModal||state.playerModalId||state.showAddPlayer||state.clubHubSelectedId||state.supportPanelOpen) return; state.navOpen=!state.navOpen; render(); }
+function exploreLanding(){
+  const target=document.getElementById('landingTour');
+  if(target&&typeof target.scrollIntoView==='function') target.scrollIntoView({behavior:'smooth',block:'start'});
+}
 
 function render(){
   const root = document.getElementById('root');
@@ -3865,7 +3869,7 @@ function render(){
   root.innerHTML = `
     ${renderTopbar()}
     ${renderSupportButton()}
-    ${renderDateRangePicker()}
+    ${!state.currentUser&&state.tab==='dashboard'?'':renderDateRangePicker()}
     <div id="tabBody">${renderTabBody()}</div>
     ${state.playerModalId ? renderPlayerModal() : ''}
     ${state.showAddPlayer ? renderAddPlayerModal() : ''}
@@ -3981,7 +3985,85 @@ function renderTabBody(){
 }
 
 /* ============================= DASHBOARD ============================= */
+function renderLandingFeature(icon,title,copy){
+  return `<article class="landing-feature"><span class="landing-feature-icon">${esc(icon)}</span><h3>${esc(title)}</h3><p>${esc(copy)}</p></article>`;
+}
+function renderLandingMetric(value,label){
+  return `<div class="landing-metric"><strong>${esc(value)}</strong><span>${esc(label)}</span></div>`;
+}
+function renderLanding(){
+  return `
+  <main class="landing-page">
+    <section class="landing-hero">
+      <div class="landing-hero-grid" aria-hidden="true"></div>
+      <div class="landing-hero-inner">
+        <div class="landing-pill">Club play, player numbers, cleaner rotations</div>
+        <h1>Every rally becomes a reason to improve.</h1>
+        <p>CourtRush helps pickleball clubs and friend groups run games faster, record results, compare progress over time, and understand the players around them.</p>
+        <div class="landing-actions">
+          <button class="btn btn-primary landing-primary" type="button" onclick="exploreLanding()">Explore first</button>
+          <button class="btn btn-ghost landing-secondary" type="button" onclick="openAuthModal('login')">Already a user? Sign in now</button>
+        </div>
+        <div class="landing-flow" aria-label="CourtRush flow">
+          <div><span>01</span><strong>Plan</strong></div>
+          <div><span>02</span><strong>Play</strong></div>
+          <div><span>03</span><strong>Track</strong></div>
+          <div><span>04</span><strong>Improve</strong></div>
+        </div>
+      </div>
+      <div class="landing-scoreboard" aria-label="CourtRush preview">
+        <div class="landing-scoreboard-head"><span>Tonight's rotation</span><b>Live</b></div>
+        <div class="landing-court-card"><strong>Court 1</strong><span>Gyd &amp; Francis</span><em>vs</em><span>Cedric &amp; Zanj</span></div>
+        <div class="landing-court-card muted"><strong>Queue</strong><span>Patrick</span><span>Joemar</span><span>yor</span></div>
+        <div class="landing-mini-stats">
+          ${renderLandingMetric('14','Players')}
+          ${renderLandingMetric('3','Clubs')}
+          ${renderLandingMetric('+8','Best run')}
+        </div>
+      </div>
+    </section>
+
+    <section id="landingTour" class="landing-section landing-light">
+      <div class="landing-section-head">
+        <div class="landing-kicker">For players who watch the numbers</div>
+        <h2>Know whether your game is actually moving.</h2>
+        <p>Track wins, losses, game differential, MVP finishes, history by date range, and head-to-head patterns without digging through chat messages or handwritten notes.</p>
+      </div>
+      <div class="landing-feature-grid">
+        ${renderLandingFeature('📈','Progress over time','Switch between overall, yearly, monthly, weekly, and custom date windows.')}
+        ${renderLandingFeature('🎯','Match context','Review partners, opponents, score swings, and Game Plan history.')}
+        ${renderLandingFeature('🏆','Competitive signals','Spot MVP leaders, hot streaks, strongest records, and club movement.')}
+      </div>
+    </section>
+
+    <section class="landing-section landing-dark">
+      <div class="landing-section-head">
+        <div class="landing-kicker">For clubs and friend groups</div>
+        <h2>Stop rebuilding the bracket by hand.</h2>
+        <p>Build Game Plans, organize courts, rotate players, save results, and keep members from guessing who plays next.</p>
+      </div>
+      <div class="landing-feature-grid">
+        ${renderLandingFeature('⚡','Fast Game Plans','Create structured play without messy random pairing every round.')}
+        ${renderLandingFeature('👥','Club member map','Learn who belongs to each club and open player profiles when you need details.')}
+        ${renderLandingFeature('📱','Phone-first flow','Use the same system from the sideline, court bench, or desktop admin view.')}
+      </div>
+    </section>
+
+    <section class="landing-section landing-final">
+      <div class="landing-final-copy">
+        <div class="landing-kicker">Ready when you are</div>
+        <h2>Explore the club first, then make it yours.</h2>
+        <p>Sign up to request a club, create Game Plans, save scores, and start building your own performance trail.</p>
+      </div>
+      <div class="landing-actions landing-final-actions">
+        <button class="btn btn-primary landing-primary" type="button" onclick="openAuthModal('register')">Create your player account</button>
+        <button class="btn btn-ghost landing-secondary" type="button" onclick="openAuthModal('login')">Sign in now</button>
+      </div>
+    </section>
+  </main>`;
+}
 function renderDashboard(){
+  if(!state.currentUser) return renderLanding();
   const activeMatches=completedMatchesInActiveRange();
   const totalPlayers = state.players.length;
   const totalClubs = clubsForDisplay().length;
