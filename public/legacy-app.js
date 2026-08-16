@@ -156,6 +156,7 @@ let state = {
   directChatMessages: [],
   friendChatMessages: [],
   friendRequests: [],
+  friendRequestsReady: false,
   friendRequestBusyId: null,
   chatBusy: false,
   chatClearBusy: false,
@@ -595,6 +596,7 @@ function stopFriendRequestSync(){
   friendRequestUnsubs=[];
   friendRequestSyncKey='';
   state.friendRequests=[];
+  state.friendRequestsReady=false;
 }
 function refreshFriendRequestSync(force){
   if(!state.currentUser||!state.myPlayerId||typeof FRIEND_REQUESTS_COL.where!=='function'){ stopFriendRequestSync(); return; }
@@ -603,15 +605,18 @@ function refreshFriendRequestSync(force){
   stopFriendRequestSync();
   friendRequestSyncKey=key;
   const requestSources=[new Map(),new Map()];
+  const loadedSources=[false,false];
   const mergeSources=()=>{
     const byId=new Map();
     requestSources.forEach(source=>source.forEach((record,id)=>byId.set(id,record)));
     state.friendRequests=[...byId.values()].sort((a,b)=>String(b.updatedAt||b.createdAt||'').localeCompare(String(a.updatedAt||a.createdAt||'')));
+    state.friendRequestsReady=loadedSources.every(Boolean);
     refreshFriendChatSync(true);
     render();
   };
   const mergeSnap=index=>snap=>{
     requestSources[index].clear();
+    loadedSources[index]=true;
     snap.docs.forEach(doc=>requestSources[index].set(doc.id,{id:doc.id,...doc.data()}));
     mergeSources();
   };
@@ -5031,6 +5036,7 @@ function renderClubMemberRow(player,club,options={}){
 }
 function renderFriendAction(player,options={}){
   if(!isSignedIn()||!state.myPlayerId||!player||player.id===state.myPlayerId) return '';
+  if(!state.friendRequestsReady) return `<button class="btn btn-ghost btn-sm" type="button" disabled>Checking...</button>`;
   const status=friendStatus(player.id);
   const request=friendRequestWith(player.id);
   const busy=state.friendRequestBusyId===player.id;
