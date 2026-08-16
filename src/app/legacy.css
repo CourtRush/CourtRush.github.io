@@ -403,6 +403,8 @@
   .player-private-meta{display:block;margin-top:5px;color:var(--muted);font-size:11px;font-weight:600;line-height:1.3;overflow-wrap:anywhere;}
   .player-private-meta span{display:block;}
   .my-profile-hero .player-private-meta{color:rgba(255,255,255,.72);font-size:10.5px;}
+  .profile-identity-lock{display:grid;gap:3px;margin-top:8px;color:rgba(255,255,255,.76);font-size:11px;font-weight:800;line-height:1.35;overflow-wrap:anywhere;}
+  .profile-identity-lock span{display:block;}
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
   .mvp-pill{display:inline-flex;align-items:center;justify-content:center;min-width:36px;padding:4px 9px;border-radius:20px;background:var(--ball-fill);color:var(--ball-on);font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:800;border:1px solid var(--ball-hover);}
   .mvp-pill.zero{background:var(--bg);border-color:var(--line);color:var(--muted);}
@@ -434,7 +436,8 @@
   .roster-sort-indicator{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;border-radius:4px;background:var(--bg);font-family:'IBM Plex Mono',monospace;font-size:10px;line-height:1;}
   .roster-sort-header.active .roster-sort-indicator{background:rgba(14,95,88,0.12);color:var(--court);}
   .roster-heading{align-items:center;}
-  .roster-search{flex:1 1 260px;max-width:440px;margin-left:auto;}
+  .roster-heading-main{display:flex;align-items:center;gap:12px;flex:1 1 520px;min-width:0;}
+  .roster-search{flex:1 1 280px;max-width:520px;margin-left:0;}
   .roster-search input{width:100%;min-height:40px;border:1.5px solid var(--line);border-radius:999px;background:var(--panel);color:var(--ink);font:inherit;font-size:13px;font-weight:700;padding:10px 16px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);}
   .roster-search input::placeholder{color:var(--muted);opacity:1;}
   .roster-results-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;}
@@ -688,8 +691,9 @@
   .theme-toggle:active:not(:disabled),.logout-icon-btn:active:not(:disabled){transform:translateY(1px) scale(.96);}
 
   @media (prefers-reduced-motion:reduce){
-    .btn,.btn::after,.link-btn,nav.toolbar button,.club-card,.history-plan-card-button,.chat-club-button,.theme-toggle,.logout-icon-btn{
+    .btn,.btn::after,.link-btn,nav.toolbar button,.club-card,.history-plan-card-button,.chat-club-button,.theme-toggle,.logout-icon-btn,.transition-boot-card,.transition-boot-card img,.boot-progress span,.page-transition-loader,.page-enter{
       transition:none!important;
+      animation:none!important;
     }
     .btn:hover:not(:disabled),.btn:active:not(:disabled),.link-btn:active,nav.toolbar button:hover:not(.active),nav.toolbar button:active,.club-card:active,.history-plan-card-button:active,.chat-club-button:active,.theme-toggle:hover:not(:disabled),.theme-toggle:active:not(:disabled),.logout-icon-btn:hover:not(:disabled),.logout-icon-btn:active:not(:disabled){
       transform:none!important;
@@ -697,13 +701,29 @@
   }
 
   /* ---------- Page transition ---------- */
-  .page-transition-loader{min-height:calc(100vh - 44px);display:grid;place-items:center;align-content:center;gap:18px;padding:42px 16px;color:var(--ink);}
-  .transition-brand{justify-content:center;}
-  .transition-snippet{width:min(100%,430px);}
-  .transition-snippet .snippet-preview{min-height:220px;box-shadow:0 18px 44px rgba(2,24,21,.18);}
-  .transition-copy{text-align:center;display:grid;gap:5px;}
-  .transition-copy strong{font-family:'Bebas Neue',sans-serif;font-size:30px;line-height:1;color:var(--court-deep);letter-spacing:.03em;}
-  .transition-copy span{font-size:13px;font-weight:800;color:var(--muted);}
+  .page-transition-loader{
+    min-height:calc(100vh - 44px);
+    display:grid;
+    place-items:center;
+    padding:42px 16px;
+    color:var(--ink);
+    background:
+      radial-gradient(circle at 50% 38%, color-mix(in srgb,var(--court) 12%,transparent), transparent 280px),
+      linear-gradient(180deg, color-mix(in srgb,var(--panel) 72%,transparent), transparent);
+    animation:transitionShell .7s ease both;
+  }
+  .transition-boot-card{min-height:0;animation:bootPulse .7s ease both;}
+  .transition-boot-card img{animation:bootIcon .7s ease both;}
+  .boot-progress{display:flex;align-items:center;gap:5px;margin-top:10px;}
+  .boot-progress span{width:6px;height:6px;border-radius:50%;background:var(--court);opacity:.35;animation:bootDot .75s ease-in-out infinite;}
+  .boot-progress span:nth-child(2){animation-delay:.12s;}
+  .boot-progress span:nth-child(3){animation-delay:.24s;}
+  @keyframes bootPulse{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+  @keyframes bootIcon{50%{transform:scale(1.04) rotate(-1deg);}}
+  @keyframes bootDot{0%,80%,100%{opacity:.3;transform:translateY(0);}40%{opacity:1;transform:translateY(-3px);}}
+  @keyframes transitionShell{0%{opacity:0;filter:blur(2px);}18%,78%{opacity:1;filter:blur(0);}100%{opacity:.72;filter:blur(1px);}}
+  .page-enter{animation:pageEnter .24s ease both;}
+  @keyframes pageEnter{from{opacity:0;transform:translateY(8px) scale(.995);}to{opacity:1;transform:translateY(0) scale(1);}}
 
   /* ---------- Play mode picker ---------- */
   .mode-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;}

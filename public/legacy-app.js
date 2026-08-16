@@ -155,6 +155,7 @@ let state = {
   supportRequests: [],
   installGuideOpen: false,
   pageTransition: null,
+  pageEntering: false,
 };
 
 const MODE_META = {
@@ -561,7 +562,7 @@ offlinePersistenceReady.then(()=>auth.onAuthStateChanged(user=>{
     render();
     return;
   }
-  state.currentUser = { uid:user.uid, email:user.email, displayName:user.displayName||'', photoURL:user.photoURL||'', role:'player', clubId:null, clubIds:[], playerId:null };
+  state.currentUser = { uid:user.uid, email:user.email, displayName:user.displayName||'', nickname:'', photoURL:user.photoURL||'', role:'player', clubId:null, clubIds:[], playerId:null };
   refreshClubAdminSync();
   refreshScheduleSync(true);
   refreshChatSync(true);
@@ -572,7 +573,7 @@ offlinePersistenceReady.then(()=>auth.onAuthStateChanged(user=>{
   userDocUnsub = USERS_COL.doc(user.uid).onSnapshot(doc=>{
     if(doc.exists){
       const d = doc.data();
-      state.currentUser = { uid:user.uid, email:user.email, displayName:d.displayName||user.displayName||'', photoURL:d.photoURL||user.photoURL||'', role: d.role||'player', clubId:d.clubId||null, clubIds:Array.isArray(d.clubIds)?d.clubIds:[], playerId: d.playerId||null };
+      state.currentUser = { uid:user.uid, email:user.email, displayName:d.displayName||user.displayName||'', nickname:d.nickname||'', photoURL:d.photoURL||user.photoURL||'', role: d.role||'player', clubId:d.clubId||null, clubIds:Array.isArray(d.clubIds)?d.clubIds:[], playerId: d.playerId||null };
       state.myPlayerId = d.playerId || null;
       refreshClubAdminSync();
       refreshClubRoleDirectorySync(true);
@@ -803,7 +804,13 @@ async function disputeMatchResult(matchId){
   render();
 }
 function shuffle(arr){ const a=[...arr]; for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
-function playerName(id){ const p = state.players.find(x=>x.id===id); return p ? p.name : 'Former player'; }
+function playerRealName(player){ return String(player&&player.name||'').trim(); }
+function playerNickname(player){ return String(player&&player.nickname||'').trim(); }
+function playerDisplayName(player){
+  const nickname=playerNickname(player);
+  return nickname||playerRealName(player)||'Unnamed player';
+}
+function playerName(id){ const p = state.players.find(x=>x.id===id); return p ? playerDisplayName(p) : 'Former player'; }
 function esc(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function diffPill(n, decimals){
   decimals = decimals===undefined?0:decimals;
@@ -1308,7 +1315,18 @@ function setRosterSortDirection(direction){
   state.rosterPage=1;
   render();
 }
+let rosterSearchTimer=null;
 function setRosterSearchQuery(value){
+  state.rosterSearchQuery=String(value||'').trimStart().slice(0,80);
+  state.rosterPage=1;
+  if(rosterSearchTimer) clearTimeout(rosterSearchTimer);
+  rosterSearchTimer=setTimeout(()=>{
+    rosterSearchTimer=null;
+    render();
+  },260);
+}
+function applyRosterSearchQuery(value){
+  if(rosterSearchTimer){ clearTimeout(rosterSearchTimer); rosterSearchTimer=null; }
   state.rosterSearchQuery=String(value||'').trimStart().slice(0,80);
   state.rosterPage=1;
   render();
@@ -3970,9 +3988,12 @@ async function removeExtraRound(scheduleId){
 
 /* ============================= RENDER: SHELL ============================= */
 let pageTransitionTimer=null;
+let pageEnterTimer=null;
 function clearPageTransition(){
   if(pageTransitionTimer){ clearTimeout(pageTransitionTimer); pageTransitionTimer=null; }
+  if(pageEnterTimer){ clearTimeout(pageEnterTimer); pageEnterTimer=null; }
   state.pageTransition=null;
+  state.pageEntering=false;
 }
 function applyTab(t){
   if(['profile','clubs','history','schedule'].includes(t)&&['year','month','week'].includes(state.dateRange)){
@@ -4010,7 +4031,13 @@ function setTab(t,options={}){
   pageTransitionTimer=setTimeout(()=>{
     pageTransitionTimer=null;
     state.pageTransition=null;
+    state.pageEntering=true;
     applyTab(t);
+    pageEnterTimer=setTimeout(()=>{
+      pageEnterTimer=null;
+      state.pageEntering=false;
+      render();
+    },260);
   },700);
 }
 function toggleNavigation(){ if(state.showAuthModal||state.playerModalId||state.showAddPlayer||state.clubHubSelectedId||state.supportPanelOpen) return; state.navOpen=!state.navOpen; render(); }
@@ -4082,6 +4109,7 @@ function render(){
     return;
   }
   root.innerHTML = `
+    <div class="${state.pageEntering?'page-enter':''}">
     ${renderTopbar()}
     ${renderSupportButton()}
     ${!state.currentUser&&state.tab==='dashboard'?'':renderDateRangePicker()}
@@ -4092,24 +4120,22 @@ function render(){
     ${state.clubHubSelectedId && state.clubDetailSource==='profile' ? renderProfileClubDetailModal() : ''}
     ${state.supportPanelOpen ? renderSupportModal() : ''}
     ${state.installGuideOpen ? renderInstallGuide() : ''}
+    </div>
   `;
   wireTabBodyEvents();
   wireDivisionTipSlider();
 }
 
 function renderPageTransitionLoader(label){
-  const previews=['gamePlan','leaderboard','history','profile'];
-  const index=Math.floor(Date.now()/700)%previews.length;
   return `<main class="page-transition-loader" aria-live="polite" aria-busy="true">
-    <div class="brand transition-brand">
-      <div class="brand-mark"><img src="courtrush-icon.svg" alt="" /></div>
+    <div class="boot-card transition-boot-card">
+      <img src="courtrush-icon.svg" alt="" />
       <div>
-        <div class="brand-name">CourtRush</div>
-        <div class="brand-sub">Rush the court. Rule the game.</div>
+        <p class="boot-eyebrow">CourtRush</p>
+        <h1>${esc(label||'Loading the club')}</h1>
+        <div class="boot-progress" aria-hidden="true"><span></span><span></span><span></span></div>
       </div>
     </div>
-    <div class="transition-snippet">${renderLandingSnippetPreview(previews[index])}</div>
-    <div class="transition-copy"><strong>${esc(label||'Loading')}</strong><span>Preparing your court view...</span></div>
   </main>`;
 }
 
@@ -4700,7 +4726,9 @@ function rosterRowMatchesSearch(row,query){
   const p=row.player;
   const haystack=[
     p.name,
+    p.nickname,
     p.email,
+    playerEmail(p),
     p.playerId,
     ...activePlayerClubIds(p).map(clubName),
     activePlayerClubIds(p).length?'':'No Club'
@@ -4720,12 +4748,15 @@ function renderRosterMemberTile(row){
   const primaryClub=renderPlayerTopClubChip(p);
   const division=playerDivisionValue(p);
   const email=playerEmail(p);
+  const nickname=playerNickname(p);
+  const realName=playerRealName(p)||'Unnamed player';
+  const displayName=playerDisplayName(p);
   return `<article class="roster-member-tile" onclick="openPlayerProfile(${jsArg(p.id)})">
     <div class="roster-member-identity">
       ${avatarHTML(p,36)}
       <div class="roster-member-name-wrap">
-        <div class="roster-member-name"><span class="roster-member-name-text">${esc(p.name||'Unnamed player')}</span>${p.guest?'<span class="guest-tag">Guest</span>':''}<span class="division-tag">${esc(divisionMeta(division).abbr)}</span></div>
-        ${isSuperAdmin()?`<div class="roster-member-admin-line">${esc(email||'No email')}${p.playerId?` &middot; ${esc(p.playerId)}`:''}</div>`:''}
+        <div class="roster-member-name"><span class="roster-member-name-text">${esc(displayName)}</span>${p.guest?'<span class="guest-tag">Guest</span>':''}<span class="division-tag">${esc(divisionMeta(division).abbr)}</span></div>
+        <div class="roster-member-admin-line">${nickname?`Real name: ${esc(realName)}`:esc(realName)}${email?` &middot; ${esc(email)}`:''}${isSuperAdmin()&&p.playerId?` &middot; ${esc(p.playerId)}`:''}</div>
       </div>
     </div>
     <div class="roster-member-clubs">${primaryClub}</div>
@@ -4752,11 +4783,13 @@ function renderRoster(){
   return `
   <div class="panel">
     <div class="section-title roster-heading">
-      <h2>Members</h2>
-      <label class="roster-search">
-        <span class="sr-only">Search club members</span>
-        <input type="search" value="${esc(state.rosterSearchQuery||'')}" placeholder="Search members or clubs" aria-label="Search club members" oninput="setRosterSearchQuery(this.value)" />
-      </label>
+      <div class="roster-heading-main">
+        <h2>Members</h2>
+        <label class="roster-search">
+          <span class="sr-only">Search members</span>
+          <input type="search" value="${esc(state.rosterSearchQuery||'')}" placeholder="Search members, nicknames, email, or clubs" aria-label="Search members" oninput="setRosterSearchQuery(this.value)" onchange="applyRosterSearchQuery(this.value)" />
+        </label>
+      </div>
       ${isSuperAdmin() ? `<button class="btn btn-primary btn-sm" onclick="state.showAddPlayer=true; render();">+ Add global player</button>` : ''}
     </div>
     ${state.players.length===0 ? `
@@ -4897,26 +4930,23 @@ function cancelProfileNameEdit(){ state.profileNameEditing=false; state.profileN
 async function saveMyProfileName(ev){
   ev.preventDefault();
   if(!state.currentUser||!state.myPlayerId||state.profileNameBusy) return;
-  const input=document.getElementById('myProfileName');
-  const name=input?input.value.trim():'';
-  if(name.length<2){ toast('Enter a name with at least 2 characters'); return; }
-  if(name.length>60){ toast('Keep the name to 60 characters or fewer'); return; }
+  const input=document.getElementById('myProfileNickname');
+  const nickname=input?input.value.trim():'';
+  if(nickname&&nickname.length<2){ toast('Enter a nickname with at least 2 characters, or leave it blank'); return; }
+  if(nickname.length>40){ toast('Keep the nickname to 40 characters or fewer'); return; }
   state.profileNameBusy=true; render();
   try{
     await Promise.all([
-      PLAYERS_COL.doc(state.myPlayerId).update({name,updatedAt:new Date().toISOString()}),
-      USERS_COL.doc(state.currentUser.uid).set({displayName:name,updatedAt:new Date().toISOString()},{merge:true})
+      PLAYERS_COL.doc(state.myPlayerId).update({nickname,updatedAt:new Date().toISOString()}),
+      USERS_COL.doc(state.currentUser.uid).set({nickname,updatedAt:new Date().toISOString()},{merge:true})
     ]);
-    if(auth.currentUser&&typeof auth.currentUser.updateProfile==='function'){
-      try{ await auth.currentUser.updateProfile({displayName:name}); }catch(profileError){ console.warn('Firebase Auth display name was not updated',profileError); }
-    }
-    state.players=state.players.map(p=>p.id===state.myPlayerId?{...p,name}:p);
-    state.currentUser={...state.currentUser,displayName:name};
+    state.players=state.players.map(p=>p.id===state.myPlayerId?{...p,nickname}:p);
+    state.currentUser={...state.currentUser,nickname};
     state.profileNameEditing=false;
-    toast('Profile name updated');
+    toast(nickname?'Nickname updated':'Nickname cleared');
   }catch(e){
     console.error(e);
-    toast('Could not update your name. Check your connection or Firestore rules.');
+    toast('Could not update your nickname. Check your connection or Firestore rules.');
   }
   state.profileNameBusy=false; render();
 }
@@ -5009,12 +5039,15 @@ function renderMyProfile(){
   const invitedClubs=availableClubs.filter(club=>pendingClubInvite(club.id,p.id));
   const pendingClubs=availableClubs.filter(club=>!profileClubIds.includes(club.id)&&!pendingClubInvite(club.id,p.id)&&pendingJoinRequest(club.id,p.id));
   const unjoinedClubs=availableClubs.filter(club=>!profileClubIds.includes(club.id)&&!pendingClubInvite(club.id,p.id)&&!pendingJoinRequest(club.id,p.id));
+  const nickname=playerNickname(p);
+  const realName=playerRealName(p)||state.currentUser.displayName||'Registered player';
+  const identityEmail=playerEmail(p)||state.currentUser.email||'Email unavailable';
   return `
   <div class="my-profile-page">
     <section class="my-profile-hero">
-      <div class="my-profile-person">${avatarHTML(p,72)}<div class="my-profile-person-copy"><div class="eyebrow" style="color:rgba(255,255,255,.65);">My Profile &middot; ${activeDateRangeLabel()}</div><div class="my-profile-name-line"><h1>${esc(p.name)}</h1><span class="my-profile-badge">${esc(playerDivisionLabel(p))}</span></div><p>${esc(activeDateRangeSummary())} &middot; ${profileClubIds.length?profileClubIds.map(clubName).map(esc).join(' &middot; '):'Independent player'}</p>${renderPlayerPrivateMeta(p)}</div></div>
-      <div class="my-profile-actions">${!state.profileNameEditing?`<button class="btn btn-sm btn-profile-edit" type="button" onclick="beginProfileNameEdit()">Edit name</button>`:''}</div>
-      ${state.profileNameEditing?`<form class="profile-name-editor" onsubmit="saveMyProfileName(event)"><div class="field"><label for="myProfileName">Player name</label><input id="myProfileName" type="text" value="${esc(p.name)}" maxlength="60" autocomplete="name" autofocus ${state.profileNameBusy?'disabled':''}/></div><button class="btn btn-ball btn-sm" type="submit" ${state.profileNameBusy?'disabled':''}>${state.profileNameBusy?'Saving...':'Save name'}</button><button class="btn btn-profile-edit btn-sm" type="button" onclick="cancelProfileNameEdit()" ${state.profileNameBusy?'disabled':''}>Cancel</button></form>`:''}
+      <div class="my-profile-person">${avatarHTML(p,72)}<div class="my-profile-person-copy"><div class="eyebrow" style="color:rgba(255,255,255,.65);">My Profile &middot; ${activeDateRangeLabel()}</div><div class="my-profile-name-line"><h1>${esc(nickname||realName)}</h1><span class="my-profile-badge">${esc(playerDivisionLabel(p))}</span></div><p>${esc(activeDateRangeSummary())} &middot; ${profileClubIds.length?profileClubIds.map(clubName).map(esc).join(' &middot; '):'Independent player'}</p><div class="profile-identity-lock"><span>Real name: ${esc(realName)}</span><span>Email: ${esc(identityEmail)}</span></div>${renderPlayerPrivateMeta(p)}</div></div>
+      <div class="my-profile-actions">${!state.profileNameEditing?`<button class="btn btn-sm btn-profile-edit" type="button" onclick="beginProfileNameEdit()">Edit nickname</button>`:''}</div>
+      ${state.profileNameEditing?`<form class="profile-name-editor" onsubmit="saveMyProfileName(event)"><div class="field"><label for="myProfileNickname">Nickname</label><input id="myProfileNickname" type="text" value="${esc(nickname)}" maxlength="40" autocomplete="nickname" placeholder="${esc(realName)}" autofocus ${state.profileNameBusy?'disabled':''}/><div class="small" style="margin-top:6px;color:rgba(255,255,255,.72);">Your real name and email stay visible and cannot be edited here.</div></div><button class="btn btn-ball btn-sm" type="submit" ${state.profileNameBusy?'disabled':''}>${state.profileNameBusy?'Saving...':'Save nickname'}</button><button class="btn btn-profile-edit btn-sm" type="button" onclick="cancelProfileNameEdit()" ${state.profileNameBusy?'disabled':''}>Cancel</button></form>`:''}
       <div class="profile-hero-stats" aria-label="Personal statistics">
         <div class="profile-hero-stat"><strong>${s.gamesPlayed}</strong><span>Games played</span></div>
         <div class="profile-hero-stat"><strong>${s.wins}-${s.losses}</strong><span>W - L</span></div>
@@ -5901,7 +5934,7 @@ function exposeLegacyHandlers(){
   if(typeof window==='undefined') return;
   [
     'addDuprMatchToPlan','addExistingClubMember','addExtraRound','addGuestForSchedule','addLatePlayerToSchedule','addRegisteredPlayerToSchedule',
-    'applyCustomDateRange','applyRosterClubSearch','applyScheduleRegisteredSearch','autoPairTeams','backToHistoryPlans','backToPlayerProfilePlans',
+    'applyCustomDateRange','applyRosterClubSearch','applyRosterSearchQuery','applyScheduleRegisteredSearch','autoPairTeams','backToHistoryPlans','backToPlayerProfilePlans',
     'backToScheduleList','beginEditCourtResult','beginLateCourtResult','beginProfileNameEdit','cancelEditCourtResult','cancelLateCourtResult',
     'cancelProfileNameEdit','clearClubChatForAll','clearCustomDateRange','clearRosterClubFilters','clearRosterDivisionFilters','clearSchedulePlayers','closeAuthModal',
     'closeClubHubProfile','closeScheduleLeaderboard','closeSupportPanel','completeLegacyClubRegistration','confirmMatchResult','createClubMember',
