@@ -4050,7 +4050,6 @@ function renderTopbar(){
     </div>`}
     <div class="topbar-actions ${state.currentUser?'logged-in':''}">
       <div class="nav-account">${accountComponent}</div>
-      ${isLandingVisitor&&canPromptInstall()?`<div class="install-header-copy"><strong>Install CourtRush</strong><span>Add it to your home screen now</span></div>`:''}
       ${canPromptInstall()?`<button class="btn btn-ball btn-sm install-app-btn" type="button" data-app-action="install-app">Install</button>`:''}
       <button class="btn btn-ghost theme-toggle" type="button" data-app-action="toggle-theme" aria-label="Switch to ${themeValue()==='dark'?'light':'dark'} theme" title="${themeValue()==='dark'?'Light':'Dark'} theme">${iconSVG(themeValue()==='dark'?'sun':'moon')}</button>
     </div>

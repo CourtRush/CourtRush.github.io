@@ -129,9 +129,6 @@
     border:1px solid var(--line)!important;
   }
   .theme-toggle svg{display:block!important;width:18px!important;height:18px!important;flex:0 0 18px!important;stroke:currentColor!important;}
-  .install-header-copy{display:grid;gap:2px;min-width:0;text-align:right;}
-  .install-header-copy strong{color:var(--court-deep);font-size:12px;font-weight:900;line-height:1;white-space:nowrap;}
-  .install-header-copy span{color:var(--muted);font-size:10.5px;font-weight:800;line-height:1.1;white-space:nowrap;}
   .install-app-btn{white-space:nowrap;}
 
   /* ---------- Shared date range ---------- */
@@ -1586,17 +1583,6 @@
     }
     .nav-toggle{display:none!important;}
     .nav-account{display:none!important;}
-    .install-header-copy{
-      position:absolute!important;
-      top:18px!important;
-      right:144px!important;
-      z-index:82!important;
-      max-width:150px!important;
-      padding-top:2px!important;
-      text-align:right!important;
-    }
-    .install-header-copy strong{display:block!important;font-size:11px!important;color:var(--court-deep)!important;}
-    .install-header-copy span{display:block!important;font-size:9px!important;color:var(--muted)!important;}
     .install-app-btn{
       position:absolute!important;
       top:18px!important;
@@ -1686,11 +1672,4 @@
     .score-tile .num{font-size:25px!important;}
     .date-range-bar{border-radius:12px!important;padding:7px!important;}
     .date-range-options{background:rgba(14,95,88,.05)!important;}
-  }
-
-  @media (max-width:430px){
-    .install-header-copy{right:136px!important;max-width:108px!important;}
-    .install-header-copy strong{font-size:10px!important;}
-    .install-header-copy span{display:none!important;}
-    .install-app-btn{right:56px!important;padding:0 10px!important;}
   }
