@@ -1440,7 +1440,8 @@
     .club-detail-modal{max-height:none;min-height:100svh;}
     .club-role-row{grid-template-columns:1fr;}
     .chat-page{grid-template-columns:1fr;min-height:0;}
-    .chat-club-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));}
+    .chat-club-list{display:flex;flex-direction:column;gap:8px;}
+    .chat-club-button{width:100%;}
     .chat-room{min-height:560px;}
     .chat-message{max-width:92%;}
     .chat-room-head,.chat-messages{padding-left:14px;padding-right:14px;}
