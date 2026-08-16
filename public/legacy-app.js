@@ -5119,12 +5119,34 @@ function renderMyFriendTile(player){
     <div class="roster-member-actions" onclick="event.stopPropagation();">${renderFriendAction(player,{removable:true})}</div>
   </article>`;
 }
+function renderIncomingFriendRequestTile(request){
+  const player=state.players.find(item=>item.id===request.fromPlayerId);
+  if(!player) return '';
+  const primaryClub=renderPlayerTopClubChip(player);
+  const division=playerDivisionValue(player);
+  const email=playerEmail(player);
+  const displayName=playerDisplayName(player);
+  const busy=state.friendRequestBusyId===player.id;
+  return `<article class="roster-member-tile friend-request-tile" onclick="openPlayerProfile(${jsArg(player.id)})">
+    <div class="roster-member-identity">
+      ${avatarHTML(player,36)}
+      <div class="roster-member-name-wrap">
+        <div class="roster-member-name"><span class="roster-member-name-text">${esc(displayName)}</span><span class="division-tag">${esc(divisionMeta(division).abbr)}</span></div>
+        <div class="roster-member-admin-line">${esc(playerRealName(player)||displayName)}${email?` &middot; ${esc(email)}`:''}</div>
+      </div>
+    </div>
+    <div class="roster-member-clubs">${primaryClub}</div>
+    <div class="roster-member-actions" onclick="event.stopPropagation();"><button class="btn btn-primary btn-sm" type="button" onclick="respondFriendRequest(${jsArg(request.id)},true)" ${busy?'disabled':''}>Accept</button><button class="btn btn-ghost btn-sm" type="button" onclick="respondFriendRequest(${jsArg(request.id)},false)" ${busy?'disabled':''}>Decline</button></div>
+  </article>`;
+}
 function renderMyFriendsPanel(){
   const friends=acceptedFriendIds().map(id=>state.players.find(player=>player.id===id)).filter(Boolean).sort((a,b)=>playerDisplayName(a).localeCompare(playerDisplayName(b),undefined,{sensitivity:'base'}));
-  const incoming=friendRequestsForMe().filter(request=>request.status==='pending'&&request.toPlayerId===state.myPlayerId).map(request=>state.players.find(player=>player.id===request.fromPlayerId)).filter(Boolean);
+  const incomingRequests=friendRequestsForMe().filter(request=>request.status==='pending'&&request.toPlayerId===state.myPlayerId);
+  const incoming=incomingRequests.map(request=>state.players.find(player=>player.id===request.fromPlayerId)).filter(Boolean);
   const outgoing=friendRequestsForMe().filter(request=>request.status==='pending'&&request.fromPlayerId===state.myPlayerId).map(request=>state.players.find(player=>player.id===request.toPlayerId)).filter(Boolean);
   return `<section class="panel profile-friends-panel">
     <div class="section-title"><div><div class="eyebrow">Social</div><h2>My Friends</h2></div><button class="btn btn-ghost btn-sm" type="button" onclick="setTab('roster')">Find Members</button></div>
+    ${incomingRequests.length?`<div class="friend-request-block"><div class="eyebrow">Friend requests</div><div class="roster-member-list my-friends-list">${incomingRequests.map(renderIncomingFriendRequestTile).join('')}</div></div>`:''}
     ${friends.length?`<div class="roster-member-list my-friends-list">${friends.map(renderMyFriendTile).join('')}</div>`:`<div class="empty" style="padding:18px 10px;"><h3>No friends yet</h3><p>Add members as friends so they appear in Social.</p><button class="btn btn-ball" type="button" onclick="setTab('roster')">Find Members</button></div>`}
     ${(incoming.length||outgoing.length)?`<div class="friend-request-summary"><span>${incoming.length} incoming request${incoming.length===1?'':'s'}</span><span>${outgoing.length} sent request${outgoing.length===1?'':'s'}</span></div>`:''}
   </section>`;
