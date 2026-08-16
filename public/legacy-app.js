@@ -4669,8 +4669,17 @@ function renderInstallGuide(){
 }
 
 /* ============================= DASHBOARD ============================= */
+const LANDING_FEATURE_ICONS={
+  stats:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 16v-5"/><path d="M12 16V8"/><path d="M16 16v-9"/></svg>',
+  aim:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/></svg>',
+  mvp:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8"/><path d="M10 17h4"/><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 7H4a3 3 0 0 0 3 4"/><path d="M17 7h3a3 3 0 0 1-3 4"/></svg>',
+  fast:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3 5 14h6l-1 7 8-11h-6z"/></svg>',
+  team:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20a5 5 0 0 1 10 0"/><path d="M14 20a4 4 0 0 1 7 0"/></svg>',
+  mobile:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>'
+};
 function renderLandingFeature(icon,title,copy){
-  return `<article class="landing-feature"><span class="landing-feature-icon">${esc(icon)}</span><h3>${esc(title)}</h3><p>${esc(copy)}</p></article>`;
+  const iconMarkup=LANDING_FEATURE_ICONS[icon]||LANDING_FEATURE_ICONS.stats;
+  return `<article class="landing-feature"><span class="landing-feature-icon">${iconMarkup}</span><h3>${esc(title)}</h3><p>${esc(copy)}</p></article>`;
 }
 function renderLandingMetric(value,label){
   return `<div class="landing-metric"><strong>${esc(value)}</strong><span>${esc(label)}</span></div>`;
@@ -4755,9 +4764,9 @@ function renderLanding(){
         <p>Track wins, losses, game differential, MVP finishes, history by date range, and head-to-head patterns without digging through chat messages or handwritten notes.</p>
       </div>
       <div class="landing-feature-grid">
-        ${renderLandingFeature('Stats','Progress over time','Switch between overall, yearly, monthly, weekly, and custom date windows.')}
-        ${renderLandingFeature('Aim','Match context','Review partners, opponents, score swings, and Game Plan history.')}
-        ${renderLandingFeature('MVP','Competitive signals','Spot MVP leaders, hot streaks, strongest records, and club movement.')}
+        ${renderLandingFeature('stats','Progress over time','Switch between overall, yearly, monthly, weekly, and custom date windows.')}
+        ${renderLandingFeature('aim','Match context','Review partners, opponents, score swings, and Game Plan history.')}
+        ${renderLandingFeature('mvp','Competitive signals','Spot MVP leaders, hot streaks, strongest records, and club movement.')}
       </div>
     </section>
 
@@ -4783,9 +4792,9 @@ function renderLanding(){
         <p>Build Game Plans, organize courts, rotate players, save results, and keep members from guessing who plays next.</p>
       </div>
       <div class="landing-feature-grid">
-        ${renderLandingFeature('Fast','Fast Game Plans','Create structured play without messy random pairing every round.')}
-        ${renderLandingFeature('Team','Club member map','Learn who belongs to each club and open player profiles when you need details.')}
-        ${renderLandingFeature('Mobile','Phone-first flow','Use the same system from the sideline, court bench, or desktop admin view.')}
+        ${renderLandingFeature('fast','Fast Game Plans','Create structured play without messy random pairing every round.')}
+        ${renderLandingFeature('team','Club member map','Learn who belongs to each club and open player profiles when you need details.')}
+        ${renderLandingFeature('mobile','Phone-first flow','Use the same system from the sideline, court bench, or desktop admin view.')}
       </div>
     </section>
 

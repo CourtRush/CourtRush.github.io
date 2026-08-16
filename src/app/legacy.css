@@ -224,6 +224,7 @@
   .landing-feature{min-width:0;border:1px solid var(--line);border-radius:14px;padding:24px;background:color-mix(in srgb,var(--court) 5%,var(--panel));}
   .landing-dark .landing-feature{background:#13251D;border-color:#2A4038;}
   .landing-feature-icon{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:12px;background:#0E5F58;color:#FFFFFF;font-size:22px;}
+  .landing-feature-icon svg{width:24px;height:24px;display:block;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
   .landing-feature h3{margin-top:22px;color:inherit;font-size:18px;}
   .landing-feature p{margin-top:9px;font-size:14px;line-height:1.55;}
   .landing-snippets{background:color-mix(in srgb,var(--court) 4%,var(--bg));color:var(--ink);border-radius:18px;margin-top:14px;}
