@@ -67,7 +67,7 @@ service cloud.firestore {
     function validNotificationType(value) {
       return value == 'club_invite' || value == 'schedule_created' ||
         value == 'schedule_updated' || value == 'friend_request' ||
-        value == 'friend_accepted';
+        value == 'friend_accepted' || value == 'friend_message';
     }
     function validClubStatus(value) {
       return value == 'active' || value == 'removed';
@@ -327,7 +327,8 @@ service cloud.firestore {
 
     match /friendChats/{messageId} {
       allow read: if userExists() &&
-        currentPlayerId() in resource.data.participants &&
+        (playerOwnedByCurrentUser(resource.data.participants[0]) ||
+         playerOwnedByCurrentUser(resource.data.participants[1])) &&
         exists(/databases/$(database)/documents/friendRequests/$(('friend_' + resource.data.participants[0]) + '_' + resource.data.participants[1])) &&
         get(/databases/$(database)/documents/friendRequests/$(('friend_' + resource.data.participants[0]) + '_' + resource.data.participants[1])).data.status == 'accepted';
 
@@ -338,7 +339,6 @@ service cloud.firestore {
         ]) &&
         request.resource.data.id == messageId &&
         request.resource.data.senderUid == request.auth.uid &&
-        request.resource.data.senderPlayerId == currentPlayerId() &&
         playerOwnedByCurrentUser(request.resource.data.senderPlayerId) &&
         request.resource.data.participants is list &&
         request.resource.data.participants.size() == 2 &&
@@ -545,7 +545,16 @@ service cloud.firestore {
            request.resource.data.get('toPlayerId', '') in [
              get(/databases/$(database)/documents/friendRequests/$(request.resource.data.sourceId)).data.fromPlayerId,
              get(/databases/$(database)/documents/friendRequests/$(request.resource.data.sourceId)).data.toPlayerId
-           ])
+           ]) ||
+          (request.resource.data.type == 'friend_message' &&
+           request.resource.data.createdByUid == request.auth.uid &&
+           request.resource.data.get('fromPlayerId', '') is string &&
+           request.resource.data.get('toPlayerId', '') is string &&
+           exists(/databases/$(database)/documents/friendChats/$(request.resource.data.sourceId)) &&
+           get(/databases/$(database)/documents/friendChats/$(request.resource.data.sourceId)).data.senderUid == request.auth.uid &&
+           request.resource.data.get('fromPlayerId', '') == get(/databases/$(database)/documents/friendChats/$(request.resource.data.sourceId)).data.senderPlayerId &&
+           request.resource.data.get('toPlayerId', '') == get(/databases/$(database)/documents/friendChats/$(request.resource.data.sourceId)).data.recipientPlayerId &&
+           request.resource.data.recipientPlayerId == get(/databases/$(database)/documents/friendChats/$(request.resource.data.sourceId)).data.recipientPlayerId)
         );
 
       allow delete: if isSuperAdmin();

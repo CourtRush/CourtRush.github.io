@@ -280,6 +280,7 @@ function chatReadState(){
   catch(_){ return {}; }
 }
 function chatReadKey(clubId){ return `${state.currentUser?state.currentUser.uid:'guest'}:${clubId}`; }
+function friendChatReadKey(playerId){ return `${state.currentUser?state.currentUser.uid:'guest'}:friend:${friendChatRoomId(playerId)}`; }
 function hiddenChatState(){
   try{ return JSON.parse(localStorage.getItem(CHAT_HIDDEN_PREF_KEY)||'{}')||{}; }
   catch(_){ return {}; }
@@ -356,6 +357,13 @@ function friendChatMessagesFor(playerId){
   const roomId=friendChatRoomId(playerId);
   return state.friendChatMessages.filter(message=>message.roomId===roomId).sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||'')));
 }
+function unreadFriendMessageCount(playerId){
+  const lastRead=Number(chatReadState()[friendChatReadKey(playerId)]||0);
+  return friendChatMessagesFor(playerId).filter(message=>message.senderPlayerId!==state.myPlayerId&&chatMessageTime(message)>lastRead).length;
+}
+function totalUnreadSocialCount(){
+  return totalUnreadMentions()+acceptedFriendIds().reduce((total,playerId)=>total+unreadFriendMessageCount(playerId),0);
+}
 function friendStatus(playerId){
   if(!state.myPlayerId||playerId===state.myPlayerId) return 'self';
   const request=friendRequestWith(playerId);
@@ -373,6 +381,12 @@ function markChatRead(clubId){
   if(!clubId||!state.currentUser||!unreadMentionCount(clubId)) return;
   const reads=chatReadState();
   reads[chatReadKey(clubId)]=Date.now();
+  try{ localStorage.setItem(CHAT_READ_PREF_KEY,JSON.stringify(reads)); }catch(_){}
+}
+function markFriendChatRead(playerId){
+  if(!playerId||!state.currentUser) return;
+  const reads=chatReadState();
+  reads[friendChatReadKey(playerId)]=Date.now();
   try{ localStorage.setItem(CHAT_READ_PREF_KEY,JSON.stringify(reads)); }catch(_){}
 }
 function clubRoleRecord(clubId,playerId){
@@ -2337,6 +2351,10 @@ function notificationEmailTemplate({type,title,body,url,recipientName}){
       subject:title||'Friend request accepted on CourtRush',
       text:`${greeting}\n\n${body}\n\nOpen CourtRush Social to continue:\n${actionUrl}`
     },
+    friend_message:{
+      subject:title||'New CourtRush friend message',
+      text:`${greeting}\n\n${body}\n\nOpen CourtRush Social to reply:\n${actionUrl}`
+    },
     schedule_created:{
       subject:title||'You were added to a CourtRush Game Plan',
       text:`${greeting}\n\n${body}\n\nOpen CourtRush Game Plan for court assignments and updates:\n${actionUrl}`
@@ -2706,6 +2724,7 @@ function selectSocialFriend(playerId){
   if(acceptedFriendIds().includes(playerId)){
     state.chatFriendId=playerId;
     state.socialConversationType='friend';
+    markFriendChatRead(playerId);
     render();
   }
 }
@@ -2852,6 +2871,15 @@ async function sendFriendChat(ev){
   try{
     await FRIEND_CHATS_COL.doc(id).set(record);
     state.friendChatMessages=[...state.friendChatMessages.filter(item=>item.id!==id),record].sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||'')));
+    await createPlayerNotifications({
+      type:'friend_message',
+      sourceId:id,
+      playerIds:[friendId],
+      title:'New friend message',
+      body:`${record.senderName} sent you a message on CourtRush Social.`,
+      url:'./index.html#social',
+      extra:{roomId,fromPlayerId:state.myPlayerId,toPlayerId:friendId}
+    });
     if(input) input.value='';
   }catch(e){ console.error(e); toast(`Could not send this friend message${e&&e.code?` (${e.code})`:''}. Publish the updated Firestore rules and try again.`); }
   state.chatBusy=false;
@@ -4469,7 +4497,7 @@ function renderTopbar(){
     ['schedule','Game Plan'],['history','History'],['profile','Me'],['settings','Settings']
   ];
   const pendingClubRequests=pendingManagedJoinRequestCount();
-  const unreadChatMentions=totalUnreadMentions();
+  const unreadChatMentions=totalUnreadSocialCount();
   const activeLabel=(tabs.find(([key])=>key===state.tab)||tabs[0])[1];
   const accountComponent=state.currentUser ? `
         <div class="account-chip" data-app-tab="profile">
@@ -4490,7 +4518,7 @@ function renderTopbar(){
     ${isLandingVisitor?'':`<div class="primary-nav">
       <button class="nav-toggle" type="button" aria-expanded="${state.navOpen?'true':'false'}" aria-controls="primaryNavigation" data-app-action="toggle-nav"><span class="nav-toggle-icon" aria-hidden="true">${iconSVG('menu')}</span><span>${esc(activeLabel)}</span></button>
       <nav id="primaryNavigation" class="toolbar ${state.navOpen?'open':''}" aria-label="Primary navigation">
-        ${tabs.map(([k,l])=> `<button type="button" class="${state.tab===k?'active':''}" ${state.tab===k?'aria-current="page"':''} data-app-tab="${esc(k)}">${l}${k==='clubs'&&pendingClubRequests?`<span class="nav-count" aria-label="${pendingClubRequests} pending club join request${pendingClubRequests===1?'':'s'}">${pendingClubRequests}</span>`:k==='social'&&unreadChatMentions?`<span class="nav-count" aria-label="${unreadChatMentions} unread Social mention${unreadChatMentions===1?'':'s'}">${unreadChatMentions}</span>`:''}</button>`).join('')}
+        ${tabs.map(([k,l])=> `<button type="button" class="${state.tab===k?'active':''}" ${state.tab===k?'aria-current="page"':''} data-app-tab="${esc(k)}">${l}${k==='clubs'&&pendingClubRequests?`<span class="nav-count" aria-label="${pendingClubRequests} pending club join request${pendingClubRequests===1?'':'s'}">${pendingClubRequests}</span>`:k==='social'&&unreadChatMentions?`<span class="nav-count" aria-label="${unreadChatMentions} unread Social item${unreadChatMentions===1?'':'s'}">${unreadChatMentions}</span>`:''}</button>`).join('')}
       </nav>
     </div>`}
     <div class="topbar-actions ${state.currentUser?'logged-in':''}">
@@ -5107,11 +5135,12 @@ function renderClubChat(){
   const activeClub=activeFriend?null:(clubs.find(club=>club.id===state.chatClubId)||clubs[0]||null);
   if(activeClub&&state.chatClubId!==activeClub.id) state.chatClubId=activeClub.id;
   if(activeClub) markChatRead(activeClub.id);
+  if(activeFriend) markFriendChatRead(activeFriend.id);
   return `<div class="chat-page">${renderSocialSidebar(clubs,friends,activeClub,activeFriend)}${activeFriend?renderFriendChatRoom(activeFriend):renderClubChatRoom(activeClub)}</div>`;
 }
 
 function renderSocialSidebar(clubs,friends,activeClub,activeFriend){
-  return `<aside class="panel"><div class="section-title"><div><div class="eyebrow">Your conversations</div><h2>Social</h2></div><span class="diff-pill diff-zero social-search-count">${clubs.length+friends.length}</span></div><label class="social-search"><span class="sr-only">Search conversations</span><input type="search" value="${esc(state.socialSearchQuery||'')}" placeholder="Search clubs or friends" aria-label="Search Social conversations" oninput="setSocialSearchQuery(this.value)" onkeydown="if(event.key==='Enter')applySocialSearchQuery(this.value)" onblur="applySocialSearchQuery(this.value)" /></label><div class="chat-club-list">${clubs.length?`<div class="social-group-label">Clubs</div>${clubs.map(club=>{const count=allChatMessages().filter(message=>message.clubId===club.id&&canViewChatMessage(message)).length;const unread=unreadMentionCount(club.id);const noticeOnly=!chatClubIds().includes(club.id);const locked=lockedScheduleChatNotice(club.id);return `<button class="chat-club-button ${activeClub&&club.id===activeClub.id?'active':''}" data-social-search="${esc([club.name,club.origin,'club social'].filter(Boolean).join(' ').toLowerCase())}" type="button" onclick="selectChatClub(${jsArg(club.id)})"><strong>${esc(club.name)}</strong><span>${locked?'Club request needed':noticeOnly?'Direct club notice':unread?`${unread} unread mention${unread===1?'':'s'}`:count?`${count} recent message${count===1?'':'s'}`:'Start the conversation'}</span>${unread?`<span class="chat-unread-badge" aria-label="${unread} unread mention${unread===1?'':'s'}">${unread}</span>`:''}</button>`;}).join('')}`:''}${friends.length?`<div class="social-group-label">Friends</div>${friends.map(player=>`<button class="chat-club-button friend ${activeFriend&&player.id===activeFriend.id?'active':''}" data-social-search="${esc([playerDisplayName(player),playerRealName(player),playerEmail(player),'friend'].filter(Boolean).join(' ').toLowerCase())}" type="button" onclick="selectSocialFriend(${jsArg(player.id)})"><strong>${esc(playerDisplayName(player))}</strong><span>Friend message</span></button>`).join('')}`:''}</div></aside>`;
+  return `<aside class="panel"><div class="section-title"><div><div class="eyebrow">Your conversations</div><h2>Social</h2></div><span class="diff-pill diff-zero social-search-count">${clubs.length+friends.length}</span></div><label class="social-search"><span class="sr-only">Search conversations</span><input type="search" value="${esc(state.socialSearchQuery||'')}" placeholder="Search clubs or friends" aria-label="Search Social conversations" oninput="setSocialSearchQuery(this.value)" onkeydown="if(event.key==='Enter')applySocialSearchQuery(this.value)" onblur="applySocialSearchQuery(this.value)" /></label><div class="chat-club-list">${clubs.length?`<div class="social-group-label">Clubs</div>${clubs.map(club=>{const count=allChatMessages().filter(message=>message.clubId===club.id&&canViewChatMessage(message)).length;const unread=unreadMentionCount(club.id);const noticeOnly=!chatClubIds().includes(club.id);const locked=lockedScheduleChatNotice(club.id);return `<button class="chat-club-button ${activeClub&&club.id===activeClub.id?'active':''}" data-social-search="${esc([club.name,club.origin,'club social'].filter(Boolean).join(' ').toLowerCase())}" type="button" onclick="selectChatClub(${jsArg(club.id)})"><strong>${esc(club.name)}</strong><span>${locked?'Club request needed':noticeOnly?'Direct club notice':unread?`${unread} unread mention${unread===1?'':'s'}`:count?`${count} recent message${count===1?'':'s'}`:'Start the conversation'}</span>${unread?`<span class="chat-unread-badge" aria-label="${unread} unread mention${unread===1?'':'s'}">${unread}</span>`:''}</button>`;}).join('')}`:''}${friends.length?`<div class="social-group-label">Friends</div>${friends.map(player=>{const unread=unreadFriendMessageCount(player.id);return `<button class="chat-club-button friend ${activeFriend&&player.id===activeFriend.id?'active':''}" data-social-search="${esc([playerDisplayName(player),playerRealName(player),playerEmail(player),'friend'].filter(Boolean).join(' ').toLowerCase())}" type="button" onclick="selectSocialFriend(${jsArg(player.id)})"><strong>${esc(playerDisplayName(player))}</strong><span>${unread?`${unread} unread message${unread===1?'':'s'}`:'Friend message'}</span>${unread?`<span class="chat-unread-badge" aria-label="${unread} unread friend message${unread===1?'':'s'}">${unread}</span>`:''}</button>`;}).join('')}`:''}</div></aside>`;
 }
 
 function renderClubChatRoom(active){
@@ -5125,6 +5154,7 @@ function renderClubChatRoom(active){
 }
 
 function renderFriendChatRoom(friend){
+  markFriendChatRead(friend.id);
   const messages=friendChatMessagesFor(friend.id).slice(-150);
   return `<section class="panel chat-room" aria-label="${esc(playerDisplayName(friend))} friend conversation"><div class="chat-room-head"><div><div class="eyebrow">Friend Social</div><h2>${esc(playerDisplayName(friend))}</h2></div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;"><span class="club-chip">Friend</span><button class="btn btn-ghost btn-sm" type="button" onclick="openPlayerProfile(${jsArg(friend.id)},{source:'social'})">View Profile</button></div></div><div id="clubChatMessages" class="chat-messages" aria-live="polite">${messages.length?messages.map(message=>renderChatMessageBubble(message,{friendId:friend.id})).join(''):`<div class="empty"><h3>Start the friend conversation</h3><p>Message ${esc(playerDisplayName(friend))} directly from Social.</p></div>`}</div><form class="chat-composer" onsubmit="sendFriendChat(event)"><div class="chat-composer-row"><textarea id="friendChatMessage" maxlength="500" rows="2" aria-label="Message ${esc(playerDisplayName(friend))}" placeholder="Message ${esc(playerDisplayName(friend))}..." ${state.chatBusy?'disabled':''}></textarea><button class="btn btn-primary" type="submit" ${state.chatBusy?'disabled':''}>${state.chatBusy?'Sending...':'Send'}</button></div><div class="chat-hint"><div class="chat-rule">Community rule: profanity, sexual words, abusive words, and banned words are blocked before anyone receives them.</div></div></form></section>`;
 }
