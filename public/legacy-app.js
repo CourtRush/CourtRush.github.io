@@ -3858,6 +3858,27 @@ function exploreLanding(){
   const target=document.getElementById('landingTour');
   if(target&&typeof target.scrollIntoView==='function') target.scrollIntoView({behavior:'smooth',block:'start'});
 }
+document.addEventListener('click',event=>{
+  const target=event.target&&event.target.closest?event.target.closest('[data-app-action],[data-app-tab]'):null;
+  if(!target) return;
+  const tab=target.dataset.appTab;
+  const action=target.dataset.appAction;
+  if(tab){
+    event.preventDefault();
+    event.stopPropagation();
+    setTab(tab);
+    return;
+  }
+  if(!action) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if(action==='toggle-nav') toggleNavigation();
+  else if(action==='toggle-theme') toggleTheme();
+  else if(action==='sign-in') openAuthModal('login');
+  else if(action==='sign-up') openAuthModal('register');
+  else if(action==='logout') logoutUser();
+  else if(action==='explore-landing') exploreLanding();
+});
 
 function render(){
   const root = document.getElementById('root');
@@ -3891,12 +3912,12 @@ function renderTopbar(){
   const unreadChatMentions=totalUnreadMentions();
   const activeLabel=(tabs.find(([key])=>key===state.tab)||tabs[0])[1];
   const accountComponent=state.currentUser ? `
-        <div class="account-chip" onclick="setTab('profile')">
+        <div class="account-chip" data-app-tab="profile">
           ${avatarHTML(state.players.find(p=>p.id===state.myPlayerId), 28)}
           ${isAdmin() ? `<span class="account-role-tag">${isSuperAdmin()?'Admin':'Club Admin'}</span>` : ''}
-          <button class="logout-icon-btn" type="button" aria-label="Sign out" title="Sign out" onclick="event.stopPropagation(); logoutUser();"><span class="logout-icon" aria-hidden="true">&#x23FB;</span><span class="logout-label">Sign out</span></button>
+          <button class="logout-icon-btn" type="button" aria-label="Sign out" title="Sign out" data-app-action="logout"><span class="logout-icon" aria-hidden="true">&#x23FB;</span><span class="logout-label">Sign out</span></button>
         </div>
-      ` : `<button class="btn btn-ghost btn-sm" onclick="openAuthModal('login')">Sign in</button>`;
+      ` : `<button class="btn btn-ghost btn-sm" data-app-action="sign-in">Sign in</button>`;
   return `
   <div class="topbar">
     <div class="brand ${isLandingVisitor?'landing-top-brand':''}">
@@ -3907,14 +3928,14 @@ function renderTopbar(){
       </div>
     </div>
     ${isLandingVisitor?'':`<div class="primary-nav">
-      <button class="nav-toggle" type="button" aria-expanded="${state.navOpen?'true':'false'}" aria-controls="primaryNavigation" onclick="toggleNavigation()"><span class="nav-toggle-icon" aria-hidden="true">${iconSVG('menu')}</span><span>${esc(activeLabel)}</span></button>
+      <button class="nav-toggle" type="button" aria-expanded="${state.navOpen?'true':'false'}" aria-controls="primaryNavigation" data-app-action="toggle-nav"><span class="nav-toggle-icon" aria-hidden="true">${iconSVG('menu')}</span><span>${esc(activeLabel)}</span></button>
       <nav id="primaryNavigation" class="toolbar ${state.navOpen?'open':''}" aria-label="Primary navigation">
-        ${tabs.map(([k,l])=> `<button type="button" class="${state.tab===k?'active':''}" ${state.tab===k?'aria-current="page"':''} onclick="setTab('${k}')">${l}${k==='clubs'&&pendingClubRequests?`<span class="nav-count" aria-label="${pendingClubRequests} pending club join request${pendingClubRequests===1?'':'s'}">${pendingClubRequests}</span>`:k==='chat'&&unreadChatMentions?`<span class="nav-count" aria-label="${unreadChatMentions} unread Club Chat mention${unreadChatMentions===1?'':'s'}">${unreadChatMentions}</span>`:''}</button>`).join('')}
+        ${tabs.map(([k,l])=> `<button type="button" class="${state.tab===k?'active':''}" ${state.tab===k?'aria-current="page"':''} data-app-tab="${esc(k)}">${l}${k==='clubs'&&pendingClubRequests?`<span class="nav-count" aria-label="${pendingClubRequests} pending club join request${pendingClubRequests===1?'':'s'}">${pendingClubRequests}</span>`:k==='chat'&&unreadChatMentions?`<span class="nav-count" aria-label="${unreadChatMentions} unread Club Chat mention${unreadChatMentions===1?'':'s'}">${unreadChatMentions}</span>`:''}</button>`).join('')}
       </nav>
     </div>`}
     <div class="topbar-actions ${state.currentUser?'logged-in':''}">
       <div class="nav-account">${accountComponent}</div>
-      <button class="btn btn-ghost theme-toggle" type="button" onclick="toggleTheme()" aria-label="Switch to ${themeValue()==='dark'?'light':'dark'} theme" title="${themeValue()==='dark'?'Light':'Dark'} theme">${iconSVG(themeValue()==='dark'?'sun':'moon')}</button>
+      <button class="btn btn-ghost theme-toggle" type="button" data-app-action="toggle-theme" aria-label="Switch to ${themeValue()==='dark'?'light':'dark'} theme" title="${themeValue()==='dark'?'Light':'Dark'} theme">${iconSVG(themeValue()==='dark'?'sun':'moon')}</button>
     </div>
   </div>`;
 }
@@ -4036,8 +4057,8 @@ function renderLanding(){
         <h1>Every rally becomes a reason to improve.</h1>
         <p>CourtRush helps pickleball clubs and friend groups run games faster, record results, compare progress over time, and understand the players around them.</p>
         <div class="landing-actions">
-          <button class="btn btn-primary landing-primary" type="button" onclick="exploreLanding()">Explore first</button>
-          <button class="btn btn-ghost landing-secondary" type="button" onclick="openAuthModal('login')">Already a user? Sign in now</button>
+          <button class="btn btn-primary landing-primary" type="button" data-app-action="explore-landing">Explore first</button>
+          <button class="btn btn-ghost landing-secondary" type="button" data-app-action="sign-in">Already a user? Sign in now</button>
         </div>
         <div class="landing-flow" aria-label="CourtRush flow">
           <div><span>01</span><strong>Plan</strong></div>
@@ -4113,8 +4134,8 @@ function renderLanding(){
         <p>Sign up to request a club, create Game Plans, save scores, and start building your own performance trail.</p>
       </div>
       <div class="landing-actions landing-final-actions">
-        <button class="btn btn-primary landing-primary" type="button" onclick="openAuthModal('register')">Create your player account</button>
-        <button class="btn btn-ghost landing-secondary" type="button" onclick="openAuthModal('login')">Sign in now</button>
+        <button class="btn btn-primary landing-primary" type="button" data-app-action="sign-up">Create your player account</button>
+        <button class="btn btn-ghost landing-secondary" type="button" data-app-action="sign-in">Sign in now</button>
       </div>
     </section>
   </main>`;
@@ -4459,7 +4480,7 @@ function renderRosterMemberTile(row){
     <div class="roster-member-identity">
       ${avatarHTML(p,36)}
       <div class="roster-member-name-wrap">
-        <div class="roster-member-name"><span class="roster-member-name-text">${esc(p.name||'Unnamed player')}</span>${p.guest?'<span class="guest-tag">Guest</span>':''}<span class="division-tag">${esc(divisionShortLabel(division))}</span></div>
+        <div class="roster-member-name"><span class="roster-member-name-text">${esc(p.name||'Unnamed player')}</span>${p.guest?'<span class="guest-tag">Guest</span>':''}<span class="division-tag">${esc(divisionMeta(division).abbr)}</span></div>
         ${isSuperAdmin()?`<div class="roster-member-admin-line">${esc(p.email||'No email')}${p.playerId?` &middot; ${esc(p.playerId)}`:''}</div>`:''}
       </div>
     </div>
@@ -5628,9 +5649,38 @@ function wireTabBodyEvents(){
     if(chat) requestAnimationFrame(()=>{ chat.scrollTop=chat.scrollHeight; });
   }
 }
+function exposeLegacyHandlers(){
+  if(typeof window==='undefined') return;
+  [
+    'addDuprMatchToPlan','addExistingClubMember','addExtraRound','addGuestForSchedule','addLatePlayerToSchedule','addRegisteredPlayerToSchedule',
+    'applyCustomDateRange','applyRosterClubSearch','applyScheduleRegisteredSearch','autoPairTeams','backToHistoryPlans','backToPlayerProfilePlans',
+    'backToScheduleList','beginEditCourtResult','beginLateCourtResult','beginProfileNameEdit','cancelEditCourtResult','cancelLateCourtResult',
+    'cancelProfileNameEdit','clearClubChatForAll','clearCustomDateRange','clearRosterClubFilters','clearSchedulePlayers','closeAuthModal',
+    'closeClubHubProfile','closeScheduleLeaderboard','closeSupportPanel','completeLegacyClubRegistration','confirmMatchResult','createClubMember',
+    'deleteGamePlan','deleteGamePlanHistory','deleteMatch','deletePlayer','disputeMatchResult','editGamePlan','endGamePlan','goToClubHubFromProfile',
+    'handleChatMentionKeydown','handleChatMessageInput','invitePlayerToClub','migrateGuestToRegisteredPlayer','openAuthModal','openCreateGamePlan',
+    'openGamePlan','openHistoryGroup','openPlayerProfile','openPlayerProfilePlan','openProfileClubDetail','openScheduleLeaderboard','openSupportPanel',
+    'recordCourtResult','removeClubFromHub','removeClubMember','removeExtraRound','removePlayerFromScheduleQueue','render','replySupportRequest',
+    'requestClubJoin','respondToClubInvite','reviewClubJoinRequest','saveClubDetails','saveGamePlan','saveMyProfileName','saveMyProfilePassword',
+    'saveProfileDivision','saveProfileVisibility','selectAllRosterClubFilters','selectAllSchedulePlayers','selectChatClub','selectClubHub',
+    'sendClubChat','sendPasswordResetFromModal','sendSupportRequest','setActiveCourtFilter','setClubMemberRole','setClubProfileRoleFilter',
+    'setDateRange','setH2H','setH2HClub','setH2HSearch','setMyClubMembership','setOfflineAccessPreference','setRosterClubFilterOpen',
+    'setRosterPage','setRosterSearchQuery','setRosterSortDirection','setRosterSortKey','setScheduleCourtFilter','setScheduleFilter',
+    'setScheduleRegisteredSearchOpen','setTab','signInWithGoogle','submitAddPlayerForm','submitAuthForm','submitClubRegistration',
+    'toggleRosterClubFilter','toggleRosterSort','toggleScheduleSelect','transferPrimaryClubAdmin','updateCourtResult','updateScheduleDraft',
+    'toggleTheme','toggleNavigation','logoutUser','setClubWorkspaceView','exploreLanding'
+  ].forEach(name=>{
+    try{
+      const value=eval(name);
+      if(typeof value==='function') window[name]=value;
+    }catch{}
+  });
+  window.state=state;
+}
 
 /* ============================= INIT ============================= */
 (async function init(){
+  exposeLegacyHandlers();
   state.loading = false;
   render();
   registerServiceWorker();
