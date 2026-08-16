@@ -686,6 +686,7 @@
   /* ---------- Toast ---------- */
   #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:#102B28;color:#FFFFFF;padding:11px 20px;border:1px solid rgba(255,255,255,.14);border-radius:9px;font-size:13.5px;font-weight:700;opacity:0;pointer-events:none;transition:all .25s ease;z-index:100;box-shadow:0 6px 20px rgba(0,0,0,0.2);}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  #toast.toast-welcome{bottom:30px;width:min(520px,calc(100vw - 28px));padding:18px 24px;border-radius:14px;background:linear-gradient(135deg,var(--court-deep),var(--court));font-size:18px;line-height:1.25;text-align:center;box-shadow:0 18px 44px rgba(2,24,21,.28);}
 
   .muted{color:var(--muted);}
   .small{font-size:12.5px;}
@@ -706,7 +707,7 @@
   .theme-toggle:active:not(:disabled),.logout-icon-btn:active:not(:disabled){transform:translateY(1px) scale(.96);}
 
   @media (prefers-reduced-motion:reduce){
-    .btn,.btn::after,.link-btn,nav.toolbar button,.club-card,.history-plan-card-button,.chat-club-button,.theme-toggle,.logout-icon-btn,.transition-boot-card,.transition-boot-card img,.boot-progress span,.page-transition-loader,.page-enter{
+    .btn,.btn::after,.link-btn,nav.toolbar button,.club-card,.history-plan-card-button,.chat-club-button,.theme-toggle,.logout-icon-btn,.transition-boot-card,.transition-boot-card img,.rolling-pickleball,.boot-progress span,.page-transition-loader,.page-enter{
       transition:none!important;
       animation:none!important;
     }
@@ -727,14 +728,16 @@
       linear-gradient(180deg, color-mix(in srgb,var(--panel) 72%,transparent), transparent);
     animation:transitionShell .7s ease both;
   }
-  .transition-boot-card{min-height:0;animation:bootPulse .7s ease both;}
-  .transition-boot-card img{animation:bootIcon .7s ease both;}
+  .transition-boot-card{min-height:0;animation:bootPulse .7s ease both;overflow:hidden;}
+  .rolling-pickleball{width:76px;height:76px;display:grid;place-items:center;animation:pickleballRoll 1.05s cubic-bezier(.2,.72,.2,1) both;}
+  .rolling-pickleball img{width:58px;height:58px;animation:pickleballSpin 1.05s linear both;}
   .boot-progress{display:flex;align-items:center;gap:5px;margin-top:10px;}
   .boot-progress span{width:6px;height:6px;border-radius:50%;background:var(--court);opacity:.35;animation:bootDot .75s ease-in-out infinite;}
   .boot-progress span:nth-child(2){animation-delay:.12s;}
   .boot-progress span:nth-child(3){animation-delay:.24s;}
   @keyframes bootPulse{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
-  @keyframes bootIcon{50%{transform:scale(1.04) rotate(-1deg);}}
+  @keyframes pickleballRoll{0%{transform:translateX(-96px) translateY(2px);}72%{transform:translateX(4px) translateY(2px);}100%{transform:translateX(0) translateY(0);}}
+  @keyframes pickleballSpin{from{transform:rotate(-540deg) scale(.9);}70%{transform:rotate(28deg) scale(1.04);}to{transform:rotate(0) scale(1);}}
   @keyframes bootDot{0%,80%,100%{opacity:.3;transform:translateY(0);}40%{opacity:1;transform:translateY(-3px);}}
   @keyframes transitionShell{0%{opacity:0;filter:blur(2px);}18%,78%{opacity:1;filter:blur(0);}100%{opacity:.72;filter:blur(1px);}}
   .page-enter{animation:pageEnter .24s ease both;}

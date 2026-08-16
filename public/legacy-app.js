@@ -129,6 +129,10 @@ let state = {
   tournamentTeams: null,  // [[p1,p2], ...] staged fixed teams
   tournamentLeftover: null,
   playerModalId: null,
+  disputeModalMatchId: null,
+  migrationModalGuestId: null,
+  migrationBusy: false,
+  migrationError: '',
   showAddPlayer: false,
   scheduleSelection: new Set(),
   scheduleGuestSearch: '',
@@ -165,6 +169,7 @@ let state = {
   supportBusy: false,
   supportRequests: [],
   installGuideOpen: false,
+  signInTransition: null,
   pageTransition: null,
   pageEntering: false,
 };
@@ -717,6 +722,7 @@ offlinePersistenceReady.then(()=>auth.onAuthStateChanged(user=>{
     state.myPlayerId = null;
     state.tab = 'dashboard';
     state.pageTransition = null;
+    clearSignInTransition();
     refreshClubAdminSync();
     refreshClubRoleDirectorySync(true);
     refreshScheduleSync(true);
@@ -963,14 +969,25 @@ async function disputeMatchResult(matchId){
   if(!allowAction(`dispute:${matchId}`,2000)) return;
   const match=state.matches.find(m=>m.id===matchId);
   if(!match||(!canReviewMatch(match)&&!isAdminForClub(match&&match.clubId))){ toast('Only another participating player or this club admin can dispute this result'); return; }
-  const entered=prompt('Briefly explain what is incorrect about this result:','');
-  if(entered===null) return;
-  const reason=entered.trim();
+  state.disputeModalMatchId=matchId;
+  render();
+}
+function closeDisputeModal(){
+  state.disputeModalMatchId=null;
+  render();
+}
+async function submitDisputeModal(ev){
+  ev.preventDefault();
+  const matchId=state.disputeModalMatchId;
+  const match=state.matches.find(m=>m.id===matchId);
+  if(!match||(!canReviewMatch(match)&&!isAdminForClub(match&&match.clubId))){ closeDisputeModal(); toast('Only another participating player or this club admin can dispute this result'); return; }
+  const reason=String(document.getElementById('disputeReasonInput')?.value||'').trim();
   if(reason.length<3){ toast('Please provide a short reason for the dispute'); return; }
   const update={verificationStatus:'disputed',disputeReason:reason.slice(0,280),disputedByUid:state.currentUser.uid,disputedByPlayerId:state.myPlayerId||null,disputedAt:new Date().toISOString()};
   try{ await MATCHES_COL.doc(matchId).update(update); }
   catch(e){ console.error(e); toast('Could not dispute the result. Publish the included Firestore rules first.'); return; }
   state.matches=state.matches.map(m=>m.id===matchId?{...m,...update}:m);
+  state.disputeModalMatchId=null;
   toast('Result disputed and removed from official statistics pending review');
   render();
 }
@@ -989,12 +1006,16 @@ function diffPill(n, decimals){
   const sign = n>0?'+':'';
   return `<span class="diff-pill ${cls}">${sign}${n.toFixed(decimals)}</span>`;
 }
-function toast(msg){
+function toast(msg,options={}){
   const el = document.getElementById('toast');
   el.textContent = msg;
+  el.classList.toggle('toast-welcome', options.variant==='welcome');
   el.classList.add('show');
   clearTimeout(window.__toastT);
-  window.__toastT = setTimeout(()=> el.classList.remove('show'), 2200);
+  window.__toastT = setTimeout(()=>{
+    el.classList.remove('show');
+    el.classList.remove('toast-welcome');
+  }, options.duration||2200);
 }
 function updateOnlineState(online){
   state.online=online;
@@ -1942,8 +1963,7 @@ async function waitForProfileDirectory(){
 async function finishGoogleSignIn(user,requestedClubId){
   await waitForProfileDirectory();
   const linked=await ensureGooglePlayerProfile(user,requestedClubId);
-  state.showAuthModal=false;
-  toast(linked.joinRequested?`Welcome, ${linked.name}! Your request to join ${clubName(linked.requestedClub)} was sent.`:`Welcome, ${linked.name}!`);
+  showSignInTransition(linked.joinRequested?`Welcome, ${linked.name}! Your request to join ${clubName(linked.requestedClub)} was sent.`:`Welcome, ${linked.name}!`);
 }
 async function processGoogleRedirectResult(){
   if(typeof auth.getRedirectResult!=='function') return;
@@ -2076,10 +2096,10 @@ async function submitAuthForm(ev){
         await CLUB_MEMBERSHIPS_COL.doc(membershipId).set({id:membershipId,clubId:registrationClubId,playerId,status:'pending',requestedByUid:cred.user.uid,requestedAt:now,updatedAt:now});
       }
       await USERS_COL.doc(cred.user.uid).set({ displayName:name, email, role:'player', clubId:registeredClubIds[0]||null, clubIds:registeredClubIds, playerId, createdAt:new Date().toISOString() });
-      toast(joinRequested?`Welcome, ${name}! Your request to join ${clubName(registrationClubId)} was sent.`:`Welcome to CourtRush, ${name}!`);
+      showSignInTransition(joinRequested?`Welcome, ${name}! Your request to join ${clubName(registrationClubId)} was sent.`:`Welcome to CourtRush, ${name}!`);
     } else {
       await auth.signInWithEmailAndPassword(email, password);
-      toast('Signed in');
+      showSignInTransition('Welcome back to CourtRush!');
     }
     state.showAuthModal = false;
   }catch(e){
@@ -2090,6 +2110,7 @@ async function submitAuthForm(ev){
 }
 async function logoutUser(){
   clearPageTransition();
+  clearSignInTransition();
   state.currentUser=null;
   state.myPlayerId=null;
   state.tab='dashboard';
@@ -3247,13 +3268,36 @@ function replacePlayerIdInRounds(rounds,fromId,toId){
     }))
   }));
 }
-async function migrateGuestToRegisteredPlayer(guestId){
+function openMigrationModal(guestId){
   if(!isSuperAdmin()){ toast('Only a platform administrator can migrate guest history'); return; }
   const guest=state.players.find(p=>p.id===guestId&&p.guest);
   if(!guest){ toast('Choose a guest player to migrate'); return; }
-  const email=normalizeEmail(prompt(`Enter the player's email address to connect ${guest.name}'s guest history to:`)||'');
-  if(!email){ toast('Migration cancelled'); return; }
+  state.migrationModalGuestId=guestId;
+  state.migrationError='';
+  render();
+}
+function closeMigrationModal(){
+  if(state.migrationBusy) return;
+  state.migrationModalGuestId=null;
+  state.migrationError='';
+  render();
+}
+async function submitMigrationModal(ev){
+  ev.preventDefault();
+  const guestId=state.migrationModalGuestId;
+  const email=normalizeEmail(document.getElementById('migrationEmailInput')?.value||'');
+  await migrateGuestToRegisteredPlayer(guestId,email);
+}
+async function migrateGuestToRegisteredPlayer(guestId,email){
+  if(!isSuperAdmin()){ toast('Only a platform administrator can migrate guest history'); return; }
+  const guest=state.players.find(p=>p.id===guestId&&p.guest);
+  if(!guest){ toast('Choose a guest player to migrate'); return; }
+  email=normalizeEmail(email||'');
+  if(!email){ state.migrationError='Enter the player email address.'; render(); return; }
   if(!isValidEmail(email)){ toast('Enter a valid email address'); return; }
+  state.migrationBusy=true;
+  state.migrationError='';
+  render();
   const now=new Date().toISOString();
   let linkedUser=null;
   try{
@@ -3264,8 +3308,6 @@ async function migrateGuestToRegisteredPlayer(guestId){
   }
   let target=linkedUser&&linkedUser.playerId?state.players.find(p=>p.id===linkedUser.playerId):null;
   if(target&&target.id===guestId) target=null;
-  if(target&&!confirm(`Move all games and Game Plan slots from guest ${guest.name} to ${target.name} (${email}), then remove the guest profile?`)) return;
-  if(!target&&!confirm(`Connect ${guest.name}'s guest profile to ${email}? Future sign-ins with that email will use this player history.`)) return;
   const affectedMatches=target?state.matches.filter(m=>[...(m.team1||[]),...(m.team2||[])].includes(guestId)):[];
   const affectedSchedules=target?state.schedules.filter(s=>schedulePlayers(s).includes(guestId)):[];
   const targetId=target?target.id:guestId;
@@ -3300,11 +3342,14 @@ async function migrateGuestToRegisteredPlayer(guestId){
         ...(target?[PLAYERS_COL.doc(guestId).delete()]:[])
       ]);
     }
-  }catch(e){ console.error(e); toast('Could not migrate guest history'); return; }
+  }catch(e){ console.error(e); state.migrationBusy=false; state.migrationError='Could not migrate guest history. Check Firestore rules and try again.'; render(); return; }
   state.matches=state.matches.map(m=>affectedMatches.some(x=>x.id===m.id)?{...m,team1:replacePlayerIdList(m.team1,guestId,targetId),team2:replacePlayerIdList(m.team2,guestId,targetId),updatedAt:now}:m);
   state.schedules=state.schedules.map(s=>affectedSchedules.some(x=>scheduleDocId(x)===scheduleDocId(s))?normalizeScheduleDoc(scheduleDocId(s),{...stripScheduleMeta(s),selectedPlayerIds:replacePlayerIdList(schedulePlayers(s),guestId,targetId),rounds:replacePlayerIdInRounds(s.rounds,guestId,targetId),updatedAt:now}):s);
   state.players=state.players.filter(p=>!target||p.id!==guestId).map(p=>p.id===targetId?{...p,...targetUpdate}:p);
   state.playerModalId=null;
+  state.migrationModalGuestId=null;
+  state.migrationBusy=false;
+  state.migrationError='';
   render();
   toast(target?`Guest history migrated to ${target.name}`:`${guest.name} is ready for ${email}`);
 }
@@ -4381,11 +4426,32 @@ async function removeExtraRound(scheduleId){
 /* ============================= RENDER: SHELL ============================= */
 let pageTransitionTimer=null;
 let pageEnterTimer=null;
+let signInTransitionTimer=null;
 function clearPageTransition(){
   if(pageTransitionTimer){ clearTimeout(pageTransitionTimer); pageTransitionTimer=null; }
   if(pageEnterTimer){ clearTimeout(pageEnterTimer); pageEnterTimer=null; }
   state.pageTransition=null;
   state.pageEntering=false;
+}
+function clearSignInTransition(){
+  if(signInTransitionTimer){ clearTimeout(signInTransitionTimer); signInTransitionTimer=null; }
+  state.signInTransition=null;
+}
+function showSignInTransition(message){
+  clearPageTransition();
+  clearSignInTransition();
+  state.showAuthModal=false;
+  state.authBusy=false;
+  state.signInTransition={message:message||'Welcome to CourtRush!'};
+  render();
+  signInTransitionTimer=setTimeout(()=>{
+    signInTransitionTimer=null;
+    if(!state.signInTransition) return;
+    const welcome=state.signInTransition.message;
+    state.signInTransition=null;
+    render();
+    toast(welcome,{variant:'welcome',duration:3200});
+  },1100);
 }
 function applyTab(t){
   if(['profile','clubs','history','schedule'].includes(t)&&['year','month','week'].includes(state.dateRange)){
@@ -4410,27 +4476,9 @@ function applyTab(t){
   refreshChatSync();
   render();
 }
-function setTab(t,options={}){
-  if(options.immediate||t===state.tab){
-    clearPageTransition();
-    applyTab(t);
-    return;
-  }
+function setTab(t){
   clearPageTransition();
-  state.navOpen=false;
-  state.pageTransition={target:t,startedAt:Date.now()};
-  render();
-  pageTransitionTimer=setTimeout(()=>{
-    pageTransitionTimer=null;
-    state.pageTransition=null;
-    state.pageEntering=true;
-    applyTab(t);
-    pageEnterTimer=setTimeout(()=>{
-      pageEnterTimer=null;
-      state.pageEntering=false;
-      render();
-    },260);
-  },700);
+  applyTab(t);
 }
 function toggleNavigation(){ if(state.showAuthModal||state.playerModalId||state.showAddPlayer||state.clubHubSelectedId||state.supportPanelOpen) return; state.navOpen=!state.navOpen; render(); }
 function exploreLanding(){
@@ -4491,13 +4539,13 @@ document.addEventListener('click',event=>{
 
 function render(){
   const root = document.getElementById('root');
-  document.body.classList.toggle('modal-open', Boolean(state.playerModalId || state.showAddPlayer || state.showAuthModal || state.clubHubSelectedId || state.supportPanelOpen || state.installGuideOpen));
+  document.body.classList.toggle('modal-open', Boolean(state.playerModalId || state.showAddPlayer || state.showAuthModal || state.clubHubSelectedId || state.supportPanelOpen || state.installGuideOpen || state.disputeModalMatchId || state.migrationModalGuestId));
   if(state.loading){
     root.innerHTML = renderPageTransitionLoader('Loading CourtRush');
     return;
   }
-  if(state.pageTransition){
-    root.innerHTML = renderPageTransitionLoader('Loading page');
+  if(state.signInTransition){
+    root.innerHTML = renderPageTransitionLoader('Signing in');
     return;
   }
   root.innerHTML = `
@@ -4509,6 +4557,8 @@ function render(){
     ${state.playerModalId ? renderPlayerModal() : ''}
     ${state.showAddPlayer ? renderAddPlayerModal() : ''}
     ${state.showAuthModal ? renderAuthModal() : ''}
+    ${state.disputeModalMatchId ? renderDisputeModal() : ''}
+    ${state.migrationModalGuestId ? renderMigrationModal() : ''}
     ${state.clubHubSelectedId && state.clubDetailSource==='profile' ? renderProfileClubDetailModal() : ''}
     ${state.supportPanelOpen ? renderSupportModal() : ''}
     ${state.installGuideOpen ? renderInstallGuide() : ''}
@@ -4521,7 +4571,7 @@ function render(){
 function renderPageTransitionLoader(label){
   return `<main class="page-transition-loader" aria-live="polite" aria-busy="true">
     <div class="boot-card transition-boot-card">
-      <img src="courtrush-icon.svg" alt="" />
+      <div class="rolling-pickleball" aria-hidden="true"><img src="courtrush-icon.svg" alt="" /></div>
       <div>
         <p class="boot-eyebrow">CourtRush</p>
         <h1>${esc(label||'Loading the club')}</h1>
@@ -4619,6 +4669,47 @@ function renderAuthModal(){
           ? `Already registered? <button class="link-btn" onclick="state.authMode='login'; render();">Sign in</button>`
           : `New here? <button class="link-btn" onclick="state.authMode='register'; render();">Create an account</button>`}
       </p>
+    </div>
+  </div>`;
+}
+
+function renderDisputeModal(){
+  const match=state.matches.find(m=>m.id===state.disputeModalMatchId);
+  if(!match) return '';
+  return `
+  <div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="disputeModalTitle" onclick="if(event.target===this){closeDisputeModal();}">
+    <div class="modal" style="max-width:420px;">
+      <button class="modal-close" type="button" onclick="closeDisputeModal()" aria-label="Close dispute form">&times;</button>
+      <h2 id="disputeModalTitle" style="font-size:24px;color:var(--court-deep);margin-bottom:4px;">Dispute result</h2>
+      <p class="small muted" style="margin-bottom:14px;">Briefly explain what is incorrect about this result. It will be removed from official statistics while under review.</p>
+      <form onsubmit="submitDisputeModal(event)">
+        <div class="field"><label for="disputeReasonInput">Reason</label><textarea id="disputeReasonInput" maxlength="280" rows="4" required placeholder="Example: Team scores were entered in reverse."></textarea></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
+          <button class="btn btn-ghost" type="button" onclick="closeDisputeModal()">Cancel</button>
+          <button class="btn btn-primary" type="submit">Submit dispute</button>
+        </div>
+      </form>
+    </div>
+  </div>`;
+}
+
+function renderMigrationModal(){
+  const guest=state.players.find(p=>p.id===state.migrationModalGuestId&&p.guest);
+  if(!guest) return '';
+  return `
+  <div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="migrationModalTitle" onclick="if(event.target===this){closeMigrationModal();}">
+    <div class="modal" style="max-width:420px;">
+      <button class="modal-close" type="button" onclick="closeMigrationModal()" aria-label="Close migration form" ${state.migrationBusy?'disabled':''}>&times;</button>
+      <h2 id="migrationModalTitle" style="font-size:24px;color:var(--court-deep);margin-bottom:4px;">Migrate guest</h2>
+      <p class="small muted" style="margin-bottom:14px;">Connect ${esc(guest.name)} to a signed-in CourtRush account before friend requests can be sent.</p>
+      <form onsubmit="submitMigrationModal(event)">
+        <div class="field"><label for="migrationEmailInput">Player email</label><input id="migrationEmailInput" type="email" placeholder="player@email.com" value="${esc(playerEmail(guest))}" required ${state.migrationBusy?'disabled':''}/></div>
+        ${state.migrationError?`<div class="form-note" style="margin-bottom:12px;">${esc(state.migrationError)}</div>`:''}
+        <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
+          <button class="btn btn-ghost" type="button" onclick="closeMigrationModal()" ${state.migrationBusy?'disabled':''}>Cancel</button>
+          <button class="btn btn-primary" type="submit" ${state.migrationBusy?'disabled':''}>${state.migrationBusy?'Migrating...':'Migrate'}</button>
+        </div>
+      </form>
     </div>
   </div>`;
 }
@@ -5066,6 +5157,7 @@ function renderFriendAction(player,options={}){
   if(status==='friends') return options.removable?`<span class="friend-action-group"><button class="btn btn-primary btn-sm" type="button" onclick="event.stopPropagation();messageFriend(${jsArg(player.id)})">Message</button><button class="btn btn-danger btn-sm" type="button" onclick="event.stopPropagation();removeFriend(${jsArg(player.id)})" ${busy?'disabled':''}>${busy?'Removing...':'Remove'}</button></span>`:options.message?`<button class="btn btn-primary btn-sm" type="button" onclick="event.stopPropagation();messageFriend(${jsArg(player.id)})">Message</button>`:`<span class="club-chip admin">Friend</span>`;
   if(status==='outgoing') return `<button class="btn btn-ghost btn-sm" type="button" onclick="event.stopPropagation();cancelFriendRequest(${jsArg(player.id)})" ${busy?'disabled':''}>${busy?'Canceling...':'Cancel Request'}</button>`;
   if(status==='incoming'&&request) return `<span class="friend-action-group"><button class="btn btn-primary btn-sm" type="button" onclick="event.stopPropagation();respondFriendRequest(${jsArg(request.id)},true)" ${busy?'disabled':''}>Accept friend</button><button class="btn btn-ghost btn-sm" type="button" onclick="event.stopPropagation();respondFriendRequest(${jsArg(request.id)},false)" ${busy?'disabled':''}>Decline</button></span>`;
+  if(player.guest&&!player.ownerUid) return `<button class="btn btn-primary btn-sm" type="button" onclick="event.stopPropagation();openMigrationModal(${jsArg(player.id)})">Migrate</button>`;
   if(!player.ownerUid) return `<span class="club-chip">Account needed</span>`;
   return `<button class="btn btn-ghost btn-sm" type="button" onclick="event.stopPropagation();sendFriendRequest(${jsArg(player.id)})" ${busy?'disabled':''}>${busy?'Sending...':'Add friend'}</button>`;
 }
@@ -5262,7 +5354,7 @@ function renderRosterMemberTile(row){
       </div>
     </div>
     <div class="roster-member-clubs">${primaryClub}</div>
-    ${friendAction||isSuperAdmin()?`<div class="roster-member-actions" onclick="event.stopPropagation();">${friendAction}${isSuperAdmin()?(p.guest?`<button class="btn btn-primary btn-sm" onclick="migrateGuestToRegisteredPlayer(${jsArg(p.id)})">Migrate</button>`:`<button class="btn btn-danger btn-sm" onclick="deletePlayer(${jsArg(p.id)})">Delete</button>`):''}</div>`:''}
+    ${friendAction||isSuperAdmin()?`<div class="roster-member-actions" onclick="event.stopPropagation();">${friendAction}${isSuperAdmin()&&!p.guest?`<button class="btn btn-danger btn-sm" onclick="deletePlayer(${jsArg(p.id)})">Delete</button>`:''}</div>`:''}
   </article>`;
 }
 function renderMyFriendTile(player){
@@ -6492,14 +6584,14 @@ function exposeLegacyHandlers(){
     'applyCustomDateRange','applyRosterClubSearch','applyRosterSearchQuery','applyScheduleRegisteredSearch','autoPairTeams','backToHistoryPlans','backToPlayerProfilePlans',
     'backToScheduleList','beginEditCourtResult','beginLateCourtResult','beginProfileNameEdit','cancelEditCourtResult','cancelLateCourtResult',
     'applyClubSearchQuery','applySocialSearchQuery','cancelFriendRequest','cancelProfileNameEdit','clearClubChatForAll','clearClubChatForMe','clearClubSearch','clearCustomDateRange','clearRosterClubFilters','clearRosterDivisionFilters','clearSchedulePlayers','closeAuthModal',
-    'closeClubHubProfile','closeScheduleLeaderboard','closeSupportPanel','completeLegacyClubRegistration','confirmMatchResult','createClubMember',
+    'closeClubHubProfile','closeDisputeModal','closeMigrationModal','closeScheduleLeaderboard','closeSupportPanel','completeLegacyClubRegistration','confirmMatchResult','createClubMember',
     'deleteChatMessageForMe','deleteGamePlan','deleteGamePlanHistory','deleteMatch','deletePlayer','disputeMatchResult','editGamePlan','endGamePlan','goToClubHubFromProfile',
-    'handleChatMentionKeydown','handleChatMessageInput','invitePlayerToClub','messageFriend','migrateGuestToRegisteredPlayer','openAuthModal','openCreateGamePlan',
+    'handleChatMentionKeydown','handleChatMessageInput','invitePlayerToClub','messageFriend','migrateGuestToRegisteredPlayer','openAuthModal','openCreateGamePlan','openMigrationModal',
     'openGamePlan','openHistoryGroup','openPlayerProfile','openPlayerProfilePlan','openProfileClubDetail','openScheduleLeaderboard','openSupportPanel',
     'recordCourtResult','removeClubFromHub','removeClubMember','removeExtraRound','removeFriend','removePlayerFromScheduleQueue','render','replySupportRequest',
     'requestClubJoin','respondFriendRequest','respondToClubInvite','reviewClubJoinRequest','saveClubDetails','saveGamePlan','saveMyProfileName','saveMyProfilePassword',
     'resetRosterFilters','saveProfileDivision','saveProfileVisibility','selectAllRosterClubFilters','selectAllRosterDivisionFilters','selectAllSchedulePlayers','selectChatClub','selectClubHub','selectSocialFriend',
-    'sendClubChat','sendFriendChat','sendFriendRequest','sendPasswordResetFromModal','sendSupportRequest','setActiveCourtFilter','setClubMemberRole','setClubProfileRoleFilter','setClubSearchQuery',
+    'sendClubChat','sendFriendChat','sendFriendRequest','sendPasswordResetFromModal','sendSupportRequest','submitDisputeModal','submitMigrationModal','setActiveCourtFilter','setClubMemberRole','setClubProfileRoleFilter','setClubSearchQuery',
     'setDateRange','setH2H','setH2HClub','setH2HSearch','setMyClubMembership','setOfflineAccessPreference','setRosterClubFilterOpen','setRosterDivisionFilterOpen',
     'setRosterPage','setRosterSearchQuery','setRosterSortDirection','setRosterSortKey','setScheduleCourtFilter','setScheduleFilter','setSocialSearchQuery',
     'setScheduleRegisteredSearchOpen','setTab','signInWithGoogle','submitAddPlayerForm','submitAuthForm','submitClubRegistration',
@@ -6534,6 +6626,8 @@ function registerServiceWorker(){
 }
 document.addEventListener('keydown',event=>{
   if(event.key!=='Escape') return;
+  if(state.disputeModalMatchId){ closeDisputeModal(); return; }
+  if(state.migrationModalGuestId){ closeMigrationModal(); return; }
   if(state.supportPanelOpen){ closeSupportPanel(); return; }
   if(state.playerModalId){ state.playerModalId=null; render(); return; }
   if(state.showAddPlayer){ state.showAddPlayer=false; render(); return; }
