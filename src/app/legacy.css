@@ -636,7 +636,7 @@
   .paddle-row .player-name-self{box-shadow:none;}
 
   /* ---------- Modal ---------- */
-  .modal-overlay{position:fixed;inset:0;background:rgba(10,30,27,0.55);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;z-index:50;}
+  .modal-overlay{position:fixed;inset:0;background:rgba(10,30,27,0.55);display:flex;align-items:center;justify-content:center;padding:40px 16px;overflow-y:auto;z-index:50;}
   .modal{background:var(--panel);border-radius:16px;max-width:640px;width:100%;padding:24px;position:relative;}
   .modal-close{position:absolute;top:16px;right:16px;background:var(--bg);border:none;width:30px;height:30px;border-radius:50%;font-size:16px;color:var(--muted);font-weight:700;}
   .modal-close:hover{background:var(--line);}
