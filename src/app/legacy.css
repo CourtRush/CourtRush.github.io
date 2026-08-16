@@ -237,6 +237,7 @@
   .player-private-meta{display:block;margin-top:5px;color:var(--muted);font-size:11px;font-weight:600;line-height:1.3;overflow-wrap:anywhere;}
   .player-private-meta span{display:block;}
   .my-profile-hero .player-private-meta{color:rgba(255,255,255,.72);font-size:10.5px;}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
   .mvp-pill{display:inline-flex;align-items:center;justify-content:center;min-width:36px;padding:4px 9px;border-radius:20px;background:var(--ball-fill);color:var(--ball-on);font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:800;border:1px solid var(--ball-hover);}
   .mvp-pill.zero{background:var(--bg);border-color:var(--line);color:var(--muted);}
   .roster-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:12px 14px;margin:0 0 14px;background:var(--bg);border:1px solid var(--line);border-radius:11px;}
@@ -266,6 +267,25 @@
   .roster-sort-header:hover,.roster-sort-header.active{color:var(--court);}
   .roster-sort-indicator{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;border-radius:4px;background:var(--bg);font-family:'IBM Plex Mono',monospace;font-size:10px;line-height:1;}
   .roster-sort-header.active .roster-sort-indicator{background:rgba(14,95,88,0.12);color:var(--court);}
+  .roster-heading{align-items:center;}
+  .roster-search{flex:1 1 260px;max-width:440px;margin-left:auto;}
+  .roster-search input{width:100%;min-height:40px;border:1.5px solid var(--line);border-radius:999px;background:var(--panel);color:var(--ink);font:inherit;font-size:13px;font-weight:700;padding:10px 16px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);}
+  .roster-search input::placeholder{color:var(--muted);opacity:1;}
+  .roster-results-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;}
+  .roster-member-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,310px),1fr));gap:10px;}
+  .roster-member-tile{display:grid;grid-template-columns:minmax(0,1.35fr) auto;align-items:center;gap:10px;min-width:0;padding:10px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--ink);cursor:pointer;transition:border-color .15s ease,background .15s ease,transform .15s ease,box-shadow .15s ease;}
+  .roster-member-tile:hover,.roster-member-tile:focus-within{border-color:var(--court);background:color-mix(in srgb,var(--court) 7%,var(--panel));transform:translateY(-1px);box-shadow:0 9px 22px rgba(6,46,42,.08);}
+  .roster-member-identity{display:flex;align-items:center;gap:9px;min-width:0;}
+  .roster-member-name-wrap{min-width:0;}
+  .roster-member-name{color:var(--ink);font-weight:900;line-height:1.12;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .roster-member-name .player-private-meta{display:none;}
+  .roster-member-admin-line{margin-top:3px;color:var(--muted);font-size:10px;font-weight:700;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px;}
+  .roster-member-clubs{display:flex;align-items:center;justify-content:flex-end;min-width:0;}
+  .roster-member-clubs .club-chip{margin:0;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:color-mix(in srgb,var(--court) 8%,var(--panel));color:var(--ink);border-color:var(--line);}
+  .roster-member-actions{grid-column:1/-1;display:flex;justify-content:flex-end;}
+  .roster-member-actions .btn{border-radius:999px;}
+  .roster-pagination,.roster-pagination-count{display:flex;align-items:center;justify-content:center;gap:10px;margin:14px 0 0;color:var(--muted);font-size:12px;font-weight:800;}
+  .roster-results-bar .roster-pagination{margin:0;}
   .roster-mobile-cards{display:none;}
   .roster-member-card{border:1px solid var(--line);border-radius:12px;padding:13px;background:#fff;}
   .roster-member-head{display:flex;align-items:center;gap:10px;min-width:0;cursor:pointer;}
@@ -810,6 +830,7 @@
   :root[data-theme="dark"] .club-leader,
   :root[data-theme="dark"] .club-membership-option,
   :root[data-theme="dark"] .roster-member-card,
+  :root[data-theme="dark"] .roster-member-tile,
   :root[data-theme="dark"] .mode-card,
   :root[data-theme="dark"] .game-plan-card,
   :root[data-theme="dark"] .game-plan-leaderboard,
@@ -821,6 +842,9 @@
   :root[data-theme="dark"] select,
   :root[data-theme="dark"] textarea,
   :root[data-theme="dark"] .exact-date-field input{background:#0F1D1B;color:var(--ink);}
+  :root[data-theme="dark"] .roster-search input{background:#0F1D1B;color:#F7FFFC;border-color:#4C6F68;}
+  :root[data-theme="dark"] .roster-search input::placeholder{color:#BFD4CF;}
+  :root[data-theme="dark"] .roster-member-clubs .club-chip{background:#0B1B19;color:#F7FFFC;border-color:#4C6F68;}
   :root[data-theme="dark"] .invite-search-menu summary{background:#0F1D1B;color:#F7FFFC;border-color:#4C6F68;}
   :root[data-theme="dark"] .invite-search-menu[open] summary{border-color:#DCEB45;box-shadow:0 0 0 1px rgba(220,235,69,.3);}
   :root[data-theme="dark"] .invite-search-menu summary::after{color:#DCEB45;}

@@ -55,11 +55,13 @@ let state = {
   dateRange: 'overall',  // 'overall' | 'year' | 'month' | 'week' | 'custom'
   customDateStart: '',
   customDateEnd: '',
-  rosterSortKey: 'name', // 'name' | 'clubs' | 'games' | 'record' | 'mvp'
+  rosterSortKey: 'clubs', // 'clubs' | 'games' | 'record' | 'mvp'
   rosterSortDirection: 'asc', // 'asc' | 'desc'
   rosterClubFilterIds: null, // null = all clubs; array = selected club ids, including '__none__'
   rosterClubFilterOpen: false,
   rosterClubFilterSearch: '',
+  rosterSearchQuery: '',
+  rosterPage: 1,
   profileSettingsOpen: false,
   profileDivisionBusy: false,
   divisionTipIndex: 0,
@@ -1256,17 +1258,29 @@ function mvpPill(count){
   const value=Number(count)||0;
   return `<span class="mvp-pill ${value?'':'zero'}" title="MVP Game Plans: most wins, then fewest losses, plus the highest total +/-">${value}</span>`;
 }
-const ROSTER_SORT_KEYS=new Set(['name','clubs','games','record','mvp']);
+const ROSTER_SORT_KEYS=new Set(['clubs','games','record','mvp']);
+const ROSTER_PAGE_SIZE=10;
 function setRosterSortKey(key){
   if(!ROSTER_SORT_KEYS.has(key)) return;
-  if(state.rosterSortKey!==key) state.rosterSortDirection=(key==='name'||key==='clubs')?'asc':'desc';
+  if(state.rosterSortKey!==key) state.rosterSortDirection=key==='clubs'?'asc':'desc';
   state.rosterSortKey=key;
   if(key!=='clubs') state.rosterClubFilterOpen=false;
+  state.rosterPage=1;
   render();
 }
 function setRosterSortDirection(direction){
   if(direction!=='asc'&&direction!=='desc') return;
   state.rosterSortDirection=direction;
+  state.rosterPage=1;
+  render();
+}
+function setRosterSearchQuery(value){
+  state.rosterSearchQuery=String(value||'').trimStart().slice(0,80);
+  state.rosterPage=1;
+  render();
+}
+function setRosterPage(page){
+  state.rosterPage=Math.max(1,Number(page)||1);
   render();
 }
 const ROSTER_NO_CLUB='__none__';
@@ -1292,10 +1306,11 @@ function toggleRosterClubFilter(id,checked){
   const selected=selectedRosterClubFilterIds(options);
   if(checked) selected.add(id); else selected.delete(id);
   state.rosterClubFilterIds=[...selected];
+  state.rosterPage=1;
   render();
 }
-function selectAllRosterClubFilters(){ state.rosterClubFilterIds=null; render(); }
-function clearRosterClubFilters(){ state.rosterClubFilterIds=[]; render(); }
+function selectAllRosterClubFilters(){ state.rosterClubFilterIds=null; state.rosterPage=1; render(); }
+function clearRosterClubFilters(){ state.rosterClubFilterIds=[]; state.rosterPage=1; render(); }
 function setRosterClubFilterOpen(open){ state.rosterClubFilterOpen=!!open; }
 function applyRosterClubSearch(input){
   const value=(input&&input.value?input.value:'').trimStart().slice(0,80);
@@ -1340,8 +1355,9 @@ function toggleRosterSort(key){
     state.rosterSortDirection=state.rosterSortDirection==='asc'?'desc':'asc';
   }else{
     state.rosterSortKey=key;
-    state.rosterSortDirection=(key==='name'||key==='clubs')?'asc':'desc';
+    state.rosterSortDirection=key==='clubs'?'asc':'desc';
   }
+  state.rosterPage=1;
   render();
 }
 function compareRosterRows(a,b,key){
@@ -1360,8 +1376,8 @@ function compareRosterRows(a,b,key){
   return a.player.name.localeCompare(b.player.name,undefined,{sensitivity:'base'});
 }
 function sortRosterRows(rows){
-  const requestedKey=ROSTER_SORT_KEYS.has(state.rosterSortKey)?state.rosterSortKey:'name';
-  const key=(!isSignedIn()&&['games','record','mvp'].includes(requestedKey))?'name':requestedKey;
+  const requestedKey=ROSTER_SORT_KEYS.has(state.rosterSortKey)?state.rosterSortKey:'clubs';
+  const key=(!isSignedIn()&&['games','record','mvp'].includes(requestedKey))?'clubs':requestedKey;
   const direction=state.rosterSortDirection==='desc'?'desc':'asc';
   return [...rows].sort((a,b)=>{
     if(key==='clubs'){
@@ -1377,7 +1393,7 @@ function sortRosterRows(rows){
 function rosterSortHeader(key,label){
   const active=state.rosterSortKey===key;
   const indicator=active?(state.rosterSortDirection==='asc'?'up':'down'):'sort';
-  const next=active?(state.rosterSortDirection==='asc'?'descending':'ascending'):((key==='name'||key==='clubs')?'ascending':'descending');
+  const next=active?(state.rosterSortDirection==='asc'?'descending':'ascending'):(key==='clubs'?'ascending':'descending');
   return `<button type="button" class="roster-sort-header ${active?'active':''}" onclick="toggleRosterSort(${jsArg(key)})" aria-label="Sort ${esc(label)} ${next}">${esc(label)}<span class="roster-sort-indicator" aria-hidden="true">${indicator}</span></button>`;
 }
 
@@ -4269,21 +4285,65 @@ function renderClubChat(){
 }
 
 /* ============================= ROSTER ============================= */
+function rosterRowMatchesSearch(row,query){
+  if(!query) return true;
+  const p=row.player;
+  const haystack=[
+    p.name,
+    p.email,
+    p.playerId,
+    ...activePlayerClubIds(p).map(clubName),
+    activePlayerClubIds(p).length?'':'No Club'
+  ].filter(Boolean).join(' ').toLowerCase();
+  return haystack.includes(query);
+}
+function renderRosterPagination(page,totalPages,totalRows,visibleRows){
+  if(totalPages<=1) return `<div class="roster-pagination-count">${visibleRows} of ${totalRows} member${totalRows===1?'':'s'}</div>`;
+  return `<div class="roster-pagination" aria-label="Club member pages">
+    <button class="btn btn-ghost btn-sm" type="button" onclick="setRosterPage(${page-1})" ${page<=1?'disabled':''}>Previous</button>
+    <span>Page ${page} of ${totalPages}</span>
+    <button class="btn btn-ghost btn-sm" type="button" onclick="setRosterPage(${page+1})" ${page>=totalPages?'disabled':''}>Next</button>
+  </div>`;
+}
+function renderRosterMemberTile(row){
+  const p=row.player;
+  const primaryClub=renderPlayerTopClubChip(p);
+  return `<article class="roster-member-tile" onclick="openPlayerProfile(${jsArg(p.id)})">
+    <div class="roster-member-identity">
+      ${avatarHTML(p,36)}
+      <div class="roster-member-name-wrap">
+        <div class="roster-member-name">${rosterPlayerNameHTML(p)}</div>
+        ${isSuperAdmin()?`<div class="roster-member-admin-line">${esc(p.email||'No email')}${p.playerId?` &middot; ${esc(p.playerId)}`:''}</div>`:''}
+      </div>
+    </div>
+    <div class="roster-member-clubs">${primaryClub}</div>
+    ${isSuperAdmin()?`<div class="roster-member-actions" onclick="event.stopPropagation();">${p.guest?`<button class="btn btn-primary btn-sm" onclick="migrateGuestToRegisteredPlayer(${jsArg(p.id)})">Migrate</button>`:`<button class="btn btn-danger btn-sm" onclick="deletePlayer(${jsArg(p.id)})">Delete</button>`}</div>`:''}
+  </article>`;
+}
 function renderRoster(){
   const mvpCounts=computeMvpCounts();
-  const sortKey=ROSTER_SORT_KEYS.has(state.rosterSortKey)?state.rosterSortKey:'name';
+  const sortKey=ROSTER_SORT_KEYS.has(state.rosterSortKey)?state.rosterSortKey:'clubs';
   const sortDirection=state.rosterSortDirection==='desc'?'desc':'asc';
   const clubFilterOptions=rosterClubFilterOptions();
+  const searchQuery=(state.rosterSearchQuery||'').trim().toLowerCase();
   const allRows=state.players.map(player=>({
     player,
     stats:computePlayerStats(player.id),
     mvp:mvpCounts[player.id]||0
   }));
-  const rows=sortRosterRows(allRows.filter(row=>sortKey!=='clubs'||rosterPlayerMatchesClubFilter(row.player)));
+  const rows=sortRosterRows(allRows.filter(row=>(sortKey!=='clubs'||rosterPlayerMatchesClubFilter(row.player))&&rosterRowMatchesSearch(row,searchQuery)));
+  const totalPages=Math.max(1,Math.ceil(rows.length/ROSTER_PAGE_SIZE));
+  const page=Math.min(Math.max(1,Number(state.rosterPage)||1),totalPages);
+  if(page!==state.rosterPage) state.rosterPage=page;
+  const visibleRows=rows.slice((page-1)*ROSTER_PAGE_SIZE,page*ROSTER_PAGE_SIZE);
   return `
   <div class="panel">
-    <div class="section-title">
+    <div class="section-title roster-heading">
       <h2>Club Members</h2>
+      <label class="roster-search">
+        <span class="sr-only">Search club members</span>
+        <input type="search" value="${esc(state.rosterSearchQuery||'')}" placeholder="Search members or clubs" aria-label="Search club members" oninput="setRosterSearchQuery(this.value)" />
+      </label>
       ${isSuperAdmin() ? `<button class="btn btn-primary btn-sm" onclick="state.showAddPlayer=true; render();">+ Add global player</button>` : ''}
     </div>
     ${state.players.length===0 ? `
@@ -4301,7 +4361,6 @@ function renderRoster(){
         <div class="roster-sort-control">
           <label for="rosterSortKey">Sort by</label>
           <select id="rosterSortKey" onchange="setRosterSortKey(this.value)">
-            <option value="name" ${sortKey==='name'?'selected':''}>Name</option>
             <option value="clubs" ${sortKey==='clubs'?'selected':''}>Clubs</option>
             <option value="games" ${sortKey==='games'?'selected':''}>Games</option>
             <option value="record" ${sortKey==='record'?'selected':''}>W/L record</option>
@@ -4311,27 +4370,7 @@ function renderRoster(){
         ${sortKey==='clubs'?renderRosterClubFilter(clubFilterOptions):`<div class="roster-sort-control"><label for="rosterSortDirection">Order</label><select id="rosterSortDirection" onchange="setRosterSortDirection(this.value)"><option value="asc" ${sortDirection==='asc'?'selected':''}>Ascending</option><option value="desc" ${sortDirection==='desc'?'selected':''}>Descending</option></select></div>`}
       </div>
     </div>
-    ${rows.length?`<table class="roster-desktop-table">
-      <thead><tr>
-        <th>${rosterSortHeader('name','Name')}</th><th>${rosterSortHeader('clubs','Clubs')}</th><th>${rosterSortHeader('games','Games')}</th><th>${rosterSortHeader('record','W - L')}</th><th>${rosterSortHeader('mvp','MVP')}</th>${isSuperAdmin() ? '<th>Admin action</th>' : ''}
-      </tr></thead>
-      <tbody>
-        ${rows.map(row=>{
-          const p=row.player,s=row.stats;
-          return `<tr class="clickable" onclick="openPlayerProfile(${jsArg(p.id)})">
-            <td class="name-cell"><div class="roster-player-cell">${avatarHTML(p,34)}<div class="roster-player-name">${rosterPlayerNameHTML(p)}</div></div></td>
-            <td><div class="club-chip-list">${renderPlayerTopClubChip(p)}</div></td>
-            <td class="mono">${isSignedIn()?s.gamesPlayed:'--'}</td>
-            <td class="mono">${isSignedIn()?`${s.wins}-${s.losses}`:'--'}</td>
-            <td>${isSignedIn()?mvpPill(row.mvp):'<span class="profile-stats-locked">Sign in</span>'}</td>
-            ${isSuperAdmin() ? `<td onclick="event.stopPropagation();">${p.guest?`<button class="btn btn-primary btn-sm" onclick="migrateGuestToRegisteredPlayer(${jsArg(p.id)})">Migrate</button>`:`<button class="btn btn-danger btn-sm" onclick="deletePlayer(${jsArg(p.id)})">Delete</button>`}</td>` : ''}
-          </tr>`;
-        }).join('')}
-      </tbody>
-    </table>
-    <div class="roster-mobile-cards">
-      ${rows.map(row=>{const p=row.player,s=row.stats;return `<article class="roster-member-card"><div class="roster-member-head" onclick="openPlayerProfile(${jsArg(p.id)})">${avatarHTML(p,38)}<strong>${rosterPlayerNameHTML(p)}</strong></div><div class="club-chip-list">${renderPlayerTopClubChip(p)}</div>${isSignedIn()?`<div class="roster-member-stats"><div class="roster-member-stat"><strong>${s.gamesPlayed}</strong><span>Games</span></div><div class="roster-member-stat"><strong>${s.wins}-${s.losses}</strong><span>W - L</span></div><div class="roster-member-stat"><strong>${row.mvp}</strong><span>MVP</span></div></div>`:'<span class="profile-stats-locked">Sign in to view stats</span>'}${isSuperAdmin()?p.guest?`<button class="btn btn-primary btn-sm" style="width:100%;margin-top:9px;" onclick="migrateGuestToRegisteredPlayer(${jsArg(p.id)})">Migrate to registered player</button>`:`<button class="btn btn-danger btn-sm" style="width:100%;margin-top:9px;" onclick="deletePlayer(${jsArg(p.id)})">Delete profile</button>`:''}</article>`;}).join('')}
-    </div>`:`<div class="empty"><h3>No members in the selected clubs</h3><p>Tick one or more club names to show matching members.</p><button class="btn btn-ghost" type="button" onclick="selectAllRosterClubFilters()">Show all clubs</button></div>`}`}
+    ${rows.length?`<div class="roster-results-bar"><span>${rows.length} matching member${rows.length===1?'':'s'}</span>${renderRosterPagination(page,totalPages,rows.length,visibleRows.length)}</div><div class="roster-member-list">${visibleRows.map(renderRosterMemberTile).join('')}</div>${renderRosterPagination(page,totalPages,rows.length,visibleRows.length)}`:`<div class="empty"><h3>No matching members</h3><p>Adjust the search or club filters to show more Club Members.</p><button class="btn btn-ghost" type="button" onclick="selectAllRosterClubFilters(); state.rosterSearchQuery=''; render();">Clear filters</button></div>`}`}
   </div>`;
 }
 
