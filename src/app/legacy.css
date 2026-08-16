@@ -1383,6 +1383,145 @@
   :root[data-theme="light"] .score-tile .meta{
     color:rgba(255,255,255,.78)!important;
   }
+  :root:not([data-theme="dark"]) .landing-page,
+  :root[data-theme="light"] .landing-page{
+    color:#102B28!important;
+  }
+  :root:not([data-theme="dark"]) .landing-hero,
+  :root[data-theme="light"] .landing-hero{
+    background:
+      linear-gradient(135deg,rgba(255,255,255,.88) 0%,rgba(230,244,239,.94) 52%,rgba(207,230,224,.98) 100%),
+      linear-gradient(135deg,#D6E62B 0%,#0E6F66 100%)!important;
+    color:#102B28!important;
+    box-shadow:0 20px 55px rgba(10,63,58,.13)!important;
+  }
+  :root:not([data-theme="dark"]) .landing-hero-grid,
+  :root[data-theme="light"] .landing-hero-grid{
+    background-image:
+      linear-gradient(rgba(14,95,88,.12) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(14,95,88,.12) 1px,transparent 1px)!important;
+    mask-image:linear-gradient(to bottom,rgba(0,0,0,.72),rgba(0,0,0,.24))!important;
+  }
+  :root:not([data-theme="dark"]) .landing-pill,
+  :root[data-theme="light"] .landing-pill{
+    background:#F5FFD1!important;
+    border-color:#C8D72D!important;
+    color:#0A3F3A!important;
+  }
+  :root:not([data-theme="dark"]) .landing-hero h1,
+  :root:not([data-theme="dark"]) .landing-hero p,
+  :root:not([data-theme="dark"]) .landing-flow strong,
+  :root[data-theme="light"] .landing-hero h1,
+  :root[data-theme="light"] .landing-hero p,
+  :root[data-theme="light"] .landing-flow strong{
+    color:#102B28!important;
+  }
+  :root:not([data-theme="dark"]) .landing-flow span,
+  :root[data-theme="light"] .landing-flow span{
+    color:#0E5F58!important;
+  }
+  :root:not([data-theme="dark"]) .landing-flow div,
+  :root[data-theme="light"] .landing-flow div{
+    border-color:rgba(14,95,88,.22)!important;
+  }
+  :root:not([data-theme="dark"]) .landing-secondary,
+  :root[data-theme="light"] .landing-secondary{
+    background:rgba(255,255,255,.55)!important;
+    border-color:#9FBFB7!important;
+    color:#0A3F3A!important;
+    -webkit-text-fill-color:#0A3F3A!important;
+  }
+  :root:not([data-theme="dark"]) .landing-secondary:hover,
+  :root[data-theme="light"] .landing-secondary:hover{
+    background:#FFFFFF!important;
+    border-color:#0E5F58!important;
+    color:#0A3F3A!important;
+    -webkit-text-fill-color:#0A3F3A!important;
+  }
+  :root:not([data-theme="dark"]) .landing-scoreboard,
+  :root[data-theme="light"] .landing-scoreboard{
+    background:rgba(252,254,253,.92)!important;
+    border-color:#BFD8D2!important;
+    color:#102B28!important;
+    box-shadow:0 24px 62px rgba(10,63,58,.18)!important;
+  }
+  :root:not([data-theme="dark"]) .landing-preview-brand,
+  :root[data-theme="light"] .landing-preview-brand{
+    border-color:#CFE0DB!important;
+  }
+  :root:not([data-theme="dark"]) .landing-preview-brand .brand-name,
+  :root:not([data-theme="dark"]) .landing-scoreboard-head,
+  :root[data-theme="light"] .landing-preview-brand .brand-name,
+  :root[data-theme="light"] .landing-scoreboard-head{
+    color:#102B28!important;
+  }
+  :root:not([data-theme="dark"]) .landing-preview-brand .brand-sub,
+  :root[data-theme="light"] .landing-preview-brand .brand-sub{
+    color:#526F69!important;
+  }
+  :root:not([data-theme="dark"]) .landing-scoreboard-head b,
+  :root[data-theme="light"] .landing-scoreboard-head b{
+    background:#D6E62B!important;
+    color:#0B2321!important;
+  }
+  :root:not([data-theme="dark"]) .landing-court-card,
+  :root[data-theme="light"] .landing-court-card{
+    background:#0E5F58!important;
+    color:#FFFFFF!important;
+  }
+  :root:not([data-theme="dark"]) .landing-court-card strong,
+  :root[data-theme="light"] .landing-court-card strong{
+    color:#F2FF45!important;
+  }
+  :root:not([data-theme="dark"]) .landing-court-card em,
+  :root[data-theme="light"] .landing-court-card em{
+    color:#CFE8E2!important;
+  }
+  :root:not([data-theme="dark"]) .landing-court-card.muted,
+  :root[data-theme="light"] .landing-court-card.muted{
+    background:#F4F8F6!important;
+    border-color:#CFE0DB!important;
+    color:#102B28!important;
+  }
+  :root:not([data-theme="dark"]) .landing-court-card.muted strong,
+  :root[data-theme="light"] .landing-court-card.muted strong{
+    color:#0E5F58!important;
+  }
+  :root:not([data-theme="dark"]) .landing-metric,
+  :root[data-theme="light"] .landing-metric{
+    background:#F7FBF9!important;
+    border-color:#CFE0DB!important;
+  }
+  :root:not([data-theme="dark"]) .landing-metric strong,
+  :root[data-theme="light"] .landing-metric strong{
+    color:#0E5F58!important;
+  }
+  :root:not([data-theme="dark"]) .landing-metric span,
+  :root[data-theme="light"] .landing-metric span{
+    color:#526F69!important;
+  }
+  :root:not([data-theme="dark"]) .landing-light,
+  :root[data-theme="light"] .landing-light{
+    background:#FCFEFD!important;
+    color:#102B28!important;
+  }
+  :root:not([data-theme="dark"]) .landing-feature,
+  :root[data-theme="light"] .landing-feature{
+    background:#F7FBF9!important;
+    border-color:#CFE0DB!important;
+    color:#102B28!important;
+  }
+  :root:not([data-theme="dark"]) .landing-snippets,
+  :root[data-theme="light"] .landing-snippets{
+    background:#EAF4F1!important;
+    color:#102B28!important;
+  }
+  :root:not([data-theme="dark"]) .landing-snippet-card,
+  :root[data-theme="light"] .landing-snippet-card{
+    background:#FCFEFD!important;
+    border-color:#CFE0DB!important;
+    color:#102B28!important;
+  }
 
   @media (max-width:980px){
     #root{padding-left:12px!important;padding-right:12px!important;padding-bottom:28px!important;}
