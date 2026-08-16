@@ -42,6 +42,35 @@ const LEGACY_CLUB = {id:ACTIVE_CLUB_ID,name:'Rising Club',origin:'Origin address
 const THEME_PREF_KEY='picklehub_theme';
 const CHAT_READ_PREF_KEY='courtrush_chat_mention_reads_v1';
 const NOTIFICATION_SEEN_PREF_KEY='courtrush_seen_notifications_v1';
+const GOOGLE_REDIRECT_CLUB_KEY='courtrush_google_redirect_club';
+let deferredInstallPrompt=null;
+let appInstallCompleted=false;
+
+function isStandaloneApp(){
+  return Boolean(
+    (typeof window!=='undefined'&&window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches) ||
+    (typeof navigator!=='undefined'&&navigator.standalone)
+  );
+}
+function canPromptInstall(){
+  return Boolean(deferredInstallPrompt&&!appInstallCompleted&&!isStandaloneApp());
+}
+function isAndroidBrowser(){
+  return typeof navigator!=='undefined'&&/Android/i.test(navigator.userAgent||'');
+}
+if(typeof window!=='undefined'){
+  window.addEventListener('beforeinstallprompt',event=>{
+    event.preventDefault();
+    deferredInstallPrompt=event;
+    render();
+  });
+  window.addEventListener('appinstalled',()=>{
+    appInstallCompleted=true;
+    deferredInstallPrompt=null;
+    toast('CourtRush was added to your home screen');
+    render();
+  });
+}
 
 /* ============================= STATE ============================= */
 let state = {
@@ -123,6 +152,7 @@ let state = {
   supportPanelOpen: false,
   supportBusy: false,
   supportRequests: [],
+  installGuideOpen: false,
 };
 
 const MODE_META = {
@@ -1642,6 +1672,53 @@ function closeAuthModal(){ state.showAuthModal=false; render(); }
 function googleLogo(){
   return `<svg class="google-mark" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.205c0-.638-.057-1.252-.164-1.841H9v3.482h4.844a4.14 4.14 0 0 1-1.797 2.715v2.259h2.909c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.909-2.259c-.806.54-1.835.859-3.047.859-2.344 0-4.328-1.585-5.037-3.714H.956v2.332A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.963 10.706A5.41 5.41 0 0 1 3.682 9c0-.592.102-1.168.281-1.706V4.962H.956A9 9 0 0 0 0 9c0 1.452.347 2.827.956 4.038l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.507.454 3.44 1.345l2.581-2.581C13.463.892 11.426 0 9 0A9 9 0 0 0 .956 4.962l3.007 2.332C4.672 5.165 6.656 3.58 9 3.58z"/></svg>`;
 }
+function googleProvider(){
+  const provider=new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({prompt:'select_account'});
+  return provider;
+}
+function rememberGoogleRedirectClub(clubId){
+  try{
+    if(clubId) sessionStorage.setItem(GOOGLE_REDIRECT_CLUB_KEY,clubId);
+    else sessionStorage.removeItem(GOOGLE_REDIRECT_CLUB_KEY);
+  }catch{}
+}
+function takeGoogleRedirectClub(){
+  try{
+    const value=sessionStorage.getItem(GOOGLE_REDIRECT_CLUB_KEY)||'';
+    sessionStorage.removeItem(GOOGLE_REDIRECT_CLUB_KEY);
+    return value;
+  }catch{
+    return '';
+  }
+}
+function shouldUseGoogleRedirect(){
+  return isAndroidBrowser()||isStandaloneApp();
+}
+async function waitForProfileDirectory(){
+  if(state.players.length&&state.clubs.length) return;
+  await new Promise(resolve=>setTimeout(resolve,900));
+}
+async function finishGoogleSignIn(user,requestedClubId){
+  await waitForProfileDirectory();
+  const linked=await ensureGooglePlayerProfile(user,requestedClubId);
+  state.showAuthModal=false;
+  toast(linked.joinRequested?`Welcome, ${linked.name}! Your request to join ${clubName(linked.requestedClub)} was sent.`:`Welcome, ${linked.name}!`);
+}
+async function processGoogleRedirectResult(){
+  if(typeof auth.getRedirectResult!=='function') return;
+  try{
+    const result=await auth.getRedirectResult();
+    if(!result||!result.user) return;
+    state.authBusy=true; render();
+    await finishGoogleSignIn(result.user,takeGoogleRedirectClub());
+  }catch(e){
+    console.error(e);
+    if(e&&e.code==='auth/account-exists-with-different-credential') toast('This email already uses password sign-in. Sign in with your password to keep the same player account.');
+    else toast(e&&e.message?e.message.replace('Firebase: ',''):'Google sign-in could not be completed');
+  }
+  state.authBusy=false; render();
+}
 async function ensureGooglePlayerProfile(user, requestedClubId){
   const userRef=USERS_COL.doc(user.uid);
   const userSnap=await userRef.get();
@@ -1684,16 +1761,23 @@ async function signInWithGoogle(){
   const requestedClubId=state.authMode==='register'&&clubEl?clubEl.value:'';
   state.authBusy=true; render();
   try{
-    const provider=new firebase.auth.GoogleAuthProvider();
-    provider.setCustomParameters({prompt:'select_account'});
+    const provider=googleProvider();
+    if(shouldUseGoogleRedirect()&&typeof auth.signInWithRedirect==='function'){
+      rememberGoogleRedirectClub(requestedClubId);
+      await auth.signInWithRedirect(provider);
+      return;
+    }
     const result=await auth.signInWithPopup(provider);
-    const linked=await ensureGooglePlayerProfile(result.user,requestedClubId);
-    state.showAuthModal=false;
-    toast(linked.joinRequested?`Welcome, ${linked.name}! Your request to join ${clubName(linked.requestedClub)} was sent.`:`Welcome, ${linked.name}!`);
+    await finishGoogleSignIn(result.user,requestedClubId);
   }catch(e){
     console.error(e);
     if(e&&e.code==='auth/account-exists-with-different-credential') toast('This email already uses password sign-in. Sign in with your password to keep the same player account.');
     else if(e&&e.code==='auth/popup-closed-by-user') toast('Google sign-in was cancelled');
+    else if(e&&e.code==='auth/popup-blocked'&&typeof auth.signInWithRedirect==='function'){
+      rememberGoogleRedirectClub(requestedClubId);
+      await auth.signInWithRedirect(googleProvider());
+      return;
+    }
     else if(e&&e.code==='auth/popup-blocked') toast('Allow pop-ups for CourtRush, then try Google sign-in again');
     else toast(e&&e.message?e.message.replace('Firebase: ',''):'Google sign-in could not be completed');
   }
@@ -3858,6 +3942,25 @@ function exploreLanding(){
   const target=document.getElementById('landingTour');
   if(target&&typeof target.scrollIntoView==='function') target.scrollIntoView({behavior:'smooth',block:'start'});
 }
+function openInstallGuide(){ state.installGuideOpen=true; render(); }
+function closeInstallGuide(){ state.installGuideOpen=false; render(); }
+async function promptInstallApp(){
+  if(!canPromptInstall()){
+    openInstallGuide();
+    return;
+  }
+  const promptEvent=deferredInstallPrompt;
+  deferredInstallPrompt=null;
+  try{
+    promptEvent.prompt();
+    const choice=await promptEvent.userChoice;
+    if(choice&&choice.outcome==='accepted') appInstallCompleted=true;
+  }catch(error){
+    console.warn('Install prompt unavailable',error);
+    toast('Use your browser menu to add CourtRush to your home screen.');
+  }
+  render();
+}
 function openDashboardGamePlan(id,filter){
   const sch=scheduleById(id);
   if(!sch){ toast('Game Plan could not be found'); return; }
@@ -3885,12 +3988,15 @@ document.addEventListener('click',event=>{
   else if(action==='sign-up') openAuthModal('register');
   else if(action==='logout') logoutUser();
   else if(action==='explore-landing') exploreLanding();
+  else if(action==='open-install-guide') openInstallGuide();
+  else if(action==='close-install-guide') closeInstallGuide();
+  else if(action==='install-app') promptInstallApp();
   else if(action==='open-dashboard-plan') openDashboardGamePlan(target.dataset.scheduleId,target.dataset.scheduleFilter);
 });
 
 function render(){
   const root = document.getElementById('root');
-  document.body.classList.toggle('modal-open', Boolean(state.playerModalId || state.showAddPlayer || state.showAuthModal || state.clubHubSelectedId || state.supportPanelOpen));
+  document.body.classList.toggle('modal-open', Boolean(state.playerModalId || state.showAddPlayer || state.showAuthModal || state.clubHubSelectedId || state.supportPanelOpen || state.installGuideOpen));
   if(state.loading){
     root.innerHTML = `<div style="padding:80px 0;text-align:center;color:var(--muted);">Loading the club...</div>`;
     return;
@@ -3905,6 +4011,7 @@ function render(){
     ${state.showAuthModal ? renderAuthModal() : ''}
     ${state.clubHubSelectedId && state.clubDetailSource==='profile' ? renderProfileClubDetailModal() : ''}
     ${state.supportPanelOpen ? renderSupportModal() : ''}
+    ${state.installGuideOpen ? renderInstallGuide() : ''}
   `;
   wireTabBodyEvents();
   wireDivisionTipSlider();
@@ -3943,6 +4050,7 @@ function renderTopbar(){
     </div>`}
     <div class="topbar-actions ${state.currentUser?'logged-in':''}">
       <div class="nav-account">${accountComponent}</div>
+      ${canPromptInstall()?`<button class="btn btn-ball btn-sm install-app-btn" type="button" data-app-action="install-app">Install</button>`:''}
       <button class="btn btn-ghost theme-toggle" type="button" data-app-action="toggle-theme" aria-label="Switch to ${themeValue()==='dark'?'light':'dark'} theme" title="${themeValue()==='dark'?'Light':'Dark'} theme">${iconSVG(themeValue()==='dark'?'sun':'moon')}</button>
     </div>
   </div>`;
@@ -4014,6 +4122,38 @@ function renderTabBody(){
   return '';
 }
 
+function renderInstallGuide(){
+  return `<div class="install-guide-overlay" role="dialog" aria-modal="true" aria-labelledby="installGuideTitle" onclick="if(event.target===this)closeInstallGuide()">
+    <section class="install-guide" role="document">
+      <button class="modal-close install-guide-close" type="button" data-app-action="close-install-guide" aria-label="Close install guide">&times;</button>
+      <div class="install-guide-head">
+        <img src="courtrush-icon-192.png" alt="" />
+        <div>
+          <div class="eyebrow">Install CourtRush</div>
+          <h2 id="installGuideTitle">Add CourtRush to your home screen.</h2>
+          <p>Use the app in a standalone window with a faster launch icon on phones, tablets, and desktop browsers.</p>
+        </div>
+      </div>
+      ${canPromptInstall()?`<button class="btn btn-primary install-guide-native" type="button" data-app-action="install-app">Install app now</button>`:''}
+      <div class="install-guide-grid">
+        <article>
+          <strong>Android</strong>
+          <p>Use Chrome, Edge, or Samsung Internet on HTTPS. Tap <b>Install app now</b> when shown, or open the browser menu and choose <b>Install app</b> or <b>Add to Home screen</b>.</p>
+        </article>
+        <article>
+          <strong>iPhone or iPad</strong>
+          <p>Open CourtRush in Safari on HTTPS. Tap <b>Share</b>, choose <b>Add to Home Screen</b>, then tap <b>Add</b>.</p>
+        </article>
+        <article>
+          <strong>Desktop</strong>
+          <p>Use Chrome or Edge on HTTPS. Click the install icon in the address bar, or open the browser menu and choose <b>Install CourtRush</b>.</p>
+        </article>
+      </div>
+      <p class="install-guide-note">Requirements: HTTPS deployment, JavaScript enabled, manifest available, and service worker allowed by the browser.</p>
+    </section>
+  </div>`;
+}
+
 /* ============================= DASHBOARD ============================= */
 function renderLandingFeature(icon,title,copy){
   return `<article class="landing-feature"><span class="landing-feature-icon">${esc(icon)}</span><h3>${esc(title)}</h3><p>${esc(copy)}</p></article>`;
@@ -4066,6 +4206,7 @@ function renderLanding(){
         <p>CourtRush helps pickleball clubs and friend groups run games faster, record results, compare progress over time, and understand the players around them.</p>
         <div class="landing-actions">
           <button class="btn btn-primary landing-primary" type="button" data-app-action="explore-landing">Explore first</button>
+          <button class="btn btn-ball landing-install" type="button" data-app-action="open-install-guide">Install app</button>
           <button class="btn btn-ghost landing-secondary" type="button" data-app-action="sign-in">Already a user? Sign in now</button>
         </div>
         <div class="landing-flow" aria-label="CourtRush flow">
@@ -5726,6 +5867,7 @@ function exposeLegacyHandlers(){
   registerServiceWorker();
   await offlinePersistenceReady;
   startSync();
+  processGoogleRedirectResult();
 })();
 function registerServiceWorker(){
   if(!('serviceWorker' in navigator)) return;

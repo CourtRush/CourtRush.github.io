@@ -129,6 +129,7 @@
     border:1px solid var(--line)!important;
   }
   .theme-toggle svg{display:block!important;width:18px!important;height:18px!important;flex:0 0 18px!important;stroke:currentColor!important;}
+  .install-app-btn{white-space:nowrap;}
 
   /* ---------- Shared date range ---------- */
   .date-range-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:16px;}
@@ -594,6 +595,19 @@
   .support-fab:hover{padding-right:14px;background:var(--ball-hover);}
   .support-fab svg{width:19px;height:19px;writing-mode:horizontal-tb;}
   .support-fab-badge{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:var(--coral);color:#fff;font:800 9px/1 'IBM Plex Mono',monospace;writing-mode:horizontal-tb;}
+  .install-guide-overlay{position:fixed;inset:0;z-index:92;display:flex;align-items:flex-end;justify-content:center;padding:18px;background:rgba(6,22,20,.42);backdrop-filter:blur(6px);}
+  .install-guide{position:relative;width:min(760px,100%);max-height:min(86dvh,720px);overflow:auto;border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--ink);box-shadow:0 24px 70px rgba(2,18,16,.28);padding:20px;}
+  .install-guide-close{top:14px;right:14px;}
+  .install-guide-head{display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:center;padding-right:38px;}
+  .install-guide-head img{width:58px;height:58px;border-radius:14px;box-shadow:0 12px 28px rgba(10,63,58,.18);}
+  .install-guide h2{color:var(--court-deep);font-size:30px;line-height:1;margin-top:4px;}
+  .install-guide p{margin:7px 0 0;color:var(--muted);font-size:14px;line-height:1.5;}
+  .install-guide-native{width:100%;margin-top:16px;min-height:46px;}
+  .install-guide-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:16px;}
+  .install-guide-grid article{border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--court) 5%,var(--panel));padding:14px;}
+  .install-guide-grid strong{display:block;color:var(--court-deep);font-size:13px;text-transform:uppercase;letter-spacing:.08em;}
+  .install-guide-grid b{color:var(--court-deep);}
+  .install-guide-note{margin-top:14px!important;padding:11px 12px;border-radius:10px;background:var(--bg);border:1px solid var(--line);font-size:12.5px!important;}
   .support-modal{max-width:720px;}
   .support-intro{margin:5px 40px 18px 0;color:var(--muted);font-size:13px;line-height:1.5;}
   .support-form{padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--bg);}
@@ -1046,6 +1060,9 @@
   :root[data-theme="light"] .btn-ball:hover{background:#C3D322!important;color:#0B2321!important;-webkit-text-fill-color:#0B2321!important;}
   :root[data-theme="dark"] .modal-overlay{background:rgba(0,0,0,.76);}
   :root[data-theme="dark"] .modal-close{color:var(--ink);}
+  :root[data-theme="dark"] .install-guide-overlay{background:rgba(0,0,0,.62);}
+  :root[data-theme="dark"] .install-guide-grid article{background:#132522;border-color:#4C6F68;}
+  :root[data-theme="dark"] .install-guide-note{background:#0F1D1B;border-color:#4C6F68;}
   :root[data-theme="dark"] .dispute-note{color:var(--coral);}
   :root[data-theme="dark"] .player-profile-overlay{background:rgba(0,0,0,.76);}
   :root[data-theme="dark"] .btn-google{background:#F8FBFA;color:#17302D;}
@@ -1301,6 +1318,12 @@
     .support-fab{right:14px;top:auto;bottom:14px;padding:11px 13px;border-radius:999px;writing-mode:horizontal-tb;transform:none;}
     .support-fab:hover{padding-right:13px;}
     .support-reply-form{align-items:stretch;flex-direction:column;}
+    .install-guide-overlay{align-items:flex-end;padding:10px;}
+    .install-guide{max-height:calc(100dvh - 20px);border-radius:16px 16px 10px 10px;padding:18px 14px 16px;}
+    .install-guide-head{grid-template-columns:1fr;padding-right:38px;}
+    .install-guide-head img{width:48px;height:48px;}
+    .install-guide h2{font-size:25px;}
+    .install-guide-grid{grid-template-columns:1fr;}
     .h2h-filter-grid{grid-template-columns:1fr;}
     .h2h-player-strip{grid-template-columns:1fr;}
     .h2h-versus{min-height:18px;}
@@ -1560,6 +1583,16 @@
     }
     .nav-toggle{display:none!important;}
     .nav-account{display:none!important;}
+    .install-app-btn{
+      position:absolute!important;
+      top:18px!important;
+      right:58px!important;
+      z-index:82!important;
+      min-height:36px!important;
+      padding:0 12px!important;
+      border-radius:999px!important;
+      box-shadow:0 8px 22px rgba(10,63,58,.16)!important;
+    }
     .theme-toggle{
       position:absolute!important;
       top:18px!important;
