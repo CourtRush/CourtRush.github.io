@@ -472,7 +472,13 @@
   .club-hub-hero > *{position:relative;z-index:1;}
   .club-hub-hero h1{font-size:36px;}
   .club-hub-hero p{max-width:620px;margin:5px 0 0;color:rgba(255,255,255,.76);font-size:13.5px;line-height:1.5;}
+  .club-search-panel{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:16px;padding:13px 14px;border:1px solid var(--line);border-radius:12px;background:var(--panel);}
+  .club-search-panel > div{flex:1 1 320px;min-width:0;}
+  .club-search{display:block;max-width:560px;}
+  .club-search input{width:100%;min-height:40px;border:1.5px solid var(--line);border-radius:999px;background:var(--bg);color:var(--ink);font:inherit;font-size:13px;font-weight:700;padding:10px 16px;}
+  .club-search input::placeholder{color:var(--muted);opacity:1;}
   .club-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:16px;}
+  .club-search-empty{grid-column:1/-1;}
   .club-card{display:flex;flex-direction:column;gap:13px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:17px;text-align:left;min-width:0;cursor:pointer;transition:transform .14s ease,border-color .14s ease,box-shadow .14s ease;}
   .club-card:hover,.club-card:focus-visible{transform:translateY(-2px);border-color:var(--court);box-shadow:0 8px 22px rgba(10,63,58,.09);outline:none;}
   .club-card.active{border-color:var(--court);box-shadow:0 0 0 2px rgba(14,95,88,.08);}
@@ -1000,6 +1006,7 @@
   .club-role-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,210px);align-items:center;gap:12px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--panel);}
   .club-role-person{display:flex;align-items:center;gap:10px;min-width:0;}
   .club-role-person strong,.club-role-person span{display:block;overflow-wrap:anywhere;}
+  .club-role-person strong{color:var(--ink);}
   .club-role-person span{font-size:10px;color:var(--muted);margin-top:2px;}
   .club-chip.staff{background:rgba(46,183,169,.12);border-color:rgba(46,183,169,.3);}
   .theme-toggle{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;border-radius:50%;font-size:16px;}
@@ -1058,11 +1065,16 @@
   :root[data-theme="dark"] .game-plan-leaderboard h2,
   :root[data-theme="dark"] .game-plan-leaderboard-name,
   :root[data-theme="dark"] .mode-card .mtitle,
+  :root[data-theme="dark"] .club-role-person strong,
+  :root[data-theme="dark"] .club-request-copy strong,
+  :root[data-theme="dark"] .club-member-row-copy > strong,
   :root[data-theme="dark"] .round-label{color:var(--ink);}
   :root[data-theme="dark"] .brand-mark{background:transparent;box-shadow:0 5px 16px rgba(0,0,0,.32);}
   :root[data-theme="dark"] .guest-tag{background:#F7FFB8;color:#10201D;box-shadow:0 0 0 1px rgba(247,255,184,0.35);}
   :root[data-theme="dark"] .club-card,
   :root[data-theme="dark"] .club-member-row,
+  :root[data-theme="dark"] .club-role-row,
+  :root[data-theme="dark"] .club-admin-panel,
   :root[data-theme="dark"] .club-leader,
   :root[data-theme="dark"] .club-membership-option,
   :root[data-theme="dark"] .roster-member-card,
@@ -1078,6 +1090,11 @@
   :root[data-theme="dark"] select,
   :root[data-theme="dark"] textarea,
   :root[data-theme="dark"] .exact-date-field input{background:#0F1D1B;color:var(--ink);}
+  :root[data-theme="dark"] .club-role-row select{background:#0B1B19;color:#F7FFFC;border-color:#4C6F68;}
+  :root[data-theme="dark"] .club-role-person span,
+  :root[data-theme="dark"] .club-request-copy span,
+  :root[data-theme="dark"] .club-admin-panel .small,
+  :root[data-theme="dark"] .club-admin-panel label{color:#CFE5E0;}
   :root[data-theme="dark"] .exact-date-selector,
   :root[data-theme="dark"] .date-range-bar{background:#132522;color:#F2FAF8;border-color:#4C6F68;}
   :root[data-theme="dark"] .exact-date-copy strong,
@@ -1087,6 +1104,9 @@
   :root[data-theme="dark"] .exact-date-field label{color:#CFE5E0;}
   :root[data-theme="dark"] .roster-search input{background:#0F1D1B;color:#F7FFFC;border-color:#4C6F68;}
   :root[data-theme="dark"] .roster-search input::placeholder{color:#BFD4CF;}
+  :root[data-theme="dark"] .club-search-panel{background:var(--panel);border-color:#4C6F68;}
+  :root[data-theme="dark"] .club-search input{background:#0F1D1B;color:#F7FFFC;border-color:#4C6F68;}
+  :root[data-theme="dark"] .club-search input::placeholder{color:#BFD4CF;}
   :root[data-theme="dark"] .roster-member-clubs .club-chip{background:#0B1B19;color:#F7FFFC;border-color:#4C6F68;}
   :root[data-theme="dark"] .roster-member-admin-line{color:#D2E8E3;}
   :root[data-theme="dark"] .board-name,

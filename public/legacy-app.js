@@ -101,6 +101,7 @@ let state = {
   matches: [],
   schedules: [],          // normalized Firestore documents; each item includes docId
   clubs: [],
+  clubSearchQuery: '',
   clubMemberships: [],
   clubRoles: [],
   profileViews: [],
@@ -4143,7 +4144,7 @@ function renderTopbar(){
   const isLandingVisitor=!state.currentUser&&state.tab==='dashboard';
   const tabs = [
     ['dashboard','Dashboard'],['clubs','Clubs'],['social','Social'],['roster','Members'],
-    ['schedule','Game Plan'],['history','History'],['profile','Me']
+    ['schedule','Game Plan'],['history','History'],['profile','Me'],['settings','Settings']
   ];
   const pendingClubRequests=pendingManagedJoinRequestCount();
   const unreadChatMentions=totalUnreadMentions();
@@ -4553,6 +4554,21 @@ function selectClubHub(clubId){ state.clubHubSelectedId=clubId; state.clubDetail
 function openProfileClubDetail(clubId){ state.clubHubSelectedId=clubId; state.clubDetailSource='profile'; state.clubProfileRoleFilter='all'; render(); }
 function goToClubHubFromProfile(clubId){ state.clubDetailSource=null; state.clubHubSelectedId=clubId; setTab('clubs'); }
 function closeClubHubProfile(){ state.clubHubSelectedId=null; state.clubDetailSource=null; render(); }
+let clubSearchTimer=null;
+function setClubSearchQuery(value){
+  state.clubSearchQuery=String(value||'').trimStart().slice(0,80);
+  if(clubSearchTimer) clearTimeout(clubSearchTimer);
+  clubSearchTimer=setTimeout(()=>{
+    clubSearchTimer=null;
+    render();
+  },220);
+}
+function applyClubSearchQuery(value){
+  if(clubSearchTimer){ clearTimeout(clubSearchTimer); clubSearchTimer=null; }
+  state.clubSearchQuery=String(value||'').trimStart().slice(0,80);
+  render();
+}
+function clearClubSearch(){ state.clubSearchQuery=''; render(); }
 function setClubProfileRoleFilter(role){
   state.clubProfileRoleFilter=['all','club_admin','co_admin','staff','member'].includes(role)?role:'all';
   render();
@@ -4615,7 +4631,18 @@ function renderClubMemberRow(player,club,options={}){
 }
 
 function renderClubDirectory() {
-  const clubs=clubsForDisplay();
+  const allClubs=clubsForDisplay();
+  const clubSearch=(state.clubSearchQuery||'').trim().toLowerCase();
+  const clubs=clubSearch?allClubs.filter(club=>{
+    const members=membersForClub(club.id);
+    const haystack=[
+      club.name,
+      club.origin,
+      members.length?'has members':'',
+      members.map(player=>`${player.name||''} ${player.nickname||''}`).join(' ')
+    ].filter(Boolean).join(' ').toLowerCase();
+    return haystack.includes(clubSearch);
+  }):allClubs;
   const topMemberClubRanks=topClubsByMemberCount();
   const selected=clubById(state.clubHubSelectedId);
   const selectedId=selected?selected.id:null;
@@ -4641,8 +4668,18 @@ function renderClubDirectory() {
     <div class="section-title"><h2>Register a club</h2><span class="small muted">The registering player becomes the first Club Admin</span></div>
     ${!state.myPlayerId?`<div class="form-note">Your account must be linked to a player profile before registering a club.</div>`:`<form onsubmit="submitClubRegistration(event)"><div class="field-row"><div class="field"><label for="newClubName">Club name</label><input id="newClubName" type="text" maxlength="80" placeholder="e.g. Capitol Pickleball Club" required/></div><div class="field"><label for="newClubOrigin">Origin / complete address</label><input id="newClubOrigin" type="text" maxlength="200" placeholder="Barangay, municipality/city, province" required/></div></div><button class="btn btn-primary" type="submit" ${state.clubBusy?'disabled':''}>${state.clubBusy?'Registering...':'Register club & become Club Admin'}</button></form>`}
   </section>`:''}
+  <section class="club-search-panel" aria-label="Search clubs">
+    <div>
+      <div class="eyebrow">Find a club</div>
+      <label class="club-search">
+        <span class="sr-only">Search clubs</span>
+        <input type="search" value="${esc(state.clubSearchQuery||'')}" placeholder="Search club name, origin, or members" aria-label="Search clubs" oninput="setClubSearchQuery(this.value)" onchange="applyClubSearchQuery(this.value)" />
+      </label>
+    </div>
+    <span class="small muted">${clubs.length}/${allClubs.length} club${allClubs.length===1?'':'s'} shown</span>
+  </section>
   <section class="club-grid" aria-label="Registered clubs">
-    ${clubs.map(club=>{
+    ${clubs.length?clubs.map(club=>{
       const members=membersForClub(club.id);
       const games=clubMemberMatches(club.id,false).length;
       const pending=isAdminForClub(club.id)?pendingJoinRequestsForClub(club.id).length:0;
@@ -4651,7 +4688,7 @@ function renderClubDirectory() {
       const myRole=myMember&&me?clubRoleForPlayer(club.id,me):'member';
       const rank=topMemberClubRanks[club.id];
       return `<article class="club-card ${selectedId===club.id?'active':''}" role="button" tabindex="0" aria-label="Open ${esc(club.name)} details" onclick="selectClubHub(${jsArg(club.id)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectClubHub(${jsArg(club.id)})}"><div class="club-card-head"><div class="club-card-title">${rank?`<span class="club-rank-star" title="#${rank} by member count" aria-label="#${rank} by member count">&#9733;</span>`:""}<h2>${esc(club.name)}</h2></div><div class="club-chip-list" style="margin-top:0;justify-content:flex-end;">${myMember?'<span class="club-chip">Member</span>':myPending?'<span class="club-chip">Request pending</span>':''}${myRole==='club_admin'?'<span class="club-chip admin">Club Admin</span>':myRole==='co_admin'?'<span class="club-chip admin">Co-Admin</span>':myRole==='staff'?'<span class="club-chip staff">Staff</span>':''}${pending?`<span class="club-chip">${pending} pending</span>`:''}</div></div><div class="club-origin"><span aria-hidden="true">*</span><span>${esc(club.origin||'Origin address not supplied')}</span></div><div class="club-card-metrics"><div class="club-card-metric"><strong>${members.length}</strong><span>Members</span></div><div class="club-card-metric"><strong>${games}</strong><span>Club Games</span></div></div><button class="btn btn-ghost btn-sm" type="button" onclick="event.stopPropagation();selectClubHub(${jsArg(club.id)})">View club</button></article>`;
-    }).join('')}
+    }).join(''):`<div class="empty club-search-empty"><h3>No clubs found</h3><p>Try another club name, origin, or member.</p><button class="btn btn-ghost" type="button" onclick="clearClubSearch()">Clear search</button></div>`}
   </section>
   ${selected?`
   <div class="modal-overlay club-detail-overlay" role="dialog" aria-modal="true" aria-labelledby="clubDetailTitle" onclick="if(event.target===this){closeClubHubProfile();}">
@@ -5936,7 +5973,7 @@ function exposeLegacyHandlers(){
     'addDuprMatchToPlan','addExistingClubMember','addExtraRound','addGuestForSchedule','addLatePlayerToSchedule','addRegisteredPlayerToSchedule',
     'applyCustomDateRange','applyRosterClubSearch','applyRosterSearchQuery','applyScheduleRegisteredSearch','autoPairTeams','backToHistoryPlans','backToPlayerProfilePlans',
     'backToScheduleList','beginEditCourtResult','beginLateCourtResult','beginProfileNameEdit','cancelEditCourtResult','cancelLateCourtResult',
-    'cancelProfileNameEdit','clearClubChatForAll','clearCustomDateRange','clearRosterClubFilters','clearRosterDivisionFilters','clearSchedulePlayers','closeAuthModal',
+    'applyClubSearchQuery','cancelProfileNameEdit','clearClubChatForAll','clearClubSearch','clearCustomDateRange','clearRosterClubFilters','clearRosterDivisionFilters','clearSchedulePlayers','closeAuthModal',
     'closeClubHubProfile','closeScheduleLeaderboard','closeSupportPanel','completeLegacyClubRegistration','confirmMatchResult','createClubMember',
     'deleteGamePlan','deleteGamePlanHistory','deleteMatch','deletePlayer','disputeMatchResult','editGamePlan','endGamePlan','goToClubHubFromProfile',
     'handleChatMentionKeydown','handleChatMessageInput','invitePlayerToClub','migrateGuestToRegisteredPlayer','openAuthModal','openCreateGamePlan',
@@ -5944,7 +5981,7 @@ function exposeLegacyHandlers(){
     'recordCourtResult','removeClubFromHub','removeClubMember','removeExtraRound','removePlayerFromScheduleQueue','render','replySupportRequest',
     'requestClubJoin','respondToClubInvite','reviewClubJoinRequest','saveClubDetails','saveGamePlan','saveMyProfileName','saveMyProfilePassword',
     'resetRosterFilters','saveProfileDivision','saveProfileVisibility','selectAllRosterClubFilters','selectAllRosterDivisionFilters','selectAllSchedulePlayers','selectChatClub','selectClubHub',
-    'sendClubChat','sendPasswordResetFromModal','sendSupportRequest','setActiveCourtFilter','setClubMemberRole','setClubProfileRoleFilter',
+    'sendClubChat','sendPasswordResetFromModal','sendSupportRequest','setActiveCourtFilter','setClubMemberRole','setClubProfileRoleFilter','setClubSearchQuery',
     'setDateRange','setH2H','setH2HClub','setH2HSearch','setMyClubMembership','setOfflineAccessPreference','setRosterClubFilterOpen','setRosterDivisionFilterOpen',
     'setRosterPage','setRosterSearchQuery','setRosterSortDirection','setRosterSortKey','setScheduleCourtFilter','setScheduleFilter',
     'setScheduleRegisteredSearchOpen','setTab','signInWithGoogle','submitAddPlayerForm','submitAuthForm','submitClubRegistration',
