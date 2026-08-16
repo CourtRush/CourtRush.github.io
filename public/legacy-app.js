@@ -3899,7 +3899,7 @@ function renderTopbar(){
       ` : `<button class="btn btn-ghost btn-sm" onclick="openAuthModal('login')">Sign in</button>`;
   return `
   <div class="topbar">
-    <div class="brand">
+    <div class="brand ${isLandingVisitor?'landing-top-brand':''}">
       <div class="brand-mark"><img src="courtrush-icon.svg" alt="" /></div>
       <div>
         <div class="brand-name">CourtRush</div>
@@ -3992,6 +3992,40 @@ function renderLandingFeature(icon,title,copy){
 function renderLandingMetric(value,label){
   return `<div class="landing-metric"><strong>${esc(value)}</strong><span>${esc(label)}</span></div>`;
 }
+function renderLandingSnippetPreview(kind){
+  if(kind==='gamePlan') return `<div class="snippet-preview snippet-game-plan">
+    <div class="snippet-round">Round 1</div>
+    <div class="snippet-courts">
+      <div class="snippet-court"><strong>Court 1</strong><span>Cedric &amp; Gyd 2nd</span><em>net</em><span class="active">Francis &amp; Gyd</span><div><b>0</b><small>vs</small><b>0</b></div></div>
+      <div class="snippet-court"><strong>Court 2</strong><span>Je &amp; Patrick</span><em>net</em><span>yor &amp; Joemar</span><div><b>0</b><small>vs</small><b>0</b></div></div>
+    </div>
+  </div>`;
+  if(kind==='leaderboard') return `<div class="snippet-preview snippet-leaderboard">
+    ${['Cedric Hernan','Francis','Gyd'].map((name,index)=>`<div class="snippet-rank-row"><b>#${index+1}</b><span>${esc(name)}</span><small>0-0 W/L · 0 +/-</small></div>`).join('')}
+  </div>`;
+  if(kind==='h2h') return `<div class="snippet-preview snippet-h2h">
+    <div class="snippet-versus"><span>Gyd</span><b>VS</b><span>Gyd 2nd</span></div>
+    <div class="snippet-callout">Gyd leads the confirmed series 1-0.</div>
+    <div class="snippet-h2h-stats"><span><b>1</b>games</span><span><b>+3</b>total +/-</span><span><b>+3.0</b>avg +/-</span></div>
+  </div>`;
+  if(kind==='history') return `<div class="snippet-preview snippet-history">
+    <div class="snippet-history-head"><span>Open Play Game Plan</span><b>2/2 confirmed</b></div>
+    <div class="snippet-mvp">Co-MVPs · Joemar Tolentino &amp; yor</div>
+    <div class="snippet-history-row"><span>Cedric &amp; Gyd 2nd</span><b>8 - 11</b></div>
+    <div class="snippet-history-row"><span>Je &amp; Patrick</span><b>7 - 11</b></div>
+  </div>`;
+  if(kind==='profile') return `<div class="snippet-preview snippet-profile">
+    <div class="snippet-profile-head"><span>My Profile · Overall</span><strong>Gyd</strong></div>
+    <div class="snippet-profile-grid"><span><b>1</b>games</span><span><b>1-0</b>w-l</span><span><b>+3</b>total +/-</span><span><b>100%</b>win rate</span></div>
+  </div>`;
+  return `<div class="snippet-preview"></div>`;
+}
+function renderLandingSnippet(kind,title,copy){
+  return `<article class="landing-snippet-card">
+    ${renderLandingSnippetPreview(kind)}
+    <div class="landing-snippet-copy"><h3>${esc(title)}</h3><p>${esc(copy)}</p></div>
+  </article>`;
+}
 function renderLanding(){
   return `
   <main class="landing-page">
@@ -4013,6 +4047,13 @@ function renderLanding(){
         </div>
       </div>
       <div class="landing-scoreboard" aria-label="CourtRush preview">
+        <div class="landing-preview-brand">
+          <div class="brand-mark"><img src="courtrush-icon.svg" alt="" /></div>
+          <div>
+            <div class="brand-name">CourtRush</div>
+            <div class="brand-sub">Rush the court. Rule the game.</div>
+          </div>
+        </div>
         <div class="landing-scoreboard-head"><span>Tonight's rotation</span><b>Live</b></div>
         <div class="landing-court-card"><strong>Court 1</strong><span>Gyd &amp; Francis</span><em>vs</em><span>Cedric &amp; Zanj</span></div>
         <div class="landing-court-card muted"><strong>Queue</strong><span>Patrick</span><span>Joemar</span><span>yor</span></div>
@@ -4034,6 +4075,21 @@ function renderLanding(){
         ${renderLandingFeature('📈','Progress over time','Switch between overall, yearly, monthly, weekly, and custom date windows.')}
         ${renderLandingFeature('🎯','Match context','Review partners, opponents, score swings, and Game Plan history.')}
         ${renderLandingFeature('🏆','Competitive signals','Spot MVP leaders, hot streaks, strongest records, and club movement.')}
+      </div>
+    </section>
+
+    <section class="landing-section landing-snippets">
+      <div class="landing-section-head">
+        <div class="landing-kicker">Inside CourtRush</div>
+        <h2>Show the game, not just the pitch.</h2>
+        <p>Players can see the exact flow: who plays, what happened, who improved, and where every score connects.</p>
+      </div>
+      <div class="landing-snippet-grid">
+        ${renderLandingSnippet('gamePlan','Game Plan courts','Run multiple courts, track scores, and keep sit-outs visible without rebuilding the round manually.')}
+        ${renderLandingSnippet('leaderboard','Live leaderboards','Turn saved results into player rankings, MVP context, and top performers.')}
+        ${renderLandingSnippet('h2h','Head-to-head lab','Compare player rivalries, records, point differential, and confirmed meetings.')}
+        ${renderLandingSnippet('history','Game history review','Reopen finished Game Plans, confirm results, dispute scores, and inspect MVP outcomes.')}
+        ${renderLandingSnippet('profile','Player profiles','Give competitive players a clean snapshot of win rate, game pace, differential, and history.')}
       </div>
     </section>
 
@@ -4391,11 +4447,12 @@ function renderRosterPagination(page,totalPages,totalRows,visibleRows){
 function renderRosterMemberTile(row){
   const p=row.player;
   const primaryClub=renderPlayerTopClubChip(p);
+  const division=playerDivisionValue(p);
   return `<article class="roster-member-tile" onclick="openPlayerProfile(${jsArg(p.id)})">
     <div class="roster-member-identity">
       ${avatarHTML(p,36)}
       <div class="roster-member-name-wrap">
-        <div class="roster-member-name">${rosterPlayerNameHTML(p)}</div>
+        <div class="roster-member-name"><span class="roster-member-name-text">${esc(p.name||'Unnamed player')}</span>${p.guest?'<span class="guest-tag">Guest</span>':''}<span class="division-tag">${esc(divisionShortLabel(division))}</span></div>
         ${isSuperAdmin()?`<div class="roster-member-admin-line">${esc(p.email||'No email')}${p.playerId?` &middot; ${esc(p.playerId)}`:''}</div>`:''}
       </div>
     </div>
