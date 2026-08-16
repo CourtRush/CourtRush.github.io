@@ -295,7 +295,6 @@ service cloud.firestore {
         request.resource.data.id == requestId &&
         request.resource.data.status == 'pending' &&
         request.resource.data.fromUid == request.auth.uid &&
-        request.resource.data.fromPlayerId == currentPlayerId() &&
         request.resource.data.fromPlayerId != request.resource.data.toPlayerId &&
         playerOwnedByCurrentUser(request.resource.data.fromPlayerId) &&
         exists(/databases/$(database)/documents/players/$(request.resource.data.toPlayerId)) &&
