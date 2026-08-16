@@ -4355,7 +4355,7 @@ function renderDashboard(){
           <div class="board-row">
             <span class="rank">${i+1}</span>
             ${avatarHTML(x.p,26)}
-            <span class="board-name">${esc(x.p.name)}<div class="board-sub">${x.s.gamesPlayed} games</div></span>
+            <span class="board-name">${esc(x.p.name)}<div class="board-sub">${renderPlayerProfileTopClub(x.p)}</div></span>
             ${diffPill(x.s.avgDiff,1)}
           </div>`).join('')}
       </div>
