@@ -3858,6 +3858,13 @@ function exploreLanding(){
   const target=document.getElementById('landingTour');
   if(target&&typeof target.scrollIntoView==='function') target.scrollIntoView({behavior:'smooth',block:'start'});
 }
+function openDashboardGamePlan(id,filter){
+  const sch=scheduleById(id);
+  if(!sch){ toast('Game Plan could not be found'); return; }
+  state.tab='schedule';
+  state.scheduleFilter=['today','upcoming'].includes(filter)?filter:'today';
+  openGamePlan(id);
+}
 document.addEventListener('click',event=>{
   const target=event.target&&event.target.closest?event.target.closest('[data-app-action],[data-app-tab]'):null;
   if(!target) return;
@@ -3878,6 +3885,7 @@ document.addEventListener('click',event=>{
   else if(action==='sign-up') openAuthModal('register');
   else if(action==='logout') logoutUser();
   else if(action==='explore-landing') exploreLanding();
+  else if(action==='open-dashboard-plan') openDashboardGamePlan(target.dataset.scheduleId,target.dataset.scheduleFilter);
 });
 
 function render(){
@@ -4176,6 +4184,7 @@ function renderDashboard(){
       </div>
     </div>`;
   }
+  const dashboardPlans=renderDashboardGamePlans();
 
   return `
   <div class="hero">
@@ -4240,8 +4249,40 @@ function renderDashboard(){
       <button class="btn btn-ghost" onclick="setTab('roster')">Manage Club Members</button>
       <button class="btn btn-ghost" onclick="setTab('history')">View match history</button>
     </div>
+    ${dashboardPlans}
   </div>
   `;
+}
+function renderDashboardGamePlans(){
+  const today=todayStr();
+  const activePlans=state.schedules
+    .filter(s=>s.status!=='cancelled' && s.status!=='draft' && s.date>=today)
+    .sort((a,b)=>scheduleSortValue(a).localeCompare(scheduleSortValue(b)));
+  const todayPlans=activePlans.filter(s=>s.date===today);
+  const upcomingPlans=activePlans.filter(s=>s.date>today);
+  const plans=[...todayPlans.slice(0,3),...upcomingPlans.slice(0,Math.max(0,4-Math.min(todayPlans.length,3)))];
+  if(!plans.length) return '';
+  return `<div class="dashboard-plan-strip" aria-label="Today and upcoming Game Plans">
+    <div class="dashboard-plan-strip-head">
+      <div><div class="eyebrow">Game Plans</div><h3>Today and upcoming</h3></div>
+      <button class="btn btn-ghost btn-sm" type="button" onclick="setScheduleFilter('upcoming');setTab('schedule')">View all</button>
+    </div>
+    <div class="dashboard-plan-list">
+      ${plans.map(sch=>{
+        const id=scheduleDocId(sch);
+        const isToday=sch.date===today;
+        const mode=MODE_META[sch.mode]||{label:sch.mode||'Game Plan',short:sch.mode||'Plan'};
+        const title=sch.title ? sch.title : mode.label;
+        const players=schedulePlayers(sch).length;
+        const rounds=scheduleRoundCount(sch);
+        return `<button class="dashboard-plan-card" type="button" data-app-action="open-dashboard-plan" data-schedule-id="${esc(id)}" data-schedule-filter="${isToday?'today':'upcoming'}">
+          <span class="dashboard-plan-date">${isToday?'Today':fmtDate(sch.date)} &middot; ${formatTime(sch.startTime)}</span>
+          <span class="dashboard-plan-title">${esc(title)}</span>
+          <span class="dashboard-plan-meta"><span>${esc(sch.clubId&&sch.clubId!=='independent'?clubName(sch.clubId):'Independent')}</span><span>${players} players</span><span>${rounds} round${rounds===1?'':'s'}</span></span>
+        </button>`;
+      }).join('')}
+    </div>
+  </div>`;
 }
 
 /* ============================= CLUB HUB ============================= */
