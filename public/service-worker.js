@@ -3,6 +3,9 @@ const STATIC_ASSETS = [
   "/",
   "/manifest.webmanifest",
   "/courtrush-icon.svg",
+  "/courtrush-icon-180.png",
+  "/courtrush-icon-192.png",
+  "/courtrush-icon-512.png",
   "/legacy-app.js",
   VERSION_URL,
 ];
@@ -103,8 +106,8 @@ self.addEventListener("push", (event) => {
   const title = payload.title || "CourtRush";
   const options = {
     body: payload.body || "You have a new CourtRush update.",
-    icon: "/courtrush-icon.svg",
-    badge: "/courtrush-icon.svg",
+    icon: "/courtrush-icon-192.png",
+    badge: "/courtrush-icon-180.png",
     data: { url: payload.url || "/" },
   };
 

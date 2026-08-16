@@ -4,16 +4,29 @@
   "description": "Rush the court. Rule the game.",
   "start_url": "/?source=pwa",
   "scope": "/",
+  "id": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#F4F8F6",
   "theme_color": "#0E5F58",
   "icons": [
     {
+      "src": "/courtrush-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/courtrush-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
       "src": "/courtrush-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }
