@@ -352,7 +352,7 @@ function acceptedFriendIds(){
     .filter(Boolean);
 }
 function friendPairParticipants(playerId){ return [String(state.myPlayerId||''),String(playerId||'')].sort(); }
-function friendChatRoomId(playerId){ return `friend_chat_${friendPairParticipants(playerId).join('_')}`; }
+function friendChatRoomId(playerId){ return friendRequestPairId(state.myPlayerId,playerId); }
 function friendChatMessagesFor(playerId){
   const roomId=friendChatRoomId(playerId);
   return state.friendChatMessages.filter(message=>message.roomId===roomId).sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||'')));
@@ -557,23 +557,35 @@ function refreshDirectChatNoticeSync(){
   },err=>console.error('Direct club notice sync failed',err));
 }
 
-let friendChatUnsub=null;
+let friendChatUnsubs=[];
 let friendChatSyncKey='';
 function stopFriendChatSync(){
-  if(friendChatUnsub){ friendChatUnsub(); friendChatUnsub=null; }
+  friendChatUnsubs.forEach(unsub=>unsub());
+  friendChatUnsubs=[];
   friendChatSyncKey='';
   state.friendChatMessages=[];
 }
 function refreshFriendChatSync(force){
-  if(!state.currentUser||!state.myPlayerId||typeof FRIEND_CHATS_COL.where!=='function'){ stopFriendChatSync(); return; }
-  const key=`player:${state.myPlayerId}`;
-  if(!force&&friendChatUnsub&&friendChatSyncKey===key) return;
+  if(!state.currentUser||!state.myPlayerId||typeof FRIEND_REQUESTS_COL.doc!=='function'){ stopFriendChatSync(); return; }
+  const acceptedRequests=friendRequestsForMe().filter(request=>request.status==='accepted');
+  const key=acceptedRequests.map(request=>request.id).sort().join('|');
+  if(!force&&friendChatSyncKey===key) return;
   stopFriendChatSync();
   friendChatSyncKey=key;
-  friendChatUnsub=FRIEND_CHATS_COL.where('participants','array-contains',state.myPlayerId).onSnapshot(snap=>{
-    state.friendChatMessages=snap.docs.map(doc=>({id:doc.id,...doc.data()})).sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||''))).slice(-500);
+  if(!acceptedRequests.length){ render(); return; }
+  const byId=new Map();
+  const mergeMessages=()=>{
+    state.friendChatMessages=[...byId.values()].sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||''))).slice(-500);
     render();
-  },err=>console.error('Friend chat sync failed',err));
+  };
+  acceptedRequests.forEach(request=>{
+    const unsub=FRIEND_REQUESTS_COL.doc(request.id).collection('messages').onSnapshot(snap=>{
+      [...byId.keys()].filter(id=>id.startsWith(`${request.id}:`)).forEach(id=>byId.delete(id));
+      snap.docs.forEach(doc=>byId.set(`${request.id}:${doc.id}`,{id:doc.id,...doc.data()}));
+      mergeMessages();
+    },err=>console.error('Friend chat sync failed',err));
+    friendChatUnsubs.push(unsub);
+  });
 }
 
 let friendRequestUnsubs=[];
@@ -590,14 +602,21 @@ function refreshFriendRequestSync(force){
   if(!force&&friendRequestUnsubs.length&&friendRequestSyncKey===key) return;
   stopFriendRequestSync();
   friendRequestSyncKey=key;
-  const byId=new Map();
-  const mergeSnap=snap=>{
-    snap.docs.forEach(doc=>byId.set(doc.id,{id:doc.id,...doc.data()}));
+  const requestSources=[new Map(),new Map()];
+  const mergeSources=()=>{
+    const byId=new Map();
+    requestSources.forEach(source=>source.forEach((record,id)=>byId.set(id,record)));
     state.friendRequests=[...byId.values()].sort((a,b)=>String(b.updatedAt||b.createdAt||'').localeCompare(String(a.updatedAt||a.createdAt||'')));
+    refreshFriendChatSync(true);
     render();
   };
-  friendRequestUnsubs.push(FRIEND_REQUESTS_COL.where('fromPlayerId','==',state.myPlayerId).onSnapshot(mergeSnap,err=>console.error('Outgoing friend request sync failed',err)));
-  friendRequestUnsubs.push(FRIEND_REQUESTS_COL.where('toPlayerId','==',state.myPlayerId).onSnapshot(mergeSnap,err=>console.error('Incoming friend request sync failed',err)));
+  const mergeSnap=index=>snap=>{
+    requestSources[index].clear();
+    snap.docs.forEach(doc=>requestSources[index].set(doc.id,{id:doc.id,...doc.data()}));
+    mergeSources();
+  };
+  friendRequestUnsubs.push(FRIEND_REQUESTS_COL.where('fromPlayerId','==',state.myPlayerId).onSnapshot(mergeSnap(0),err=>console.error('Outgoing friend request sync failed',err)));
+  friendRequestUnsubs.push(FRIEND_REQUESTS_COL.where('toPlayerId','==',state.myPlayerId).onSnapshot(mergeSnap(1),err=>console.error('Incoming friend request sync failed',err)));
 }
 
 let supportUnsub=null;
@@ -2869,16 +2888,16 @@ async function sendFriendChat(ev){
   const record={id,roomId,participants,senderUid:state.currentUser.uid,senderPlayerId:state.myPlayerId,senderName:sender?playerDisplayName(sender):(state.currentUser.displayName||'CourtRush player'),recipientPlayerId:friendId,text:message,createdAt:now};
   state.chatBusy=true;
   try{
-    await FRIEND_CHATS_COL.doc(id).set(record);
+    await FRIEND_REQUESTS_COL.doc(roomId).collection('messages').doc(id).set(record);
     state.friendChatMessages=[...state.friendChatMessages.filter(item=>item.id!==id),record].sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||'')));
     await createPlayerNotifications({
       type:'friend_message',
-      sourceId:id,
+      sourceId:roomId,
       playerIds:[friendId],
       title:'New friend message',
       body:`${record.senderName} sent you a message on CourtRush Social.`,
       url:'./index.html#social',
-      extra:{roomId,fromPlayerId:state.myPlayerId,toPlayerId:friendId}
+      extra:{roomId,messageId:id,fromPlayerId:state.myPlayerId,toPlayerId:friendId}
     });
     if(input) input.value='';
   }catch(e){ console.error(e); toast(`Could not send this friend message${e&&e.code?` (${e.code})`:''}. Publish the updated Firestore rules and try again.`); }

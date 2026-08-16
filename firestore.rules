@@ -323,6 +323,46 @@ service cloud.firestore {
       allow delete: if isSuperAdmin() ||
         (isSignedIn() && (resource.data.fromUid == request.auth.uid ||
          resource.data.toUid == request.auth.uid));
+
+      match /messages/{messageId} {
+        allow read: if userExists() &&
+          exists(/databases/$(database)/documents/friendRequests/$(requestId)) &&
+          get(/databases/$(database)/documents/friendRequests/$(requestId)).data.status == 'accepted' &&
+          (get(/databases/$(database)/documents/friendRequests/$(requestId)).data.fromUid == request.auth.uid ||
+           get(/databases/$(database)/documents/friendRequests/$(requestId)).data.toUid == request.auth.uid ||
+           isSuperAdmin());
+
+        allow create: if userExists() &&
+          exists(/databases/$(database)/documents/friendRequests/$(requestId)) &&
+          get(/databases/$(database)/documents/friendRequests/$(requestId)).data.status == 'accepted' &&
+          (get(/databases/$(database)/documents/friendRequests/$(requestId)).data.fromUid == request.auth.uid ||
+           get(/databases/$(database)/documents/friendRequests/$(requestId)).data.toUid == request.auth.uid) &&
+          request.resource.data.keys().hasOnly([
+            'id', 'roomId', 'participants', 'senderUid', 'senderPlayerId',
+            'senderName', 'recipientPlayerId', 'text', 'createdAt'
+          ]) &&
+          request.resource.data.id == messageId &&
+          request.resource.data.roomId == requestId &&
+          request.resource.data.senderUid == request.auth.uid &&
+          playerOwnedByCurrentUser(request.resource.data.senderPlayerId) &&
+          request.resource.data.participants is list &&
+          request.resource.data.participants.size() == 2 &&
+          get(/databases/$(database)/documents/friendRequests/$(requestId)).data.fromPlayerId in request.resource.data.participants &&
+          get(/databases/$(database)/documents/friendRequests/$(requestId)).data.toPlayerId in request.resource.data.participants &&
+          request.resource.data.senderPlayerId in request.resource.data.participants &&
+          request.resource.data.recipientPlayerId in request.resource.data.participants &&
+          request.resource.data.senderPlayerId != request.resource.data.recipientPlayerId &&
+          request.resource.data.senderName is string &&
+          request.resource.data.senderName.size() >= 1 &&
+          request.resource.data.senderName.size() <= 80 &&
+          request.resource.data.text is string &&
+          request.resource.data.text.size() >= 1 &&
+          request.resource.data.text.size() <= 500 &&
+          request.resource.data.createdAt is string;
+
+        allow update: if false;
+        allow delete: if isSuperAdmin();
+      }
     }
 
     match /friendChats/{messageId} {
@@ -550,11 +590,19 @@ service cloud.firestore {
            request.resource.data.createdByUid == request.auth.uid &&
            request.resource.data.get('fromPlayerId', '') is string &&
            request.resource.data.get('toPlayerId', '') is string &&
-           exists(/databases/$(database)/documents/friendChats/$(request.resource.data.sourceId)) &&
-           get(/databases/$(database)/documents/friendChats/$(request.resource.data.sourceId)).data.senderUid == request.auth.uid &&
-           request.resource.data.get('fromPlayerId', '') == get(/databases/$(database)/documents/friendChats/$(request.resource.data.sourceId)).data.senderPlayerId &&
-           request.resource.data.get('toPlayerId', '') == get(/databases/$(database)/documents/friendChats/$(request.resource.data.sourceId)).data.recipientPlayerId &&
-           request.resource.data.recipientPlayerId == get(/databases/$(database)/documents/friendChats/$(request.resource.data.sourceId)).data.recipientPlayerId)
+           exists(/databases/$(database)/documents/friendRequests/$(request.resource.data.sourceId)) &&
+           get(/databases/$(database)/documents/friendRequests/$(request.resource.data.sourceId)).data.status == 'accepted' &&
+           (get(/databases/$(database)/documents/friendRequests/$(request.resource.data.sourceId)).data.fromUid == request.auth.uid ||
+            get(/databases/$(database)/documents/friendRequests/$(request.resource.data.sourceId)).data.toUid == request.auth.uid) &&
+           request.resource.data.get('fromPlayerId', '') in [
+             get(/databases/$(database)/documents/friendRequests/$(request.resource.data.sourceId)).data.fromPlayerId,
+             get(/databases/$(database)/documents/friendRequests/$(request.resource.data.sourceId)).data.toPlayerId
+           ] &&
+           request.resource.data.get('toPlayerId', '') in [
+             get(/databases/$(database)/documents/friendRequests/$(request.resource.data.sourceId)).data.fromPlayerId,
+             get(/databases/$(database)/documents/friendRequests/$(request.resource.data.sourceId)).data.toPlayerId
+           ] &&
+           request.resource.data.recipientPlayerId == request.resource.data.get('toPlayerId', ''))
         );
 
       allow delete: if isSuperAdmin();
