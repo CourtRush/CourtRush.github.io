@@ -347,10 +347,14 @@ service cloud.firestore {
           playerOwnedByCurrentUser(request.resource.data.senderPlayerId) &&
           request.resource.data.participants is list &&
           request.resource.data.participants.size() == 2 &&
-          get(/databases/$(database)/documents/friendRequests/$(requestId)).data.fromPlayerId in request.resource.data.participants &&
-          get(/databases/$(database)/documents/friendRequests/$(requestId)).data.toPlayerId in request.resource.data.participants &&
-          request.resource.data.senderPlayerId in request.resource.data.participants &&
-          request.resource.data.recipientPlayerId in request.resource.data.participants &&
+          request.resource.data.senderPlayerId in [
+            get(/databases/$(database)/documents/friendRequests/$(requestId)).data.fromPlayerId,
+            get(/databases/$(database)/documents/friendRequests/$(requestId)).data.toPlayerId
+          ] &&
+          request.resource.data.recipientPlayerId in [
+            get(/databases/$(database)/documents/friendRequests/$(requestId)).data.fromPlayerId,
+            get(/databases/$(database)/documents/friendRequests/$(requestId)).data.toPlayerId
+          ] &&
           request.resource.data.senderPlayerId != request.resource.data.recipientPlayerId &&
           request.resource.data.senderName is string &&
           request.resource.data.senderName.size() >= 1 &&

@@ -2740,11 +2740,14 @@ function normalizedChatText(value){
 function containsChatProfanity(value){ const normalized=normalizedChatText(value); return CHAT_BAD_WORDS.some(pattern=>pattern.test(normalized)); }
 function selectChatClub(clubId){ if(visibleChatClubIds().includes(clubId)){ state.chatClubId=clubId; state.socialConversationType='club'; markChatRead(clubId); render(); } }
 function selectSocialFriend(playerId){
-  if(acceptedFriendIds().includes(playerId)){
+  const request=friendRequestWith(playerId);
+  if(request&&request.status==='accepted'){
     state.chatFriendId=playerId;
     state.socialConversationType='friend';
     markFriendChatRead(playerId);
     render();
+  }else{
+    refreshFriendRequestSync(true);
   }
 }
 function messageFriend(playerId){ state.playerModalId=null; setTab('social'); selectSocialFriend(playerId); }
@@ -5249,7 +5252,7 @@ function renderMyFriendTile(player){
       </div>
     </div>
     <div class="roster-member-clubs">${primaryClub}</div>
-    <div class="roster-member-actions" onclick="event.stopPropagation();">${renderFriendAction(player,{removable:true})}</div>
+    <div class="roster-member-actions" onclick="event.stopPropagation();"><span class="friend-action-group"><button class="btn btn-primary btn-sm" type="button" onclick="messageFriend(${jsArg(player.id)})">Message</button><button class="btn btn-danger btn-sm" type="button" onclick="removeFriend(${jsArg(player.id)})" ${state.friendRequestBusyId===player.id?'disabled':''}>${state.friendRequestBusyId===player.id?'Removing...':'Remove'}</button></span></div>
   </article>`;
 }
 function renderIncomingFriendRequestTile(request){
