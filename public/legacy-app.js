@@ -3882,6 +3882,7 @@ function render(){
 }
 
 function renderTopbar(){
+  const isLandingVisitor=!state.currentUser&&state.tab==='dashboard';
   const tabs = [
     ['dashboard','Dashboard'],['clubs','Club Hub'],['schedule','Game Plan'],['h2h','H2H'],
     ['history','History'],['profile','My Profile'],['settings','Settings']
@@ -3905,12 +3906,12 @@ function renderTopbar(){
         <div class="brand-sub">Rush the court. Rule the game.</div>
       </div>
     </div>
-    <div class="primary-nav">
+    ${isLandingVisitor?'':`<div class="primary-nav">
       <button class="nav-toggle" type="button" aria-expanded="${state.navOpen?'true':'false'}" aria-controls="primaryNavigation" onclick="toggleNavigation()"><span class="nav-toggle-icon" aria-hidden="true">${iconSVG('menu')}</span><span>${esc(activeLabel)}</span></button>
       <nav id="primaryNavigation" class="toolbar ${state.navOpen?'open':''}" aria-label="Primary navigation">
         ${tabs.map(([k,l])=> `<button type="button" class="${state.tab===k?'active':''}" ${state.tab===k?'aria-current="page"':''} onclick="setTab('${k}')">${l}${k==='clubs'&&pendingClubRequests?`<span class="nav-count" aria-label="${pendingClubRequests} pending club join request${pendingClubRequests===1?'':'s'}">${pendingClubRequests}</span>`:k==='chat'&&unreadChatMentions?`<span class="nav-count" aria-label="${unreadChatMentions} unread Club Chat mention${unreadChatMentions===1?'':'s'}">${unreadChatMentions}</span>`:''}</button>`).join('')}
       </nav>
-    </div>
+    </div>`}
     <div class="topbar-actions ${state.currentUser?'logged-in':''}">
       <div class="nav-account">${accountComponent}</div>
       <button class="btn btn-ghost theme-toggle" type="button" onclick="toggleTheme()" aria-label="Switch to ${themeValue()==='dark'?'light':'dark'} theme" title="${themeValue()==='dark'?'Light':'Dark'} theme">${iconSVG(themeValue()==='dark'?'sun':'moon')}</button>
