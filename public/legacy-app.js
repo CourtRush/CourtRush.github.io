@@ -606,11 +606,13 @@ function refreshFriendRequestSync(force){
   friendRequestSyncKey=key;
   const requestSources=[new Map(),new Map()];
   const loadedSources=[false,false];
+  let readyFallback=null;
   const mergeSources=()=>{
     const byId=new Map();
     requestSources.forEach(source=>source.forEach((record,id)=>byId.set(id,record)));
     state.friendRequests=[...byId.values()].sort((a,b)=>String(b.updatedAt||b.createdAt||'').localeCompare(String(a.updatedAt||a.createdAt||'')));
     state.friendRequestsReady=loadedSources.every(Boolean);
+    if(state.friendRequestsReady&&readyFallback){ clearTimeout(readyFallback); readyFallback=null; }
     refreshFriendChatSync(true);
     render();
   };
@@ -620,8 +622,20 @@ function refreshFriendRequestSync(force){
     snap.docs.forEach(doc=>requestSources[index].set(doc.id,{id:doc.id,...doc.data()}));
     mergeSources();
   };
-  friendRequestUnsubs.push(FRIEND_REQUESTS_COL.where('fromPlayerId','==',state.myPlayerId).onSnapshot(mergeSnap(0),err=>console.error('Outgoing friend request sync failed',err)));
-  friendRequestUnsubs.push(FRIEND_REQUESTS_COL.where('toPlayerId','==',state.myPlayerId).onSnapshot(mergeSnap(1),err=>console.error('Incoming friend request sync failed',err)));
+  const markFailed=index=>err=>{
+    console.error(index===0?'Outgoing friend request sync failed':'Incoming friend request sync failed',err);
+    loadedSources[index]=true;
+    mergeSources();
+  };
+  readyFallback=setTimeout(()=>{
+    if(friendRequestSyncKey!==key||state.friendRequestsReady) return;
+    loadedSources[0]=true;
+    loadedSources[1]=true;
+    mergeSources();
+  },2500);
+  friendRequestUnsubs.push(()=>{ if(readyFallback){ clearTimeout(readyFallback); readyFallback=null; } });
+  friendRequestUnsubs.push(FRIEND_REQUESTS_COL.where('fromPlayerId','==',state.myPlayerId).onSnapshot(mergeSnap(0),markFailed(0)));
+  friendRequestUnsubs.push(FRIEND_REQUESTS_COL.where('toPlayerId','==',state.myPlayerId).onSnapshot(mergeSnap(1),markFailed(1)));
 }
 
 let supportUnsub=null;
