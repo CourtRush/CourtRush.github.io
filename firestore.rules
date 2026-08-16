@@ -61,6 +61,9 @@ service cloud.firestore {
       return value == 'pending' || value == 'invited' ||
         value == 'active' || value == 'removed';
     }
+    function validFriendStatus(value) {
+      return value == 'pending' || value == 'accepted' || value == 'declined';
+    }
     function validClubStatus(value) {
       return value == 'active' || value == 'removed';
     }
@@ -115,9 +118,10 @@ service cloud.firestore {
           request.resource.data.role == resource.data.role &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             'displayName', 'email', 'photoURL', 'authProvider', 'updatedAt',
-            'createdAt', 'playerId', 'clubId', 'clubIds'
+            'createdAt', 'playerId', 'clubId', 'clubIds', 'nickname'
           ]) &&
           request.resource.data.get('displayName', '').size() <= 80 &&
+          request.resource.data.get('nickname', '').size() <= 40 &&
           request.resource.data.get('clubIds', []).size() <= 20 &&
           (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['playerId']) ||
             (exists(/databases/$(database)/documents/players/$(request.resource.data.playerId)) &&
@@ -272,6 +276,50 @@ service cloud.firestore {
          isClubStaffFor(resource.data.clubId));
     }
 
+    match /friendRequests/{requestId} {
+      allow read: if isSignedIn() &&
+        (resource.data.fromUid == request.auth.uid ||
+         resource.data.toUid == request.auth.uid ||
+         isSuperAdmin());
+
+      allow create: if userExists() &&
+        request.resource.data.keys().hasOnly([
+          'id', 'fromPlayerId', 'toPlayerId', 'fromUid', 'toUid',
+          'status', 'createdAt', 'updatedAt'
+        ]) &&
+        request.resource.data.id == requestId &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.fromUid == request.auth.uid &&
+        request.resource.data.fromPlayerId == currentPlayerId() &&
+        request.resource.data.fromPlayerId != request.resource.data.toPlayerId &&
+        playerOwnedByCurrentUser(request.resource.data.fromPlayerId) &&
+        exists(/databases/$(database)/documents/players/$(request.resource.data.toPlayerId)) &&
+        get(/databases/$(database)/documents/players/$(request.resource.data.toPlayerId)).data.get('ownerUid', '') == request.resource.data.toUid &&
+        request.resource.data.createdAt is string &&
+        request.resource.data.updatedAt is string;
+
+      allow update: if userExists() &&
+        request.resource.data.id == resource.data.id &&
+        request.resource.data.fromPlayerId == resource.data.fromPlayerId &&
+        request.resource.data.toPlayerId == resource.data.toPlayerId &&
+        request.resource.data.fromUid == resource.data.fromUid &&
+        request.resource.data.toUid == resource.data.toUid &&
+        validFriendStatus(request.resource.data.status) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'acceptedAt', 'declinedAt', 'updatedAt'
+        ]) &&
+        ((resource.data.status == 'pending' &&
+          resource.data.toUid == request.auth.uid &&
+          request.resource.data.status in ['accepted', 'declined']) ||
+         (resource.data.status == 'declined' &&
+          resource.data.fromUid == request.auth.uid &&
+          request.resource.data.status == 'pending'));
+
+      allow delete: if isSuperAdmin() ||
+        (isSignedIn() && (resource.data.fromUid == request.auth.uid ||
+         resource.data.toUid == request.auth.uid));
+    }
+
     match /supportRequests/{requestId} {
       allow create: if userExists() &&
         request.resource.data.keys().hasOnly([
@@ -349,10 +397,12 @@ service cloud.firestore {
           request.resource.data.ownerUid == request.auth.uid &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             'name', 'avatarUrl', 'profileVisibility', 'division',
-            'clubId', 'clubIds', 'email', 'guest', 'updatedAt'
+            'clubId', 'clubIds', 'email', 'guest', 'nickname', 'updatedAt'
           ]) &&
           request.resource.data.name is string &&
           request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 80 &&
+          request.resource.data.get('nickname', '') is string &&
+          request.resource.data.get('nickname', '').size() <= 40 &&
           request.resource.data.get('email', '') is string &&
           request.resource.data.get('guest', false) == false &&
           request.resource.data.get('clubIds', []).size() <= 20 &&

@@ -454,6 +454,9 @@
   .roster-member-clubs{display:flex;align-items:center;justify-content:flex-end;min-width:0;}
   .roster-member-clubs .club-chip{margin:0;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:color-mix(in srgb,var(--court) 8%,var(--panel));color:var(--ink);border-color:var(--line);}
   .roster-member-actions{grid-column:2;display:flex;justify-content:flex-end;}
+  .roster-member-tile[hidden],.club-card[hidden],.chat-club-button[hidden]{display:none!important;}
+  .friend-action-group{display:inline-flex;align-items:center;gap:7px;flex-wrap:wrap;}
+  .player-friend-action{margin-top:9px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .roster-member-actions .btn{border-radius:999px;}
   .roster-pagination,.roster-pagination-count{display:flex;align-items:center;justify-content:center;gap:10px;margin:14px 0 0;color:var(--muted);font-size:12px;font-weight:800;}
   .roster-results-bar .roster-pagination{margin:0;}
@@ -1012,12 +1015,16 @@
   .theme-toggle{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;border-radius:50%;font-size:16px;}
   .theme-toggle svg,.nav-toggle-icon svg{display:block;width:17px;height:17px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;}
   .chat-page{display:grid;grid-template-columns:250px minmax(0,1fr);gap:16px;min-height:620px;}
+  .social-search{display:block;margin:10px 0 0;}
+  .social-search input{width:100%;min-height:38px;border:1.5px solid var(--line);border-radius:999px;background:var(--bg);color:var(--ink);font:inherit;font-size:12px;font-weight:800;padding:9px 13px;}
+  .social-search input::placeholder{color:var(--muted);opacity:1;}
   .chat-club-list{display:flex;flex-direction:column;gap:8px;}
   .chat-club-button{position:relative;width:100%;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:11px;padding:12px 42px 12px 12px;text-align:left;transition:border-color .15s ease,transform .15s ease,background-color .15s ease;}
   .chat-club-button:hover{border-color:var(--court);transform:translateY(-1px);}
   .chat-club-button strong,.chat-club-button span{display:block;}
   .chat-club-button span{margin-top:3px;font-size:10px;color:var(--muted);}
   .chat-club-button.active{background:var(--action-fill);border-color:var(--action-fill);color:var(--action-on);}
+  .chat-club-button.friend{border-style:dashed;}
   .chat-club-button.active span{color:var(--action-on);opacity:.76;}
   .chat-unread-badge{position:absolute;right:11px;top:50%;transform:translateY(-50%);display:inline-flex!important;align-items:center;justify-content:center;min-width:21px;height:21px;margin:0!important;padding:0 6px;border-radius:999px;background:var(--coral);color:#fff!important;font:800 9px/1 'IBM Plex Mono',monospace;opacity:1!important;box-shadow:0 0 0 3px var(--panel);}
   .chat-club-button.active .chat-unread-badge{box-shadow:0 0 0 3px var(--action-fill);}
@@ -1105,8 +1112,10 @@
   :root[data-theme="dark"] .roster-search input{background:#0F1D1B;color:#F7FFFC;border-color:#4C6F68;}
   :root[data-theme="dark"] .roster-search input::placeholder{color:#BFD4CF;}
   :root[data-theme="dark"] .club-search-panel{background:var(--panel);border-color:#4C6F68;}
-  :root[data-theme="dark"] .club-search input{background:#0F1D1B;color:#F7FFFC;border-color:#4C6F68;}
-  :root[data-theme="dark"] .club-search input::placeholder{color:#BFD4CF;}
+  :root[data-theme="dark"] .club-search input,
+  :root[data-theme="dark"] .social-search input{background:#0F1D1B;color:#F7FFFC;border-color:#4C6F68;}
+  :root[data-theme="dark"] .club-search input::placeholder,
+  :root[data-theme="dark"] .social-search input::placeholder{color:#BFD4CF;}
   :root[data-theme="dark"] .roster-member-clubs .club-chip{background:#0B1B19;color:#F7FFFC;border-color:#4C6F68;}
   :root[data-theme="dark"] .roster-member-admin-line{color:#D2E8E3;}
   :root[data-theme="dark"] .board-name,

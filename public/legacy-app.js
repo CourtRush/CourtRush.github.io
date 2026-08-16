@@ -35,6 +35,7 @@ const CLUBS_COL = db.collection('clubs');
 const CLUB_MEMBERSHIPS_COL = db.collection('clubMemberships');
 const CLUB_ADMINS_COL = db.collection('clubAdmins');
 const CLUB_CHATS_COL = db.collection('clubChats');
+const FRIEND_REQUESTS_COL = db.collection('friendRequests');
 const SUPPORT_REQUESTS_COL = db.collection('supportRequests');
 const PROFILE_VIEWS_COL = db.collection('profileViews');
 const NOTIFICATIONS_COL = db.collection('notifications');
@@ -146,8 +147,11 @@ let state = {
   profilePasswordBusy: false,
   clubInviteBusyId: null,
   chatClubId: null,
+  socialSearchQuery: '',
   chatMessages: [],
   directChatMessages: [],
+  friendRequests: [],
+  friendRequestBusyId: null,
   chatBusy: false,
   chatClearBusy: false,
   chatMentionIndex: 0,
@@ -307,6 +311,30 @@ function visibleChatClubIds(){
   return [...new Set([...chatClubIds(),...state.directChatMessages.filter(message=>messageMentionsMe(message)).map(message=>message.clubId)])].filter(id=>!!clubById(id));
 }
 function totalUnreadMentions(){ return visibleChatClubIds().reduce((total,clubId)=>total+unreadMentionCount(clubId),0); }
+function friendRequestPairId(a,b){ return `friend_${[String(a||''),String(b||'')].sort().join('_')}`; }
+function friendRequestsForMe(){
+  if(!state.myPlayerId) return [];
+  return state.friendRequests.filter(request=>request.fromPlayerId===state.myPlayerId||request.toPlayerId===state.myPlayerId);
+}
+function friendRequestWith(playerId){
+  const id=friendRequestPairId(state.myPlayerId,playerId);
+  return friendRequestsForMe().find(request=>request.id===id)||null;
+}
+function acceptedFriendIds(){
+  if(!state.myPlayerId) return [];
+  return friendRequestsForMe()
+    .filter(request=>request.status==='accepted')
+    .map(request=>request.fromPlayerId===state.myPlayerId?request.toPlayerId:request.fromPlayerId)
+    .filter(Boolean);
+}
+function friendStatus(playerId){
+  if(!state.myPlayerId||playerId===state.myPlayerId) return 'self';
+  const request=friendRequestWith(playerId);
+  if(!request) return 'none';
+  if(request.status==='accepted') return 'friends';
+  if(request.status==='pending') return request.toPlayerId===state.myPlayerId?'incoming':'outgoing';
+  return 'none';
+}
 function markChatRead(clubId){
   if(!clubId||!state.currentUser||!unreadMentionCount(clubId)) return;
   const reads=chatReadState();
@@ -481,6 +509,30 @@ function refreshDirectChatNoticeSync(){
   },err=>console.error('Direct club notice sync failed',err));
 }
 
+let friendRequestUnsubs=[];
+let friendRequestSyncKey='';
+function stopFriendRequestSync(){
+  friendRequestUnsubs.forEach(unsub=>unsub());
+  friendRequestUnsubs=[];
+  friendRequestSyncKey='';
+  state.friendRequests=[];
+}
+function refreshFriendRequestSync(force){
+  if(!state.currentUser||!state.myPlayerId||typeof FRIEND_REQUESTS_COL.where!=='function'){ stopFriendRequestSync(); return; }
+  const key=`player:${state.myPlayerId}`;
+  if(!force&&friendRequestUnsubs.length&&friendRequestSyncKey===key) return;
+  stopFriendRequestSync();
+  friendRequestSyncKey=key;
+  const byId=new Map();
+  const mergeSnap=snap=>{
+    snap.docs.forEach(doc=>byId.set(doc.id,{id:doc.id,...doc.data()}));
+    state.friendRequests=[...byId.values()].sort((a,b)=>String(b.updatedAt||b.createdAt||'').localeCompare(String(a.updatedAt||a.createdAt||'')));
+    render();
+  };
+  friendRequestUnsubs.push(FRIEND_REQUESTS_COL.where('fromPlayerId','==',state.myPlayerId).onSnapshot(mergeSnap,err=>console.error('Outgoing friend request sync failed',err)));
+  friendRequestUnsubs.push(FRIEND_REQUESTS_COL.where('toPlayerId','==',state.myPlayerId).onSnapshot(mergeSnap,err=>console.error('Incoming friend request sync failed',err)));
+}
+
 let supportUnsub=null;
 let supportSyncKey='';
 function stopSupportSync(){
@@ -558,6 +610,7 @@ offlinePersistenceReady.then(()=>auth.onAuthStateChanged(user=>{
     refreshScheduleSync(true);
     refreshChatSync(true);
     refreshDirectChatNoticeSync();
+    refreshFriendRequestSync(true);
     refreshSupportSync(true);
     refreshNotificationSync(true);
     render();
@@ -568,6 +621,7 @@ offlinePersistenceReady.then(()=>auth.onAuthStateChanged(user=>{
   refreshScheduleSync(true);
   refreshChatSync(true);
   refreshDirectChatNoticeSync();
+  refreshFriendRequestSync(true);
   refreshSupportSync(true);
   refreshNotificationSync(true);
   render();
@@ -580,6 +634,7 @@ offlinePersistenceReady.then(()=>auth.onAuthStateChanged(user=>{
       refreshClubRoleDirectorySync(true);
       refreshChatSync(true);
       refreshDirectChatNoticeSync();
+      refreshFriendRequestSync(true);
       refreshSupportSync(true);
       refreshNotificationSync(true);
     }
@@ -1320,17 +1375,20 @@ let rosterSearchTimer=null;
 function setRosterSearchQuery(value){
   state.rosterSearchQuery=String(value||'').trimStart().slice(0,80);
   state.rosterPage=1;
-  if(rosterSearchTimer) clearTimeout(rosterSearchTimer);
-  rosterSearchTimer=setTimeout(()=>{
-    rosterSearchTimer=null;
-    render();
-  },260);
+  filterVisibleRosterTiles();
 }
 function applyRosterSearchQuery(value){
   if(rosterSearchTimer){ clearTimeout(rosterSearchTimer); rosterSearchTimer=null; }
   state.rosterSearchQuery=String(value||'').trimStart().slice(0,80);
   state.rosterPage=1;
   render();
+}
+function filterVisibleRosterTiles(){
+  const query=normalizePlayerSearch(state.rosterSearchQuery||'');
+  document.querySelectorAll('.roster-member-tile[data-roster-search]').forEach(tile=>{
+    const haystack=tile.dataset.rosterSearch||'';
+    tile.hidden=!!query&&!query.split(/\s+/).every(term=>haystack.includes(term));
+  });
 }
 function setRosterPage(page){
   state.rosterPage=Math.max(1,Number(page)||1);
@@ -2547,6 +2605,7 @@ function normalizedChatText(value){
 }
 function containsChatProfanity(value){ const normalized=normalizedChatText(value); return CHAT_BAD_WORDS.some(pattern=>pattern.test(normalized)); }
 function selectChatClub(clubId){ if(visibleChatClubIds().includes(clubId)){ state.chatClubId=clubId; markChatRead(clubId); render(); } }
+function openSocialFriend(playerId){ openPlayerProfile(playerId,{source:'social'}); }
 function formatChatTime(value){
   const date=value&&typeof value.toDate==='function'?value.toDate():new Date(value||Date.now());
   return Number.isNaN(date.getTime())?'Just now':date.toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
@@ -2692,6 +2751,42 @@ async function clearClubChatForAll(clubId){
     toast('Could not clear this chat. Publish the updated Firestore rules and try again.');
   }
   state.chatClearBusy=false;
+  render();
+}
+async function sendFriendRequest(playerId){
+  if(!state.currentUser||!state.myPlayerId){ toast('Sign in and link your player profile before adding friends'); return; }
+  if(!playerId||playerId===state.myPlayerId) return;
+  const target=state.players.find(player=>player.id===playerId);
+  if(!target||!target.ownerUid){ toast('This player needs a signed-in account before they can receive friend requests'); return; }
+  const existing=friendRequestWith(playerId);
+  if(existing&&existing.status==='accepted'){ toast(`${playerName(playerId)} is already in your Social friends`); return; }
+  if(existing&&existing.status==='pending'){ toast('Friend request already pending'); return; }
+  const id=friendRequestPairId(state.myPlayerId,playerId);
+  const now=new Date().toISOString();
+  const record={id,fromPlayerId:state.myPlayerId,toPlayerId:playerId,fromUid:state.currentUser.uid,toUid:target.ownerUid,status:'pending',createdAt:now,updatedAt:now};
+  state.friendRequestBusyId=playerId;
+  render();
+  try{
+    await FRIEND_REQUESTS_COL.doc(id).set(record,{merge:true});
+    state.friendRequests=[...state.friendRequests.filter(request=>request.id!==id),record];
+    toast(`Friend request sent to ${playerName(playerId)}`);
+  }catch(e){ console.error(e); toast('Could not send the friend request. Publish the updated Firestore rules and try again.'); }
+  state.friendRequestBusyId=null;
+  render();
+}
+async function respondFriendRequest(requestId,accept){
+  const request=state.friendRequests.find(item=>item.id===requestId);
+  if(!request||request.toPlayerId!==state.myPlayerId||request.status!=='pending') return;
+  const now=new Date().toISOString();
+  const update=accept?{status:'accepted',acceptedAt:now,updatedAt:now}:{status:'declined',declinedAt:now,updatedAt:now};
+  state.friendRequestBusyId=request.fromPlayerId;
+  render();
+  try{
+    await FRIEND_REQUESTS_COL.doc(request.id).set(update,{merge:true});
+    state.friendRequests=state.friendRequests.map(item=>item.id===request.id?{...item,...update}:item);
+    toast(accept?`${playerName(request.fromPlayerId)} is now in Social`:'Friend request declined');
+  }catch(e){ console.error(e); toast('Could not update this friend request'); }
+  state.friendRequestBusyId=null;
   render();
 }
 
@@ -4557,11 +4652,7 @@ function closeClubHubProfile(){ state.clubHubSelectedId=null; state.clubDetailSo
 let clubSearchTimer=null;
 function setClubSearchQuery(value){
   state.clubSearchQuery=String(value||'').trimStart().slice(0,80);
-  if(clubSearchTimer) clearTimeout(clubSearchTimer);
-  clubSearchTimer=setTimeout(()=>{
-    clubSearchTimer=null;
-    render();
-  },220);
+  filterVisibleClubCards();
 }
 function applyClubSearchQuery(value){
   if(clubSearchTimer){ clearTimeout(clubSearchTimer); clubSearchTimer=null; }
@@ -4569,6 +4660,38 @@ function applyClubSearchQuery(value){
   render();
 }
 function clearClubSearch(){ state.clubSearchQuery=''; render(); }
+function setSocialSearchQuery(value){
+  state.socialSearchQuery=String(value||'').trimStart().slice(0,80);
+  filterVisibleSocialConversations();
+}
+function applySocialSearchQuery(value){
+  state.socialSearchQuery=String(value||'').trimStart().slice(0,80);
+  render();
+}
+function filterVisibleSocialConversations(){
+  const query=String(state.socialSearchQuery||'').trim().toLowerCase();
+  let shown=0,total=0;
+  document.querySelectorAll('.chat-club-button[data-social-search]').forEach(button=>{
+    total+=1;
+    const match=!query||(button.dataset.socialSearch||'').includes(query);
+    button.hidden=!match;
+    if(match) shown+=1;
+  });
+  const count=document.querySelector('.social-search-count');
+  if(count) count.textContent=String(shown);
+}
+function filterVisibleClubCards(){
+  const query=String(state.clubSearchQuery||'').trim().toLowerCase();
+  let shown=0,total=0;
+  document.querySelectorAll('.club-card[data-club-search]').forEach(card=>{
+    total+=1;
+    const match=!query||(card.dataset.clubSearch||'').includes(query);
+    card.hidden=!match;
+    if(match) shown+=1;
+  });
+  const count=document.querySelector('.club-search-count');
+  if(count) count.textContent=`${shown}/${total} club${total===1?'':'s'} shown`;
+}
 function setClubProfileRoleFilter(role){
   state.clubProfileRoleFilter=['all','club_admin','co_admin','staff','member'].includes(role)?role:'all';
   render();
@@ -4629,6 +4752,17 @@ function renderClubMemberRow(player,club,options={}){
   const statsBlock=isSignedIn()?`<span class="club-member-row-stats"><span><b>${stats.gamesPlayed}</b> games</span><span><b>${stats.wins}-${stats.losses}</b> W/L</span><span><b>${mvp}</b> MVP</span></span>`:'';
   return `<div class="club-member-row ${showAdminMeta?'admin-view':'compact-view'}"><button type="button" class="club-member-profile" onclick="openPlayerProfile(${jsArg(player.id)},{source:'clubHub',clubId:${jsArg(club.id)}})">${avatarHTML(player,38)}<span class="club-member-row-copy"><strong class="club-member-name-line"><span>${esc(showAdminMeta?player.name:playerFirstName(player))}</span></strong>${statsBlock}</span><span class="my-profile-badge club-member-division">${esc(playerDivisionLabel(player))}</span></button>${role!=='member'?`<span class="club-chip ${role==='staff'?'staff':'admin'}">${esc(clubRoleLabel(role))}</span>`:''}${canManage&&player.id!==state.myPlayerId&&role!=='club_admin'?`<button class="btn btn-danger btn-sm" type="button" onclick="removeClubMember(${jsArg(club.id)},${jsArg(player.id)})">Remove</button>`:''}${player.id===state.myPlayerId&&role==='club_admin'?'<span class="club-chip admin">You - Admin</span>':''}</div>`;
 }
+function renderFriendAction(player){
+  if(!isSignedIn()||!state.myPlayerId||!player||player.id===state.myPlayerId) return '';
+  const status=friendStatus(player.id);
+  const request=friendRequestWith(player.id);
+  const busy=state.friendRequestBusyId===player.id;
+  if(status==='friends') return `<span class="club-chip admin">Friend</span>`;
+  if(status==='outgoing') return `<span class="club-chip">Request sent</span>`;
+  if(status==='incoming'&&request) return `<span class="friend-action-group"><button class="btn btn-primary btn-sm" type="button" onclick="event.stopPropagation();respondFriendRequest(${jsArg(request.id)},true)" ${busy?'disabled':''}>Accept friend</button><button class="btn btn-ghost btn-sm" type="button" onclick="event.stopPropagation();respondFriendRequest(${jsArg(request.id)},false)" ${busy?'disabled':''}>Decline</button></span>`;
+  if(!player.ownerUid) return `<span class="club-chip">Account needed</span>`;
+  return `<button class="btn btn-ghost btn-sm" type="button" onclick="event.stopPropagation();sendFriendRequest(${jsArg(player.id)})" ${busy?'disabled':''}>${busy?'Sending...':'Add friend'}</button>`;
+}
 
 function renderClubDirectory() {
   const allClubs=clubsForDisplay();
@@ -4673,10 +4807,10 @@ function renderClubDirectory() {
       <div class="eyebrow">Find a club</div>
       <label class="club-search">
         <span class="sr-only">Search clubs</span>
-        <input type="search" value="${esc(state.clubSearchQuery||'')}" placeholder="Search club name, origin, or members" aria-label="Search clubs" oninput="setClubSearchQuery(this.value)" onchange="applyClubSearchQuery(this.value)" />
+        <input type="search" value="${esc(state.clubSearchQuery||'')}" placeholder="Search club name, origin, or members" aria-label="Search clubs" oninput="setClubSearchQuery(this.value)" onkeydown="if(event.key==='Enter')applyClubSearchQuery(this.value)" onblur="applyClubSearchQuery(this.value)" />
       </label>
     </div>
-    <span class="small muted">${clubs.length}/${allClubs.length} club${allClubs.length===1?'':'s'} shown</span>
+    <span class="small muted club-search-count">${clubs.length}/${allClubs.length} club${allClubs.length===1?'':'s'} shown</span>
   </section>
   <section class="club-grid" aria-label="Registered clubs">
     ${clubs.length?clubs.map(club=>{
@@ -4687,7 +4821,8 @@ function renderClubDirectory() {
       const myPending=!!(me&&pendingJoinRequest(club.id,me.id));
       const myRole=myMember&&me?clubRoleForPlayer(club.id,me):'member';
       const rank=topMemberClubRanks[club.id];
-      return `<article class="club-card ${selectedId===club.id?'active':''}" role="button" tabindex="0" aria-label="Open ${esc(club.name)} details" onclick="selectClubHub(${jsArg(club.id)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectClubHub(${jsArg(club.id)})}"><div class="club-card-head"><div class="club-card-title">${rank?`<span class="club-rank-star" title="#${rank} by member count" aria-label="#${rank} by member count">&#9733;</span>`:""}<h2>${esc(club.name)}</h2></div><div class="club-chip-list" style="margin-top:0;justify-content:flex-end;">${myMember?'<span class="club-chip">Member</span>':myPending?'<span class="club-chip">Request pending</span>':''}${myRole==='club_admin'?'<span class="club-chip admin">Club Admin</span>':myRole==='co_admin'?'<span class="club-chip admin">Co-Admin</span>':myRole==='staff'?'<span class="club-chip staff">Staff</span>':''}${pending?`<span class="club-chip">${pending} pending</span>`:''}</div></div><div class="club-origin"><span aria-hidden="true">*</span><span>${esc(club.origin||'Origin address not supplied')}</span></div><div class="club-card-metrics"><div class="club-card-metric"><strong>${members.length}</strong><span>Members</span></div><div class="club-card-metric"><strong>${games}</strong><span>Club Games</span></div></div><button class="btn btn-ghost btn-sm" type="button" onclick="event.stopPropagation();selectClubHub(${jsArg(club.id)})">View club</button></article>`;
+      const searchText=[club.name,club.origin,members.map(player=>`${player.name||''} ${player.nickname||''}`).join(' ')].filter(Boolean).join(' ').toLowerCase();
+      return `<article class="club-card ${selectedId===club.id?'active':''}" data-club-search="${esc(searchText)}" role="button" tabindex="0" aria-label="Open ${esc(club.name)} details" onclick="selectClubHub(${jsArg(club.id)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectClubHub(${jsArg(club.id)})}"><div class="club-card-head"><div class="club-card-title">${rank?`<span class="club-rank-star" title="#${rank} by member count" aria-label="#${rank} by member count">&#9733;</span>`:""}<h2>${esc(club.name)}</h2></div><div class="club-chip-list" style="margin-top:0;justify-content:flex-end;">${myMember?'<span class="club-chip">Member</span>':myPending?'<span class="club-chip">Request pending</span>':''}${myRole==='club_admin'?'<span class="club-chip admin">Club Admin</span>':myRole==='co_admin'?'<span class="club-chip admin">Co-Admin</span>':myRole==='staff'?'<span class="club-chip staff">Staff</span>':''}${pending?`<span class="club-chip">${pending} pending</span>`:''}</div></div><div class="club-origin"><span aria-hidden="true">*</span><span>${esc(club.origin||'Origin address not supplied')}</span></div><div class="club-card-metrics"><div class="club-card-metric"><strong>${members.length}</strong><span>Members</span></div><div class="club-card-metric"><strong>${games}</strong><span>Club Games</span></div></div><button class="btn btn-ghost btn-sm" type="button" onclick="event.stopPropagation();selectClubHub(${jsArg(club.id)})">View club</button></article>`;
     }).join(''):`<div class="empty club-search-empty"><h3>No clubs found</h3><p>Try another club name, origin, or member.</p><button class="btn btn-ghost" type="button" onclick="clearClubSearch()">Clear search</button></div>`}
   </section>
   ${selected?`
@@ -4738,8 +4873,10 @@ function renderClubChat(){
   if(!isSignedIn()) return `<div class="panel"><div class="empty"><h3>Sign in to open Social</h3><p>Approved club conversations and future friend messages live here.</p><button class="btn btn-ball" onclick="openAuthModal('login')">Sign in</button></div></div>`;
   const clubIds=visibleChatClubIds();
   const clubs=clubIds.map(clubById).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name));
-  if(!clubs.length) return `<div class="panel"><div class="empty"><h3>No Social conversations yet</h3><p>Join a club from Clubs. Its private conversation will appear here after your membership is approved.</p><button class="btn btn-ball" onclick="setTab('clubs')">Browse Clubs</button></div></div>`;
+  const friends=acceptedFriendIds().map(id=>state.players.find(player=>player.id===id)).filter(Boolean).sort((a,b)=>playerDisplayName(a).localeCompare(playerDisplayName(b)));
+  if(!clubs.length&&!friends.length) return `<div class="panel"><div class="empty"><h3>No Social conversations yet</h3><p>Join a club from Clubs or add friends from Members. Accepted friends will appear here.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;"><button class="btn btn-ball" onclick="setTab('clubs')">Browse Clubs</button><button class="btn btn-ghost" onclick="setTab('roster')">Find Members</button></div></div></div>`;
   const active=clubs.find(club=>club.id===state.chatClubId)||clubs[0];
+  if(!active) return `<div class="chat-page"><aside class="panel"><div class="section-title"><div><div class="eyebrow">Your conversations</div><h2>Social</h2></div><span class="diff-pill diff-zero social-search-count">${friends.length}</span></div><label class="social-search"><span class="sr-only">Search conversations</span><input type="search" value="${esc(state.socialSearchQuery||'')}" placeholder="Search Social" aria-label="Search Social conversations" oninput="setSocialSearchQuery(this.value)" onkeydown="if(event.key==='Enter')applySocialSearchQuery(this.value)" onblur="applySocialSearchQuery(this.value)" /></label><div class="chat-club-list">${friends.map(player=>`<button class="chat-club-button friend" data-social-search="${esc(playerDisplayName(player).toLowerCase())}" type="button" onclick="openSocialFriend(${jsArg(player.id)})"><strong>${esc(playerDisplayName(player))}</strong><span>Friend - open profile</span></button>`).join('')}</div></aside><section class="panel chat-room"><div class="empty"><h3>Join a club conversation</h3><p>Friend conversations appear here after they accept your request. Club chat stays inside Social.</p><button class="btn btn-ball" onclick="setTab('clubs')">Browse Clubs</button></div></section></div>`;
   if(state.chatClubId!==active.id) state.chatClubId=active.id;
   markChatRead(active.id);
   const canPost=chatClubIds().includes(active.id);
@@ -4748,7 +4885,7 @@ function renderClubChat(){
   const inviteAccess=!!(state.myPlayerId&&pendingClubInvite(active.id,state.myPlayerId));
   const messages=allChatMessages().filter(message=>message.clubId===active.id&&canViewChatMessage(message)).slice(-150);
   return `<div class="chat-page">
-    <aside class="panel"><div class="section-title"><div><div class="eyebrow">Your conversations</div><h2>Social</h2></div><span class="diff-pill diff-zero">${clubs.length}</span></div><p class="small muted" style="margin:-5px 0 14px;">Club conversations are live now. Friend messaging will use this same Social space.</p><div class="chat-club-list">${clubs.map(club=>{const count=allChatMessages().filter(message=>message.clubId===club.id&&canViewChatMessage(message)).length;const unread=unreadMentionCount(club.id);const noticeOnly=!chatClubIds().includes(club.id);const locked=lockedScheduleChatNotice(club.id);return `<button class="chat-club-button ${club.id===active.id?'active':''}" type="button" onclick="selectChatClub(${jsArg(club.id)})"><strong>${esc(club.name)}</strong><span>${locked?'Club request needed':noticeOnly?'Direct club notice':unread?`${unread} unread mention${unread===1?'':'s'}`:count?`${count} recent message${count===1?'':'s'}`:'Start the conversation'}</span>${unread?`<span class="chat-unread-badge" aria-label="${unread} unread mention${unread===1?'':'s'}">${unread}</span>`:''}</button>`;}).join('')}</div></aside>
+    <aside class="panel"><div class="section-title"><div><div class="eyebrow">Your conversations</div><h2>Social</h2></div><span class="diff-pill diff-zero social-search-count">${clubs.length+friends.length}</span></div><label class="social-search"><span class="sr-only">Search conversations</span><input type="search" value="${esc(state.socialSearchQuery||'')}" placeholder="Search clubs or friends" aria-label="Search Social conversations" oninput="setSocialSearchQuery(this.value)" onkeydown="if(event.key==='Enter')applySocialSearchQuery(this.value)" onblur="applySocialSearchQuery(this.value)" /></label><p class="small muted" style="margin:10px 0 14px;">Club conversations are live now. Accepted friends appear here too.</p><div class="chat-club-list">${clubs.map(club=>{const count=allChatMessages().filter(message=>message.clubId===club.id&&canViewChatMessage(message)).length;const unread=unreadMentionCount(club.id);const noticeOnly=!chatClubIds().includes(club.id);const locked=lockedScheduleChatNotice(club.id);return `<button class="chat-club-button ${club.id===active.id?'active':''}" data-social-search="${esc([club.name,club.origin,'club social'].filter(Boolean).join(' ').toLowerCase())}" type="button" onclick="selectChatClub(${jsArg(club.id)})"><strong>${esc(club.name)}</strong><span>${locked?'Club request needed':noticeOnly?'Direct club notice':unread?`${unread} unread mention${unread===1?'':'s'}`:count?`${count} recent message${count===1?'':'s'}`:'Start the conversation'}</span>${unread?`<span class="chat-unread-badge" aria-label="${unread} unread mention${unread===1?'':'s'}">${unread}</span>`:''}</button>`;}).join('')}${friends.map(player=>`<button class="chat-club-button friend" data-social-search="${esc([playerDisplayName(player),playerRealName(player),playerEmail(player),'friend'].filter(Boolean).join(' ').toLowerCase())}" type="button" onclick="openSocialFriend(${jsArg(player.id)})"><strong>${esc(playerDisplayName(player))}</strong><span>Friend - open profile</span></button>`).join('')}</div></aside>
     <section class="panel chat-room" aria-label="${esc(active.name)} Social conversation">
       <div class="chat-room-head"><div><div class="eyebrow">Social</div><h2>${esc(active.name)}</h2></div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;"><span class="club-chip">Club Social</span>${canClearClubChat(active.id)?`<button class="btn btn-danger btn-sm" type="button" onclick="clearClubChatForAll(${jsArg(active.id)})" ${state.chatClearBusy?'disabled':''}>${state.chatClearBusy?'Clearing...':'Clear for All Members'}</button>`:''}</div></div>
       <div id="clubChatMessages" class="chat-messages" aria-live="polite">${messages.length?messages.map(message=>{const system=message.kind==='system';const mine=!system&&message.senderUid===state.currentUser.uid;const mentioned=messageMentionsMe(message);const blocked=!system&&containsChatProfanity(message.text);const sender=system?{name:message.senderName||clubName(message.clubId)}:state.players.find(player=>player.id===message.senderPlayerId);return `<div class="chat-message ${mine?'mine':''} ${mentioned?'mentioned':''} ${system?'system':''}">${avatarHTML(sender||{name:message.senderName||'Member'},30)}<div class="chat-bubble">${mentioned?'<div class="chat-mention-label">@ Mentioned you</div>':''}<div class="chat-meta">${system?esc(message.senderName||clubName(message.clubId)):(mine?'You':esc(message.senderName||playerName(message.senderPlayerId)))} - ${esc(formatChatTime(message.createdAt))}</div><div class="chat-text">${blocked?'<em>Message hidden for violating the Social language rule.</em>':formatChatMessageText(message)}</div></div></div>`;}).join(''):lockedNotice?`<div class="empty"><h3>Club approval needed</h3><p>You were included in a ${esc(active.name)} Game Plan. Request to join the club before reading its Social notice.</p>${inviteAccess?`<button class="btn btn-ball" type="button" onclick="setTab('profile')">Review club invitation</button>`:pendingAccess?`<span class="club-chip">Request pending</span>`:`<button class="btn btn-ball" type="button" onclick="requestClubJoin(${jsArg(active.id)})">Request to join ${esc(active.name)}</button>`}</div>`:`<div class="empty"><h3>Start the club conversation</h3><p>Coordinate games, share reminders, and keep the chat respectful.</p></div>`}</div>
@@ -4788,7 +4925,9 @@ function renderRosterMemberTile(row){
   const nickname=playerNickname(p);
   const realName=playerRealName(p)||'Unnamed player';
   const displayName=playerDisplayName(p);
-  return `<article class="roster-member-tile" onclick="openPlayerProfile(${jsArg(p.id)})">
+  const searchText=normalizePlayerSearch([displayName,realName,nickname,email,p.playerId,activePlayerClubIds(p).map(clubName).join(' ')].filter(Boolean).join(' '));
+  const friendAction=renderFriendAction(p);
+  return `<article class="roster-member-tile" data-roster-search="${esc(searchText)}" onclick="openPlayerProfile(${jsArg(p.id)})">
     <div class="roster-member-identity">
       ${avatarHTML(p,36)}
       <div class="roster-member-name-wrap">
@@ -4797,7 +4936,7 @@ function renderRosterMemberTile(row){
       </div>
     </div>
     <div class="roster-member-clubs">${primaryClub}</div>
-    ${isSuperAdmin()?`<div class="roster-member-actions" onclick="event.stopPropagation();">${p.guest?`<button class="btn btn-primary btn-sm" onclick="migrateGuestToRegisteredPlayer(${jsArg(p.id)})">Migrate</button>`:`<button class="btn btn-danger btn-sm" onclick="deletePlayer(${jsArg(p.id)})">Delete</button>`}</div>`:''}
+    ${friendAction||isSuperAdmin()?`<div class="roster-member-actions" onclick="event.stopPropagation();">${friendAction}${isSuperAdmin()?(p.guest?`<button class="btn btn-primary btn-sm" onclick="migrateGuestToRegisteredPlayer(${jsArg(p.id)})">Migrate</button>`:`<button class="btn btn-danger btn-sm" onclick="deletePlayer(${jsArg(p.id)})">Delete</button>`):''}</div>`:''}
   </article>`;
 }
 function renderRoster(){
@@ -4824,7 +4963,7 @@ function renderRoster(){
         <h2>Members</h2>
         <label class="roster-search">
           <span class="sr-only">Search members</span>
-          <input type="search" value="${esc(state.rosterSearchQuery||'')}" placeholder="Search members, nicknames, email, or clubs" aria-label="Search members" oninput="setRosterSearchQuery(this.value)" onchange="applyRosterSearchQuery(this.value)" />
+          <input type="search" value="${esc(state.rosterSearchQuery||'')}" placeholder="Search members, nicknames, email, or clubs" aria-label="Search members" oninput="setRosterSearchQuery(this.value)" onkeydown="if(event.key==='Enter')applyRosterSearchQuery(this.value)" onblur="applyRosterSearchQuery(this.value)" />
         </label>
       </div>
       ${isSuperAdmin() ? `<button class="btn btn-primary btn-sm" onclick="state.showAddPlayer=true; render();">+ Add global player</button>` : ''}
@@ -5181,6 +5320,7 @@ function renderPlayerModal(){
           <h2 style="font-size:26px;color:var(--court-deep);line-height:1;">${esc(p.name)}${p.guest?'<span class="guest-tag">Guest</span>':''}</h2>
           <div class="club-chip-list"><span class="my-profile-badge">${esc(playerDivisionLabel(p))}</span>${renderPlayerProfileTopClub(p)}</div>
           ${renderPlayerPrivateMeta(p)}
+          <div class="player-friend-action">${renderFriendAction(p)}</div>
           ${clubHubMemberDuration?`<p class="small muted" style="margin:7px 0 0;">${esc(clubHubMemberDuration)}</p>`:""}
         </div>
       </div>
@@ -5973,17 +6113,17 @@ function exposeLegacyHandlers(){
     'addDuprMatchToPlan','addExistingClubMember','addExtraRound','addGuestForSchedule','addLatePlayerToSchedule','addRegisteredPlayerToSchedule',
     'applyCustomDateRange','applyRosterClubSearch','applyRosterSearchQuery','applyScheduleRegisteredSearch','autoPairTeams','backToHistoryPlans','backToPlayerProfilePlans',
     'backToScheduleList','beginEditCourtResult','beginLateCourtResult','beginProfileNameEdit','cancelEditCourtResult','cancelLateCourtResult',
-    'applyClubSearchQuery','cancelProfileNameEdit','clearClubChatForAll','clearClubSearch','clearCustomDateRange','clearRosterClubFilters','clearRosterDivisionFilters','clearSchedulePlayers','closeAuthModal',
+    'applyClubSearchQuery','applySocialSearchQuery','cancelProfileNameEdit','clearClubChatForAll','clearClubSearch','clearCustomDateRange','clearRosterClubFilters','clearRosterDivisionFilters','clearSchedulePlayers','closeAuthModal',
     'closeClubHubProfile','closeScheduleLeaderboard','closeSupportPanel','completeLegacyClubRegistration','confirmMatchResult','createClubMember',
     'deleteGamePlan','deleteGamePlanHistory','deleteMatch','deletePlayer','disputeMatchResult','editGamePlan','endGamePlan','goToClubHubFromProfile',
     'handleChatMentionKeydown','handleChatMessageInput','invitePlayerToClub','migrateGuestToRegisteredPlayer','openAuthModal','openCreateGamePlan',
     'openGamePlan','openHistoryGroup','openPlayerProfile','openPlayerProfilePlan','openProfileClubDetail','openScheduleLeaderboard','openSupportPanel',
     'recordCourtResult','removeClubFromHub','removeClubMember','removeExtraRound','removePlayerFromScheduleQueue','render','replySupportRequest',
-    'requestClubJoin','respondToClubInvite','reviewClubJoinRequest','saveClubDetails','saveGamePlan','saveMyProfileName','saveMyProfilePassword',
+    'requestClubJoin','respondFriendRequest','respondToClubInvite','reviewClubJoinRequest','saveClubDetails','saveGamePlan','saveMyProfileName','saveMyProfilePassword',
     'resetRosterFilters','saveProfileDivision','saveProfileVisibility','selectAllRosterClubFilters','selectAllRosterDivisionFilters','selectAllSchedulePlayers','selectChatClub','selectClubHub',
-    'sendClubChat','sendPasswordResetFromModal','sendSupportRequest','setActiveCourtFilter','setClubMemberRole','setClubProfileRoleFilter','setClubSearchQuery',
+    'sendClubChat','sendFriendRequest','sendPasswordResetFromModal','sendSupportRequest','setActiveCourtFilter','setClubMemberRole','setClubProfileRoleFilter','setClubSearchQuery',
     'setDateRange','setH2H','setH2HClub','setH2HSearch','setMyClubMembership','setOfflineAccessPreference','setRosterClubFilterOpen','setRosterDivisionFilterOpen',
-    'setRosterPage','setRosterSearchQuery','setRosterSortDirection','setRosterSortKey','setScheduleCourtFilter','setScheduleFilter',
+    'setRosterPage','setRosterSearchQuery','setRosterSortDirection','setRosterSortKey','setScheduleCourtFilter','setScheduleFilter','setSocialSearchQuery',
     'setScheduleRegisteredSearchOpen','setTab','signInWithGoogle','submitAddPlayerForm','submitAuthForm','submitClubRegistration',
     'toggleRosterClubFilter','toggleRosterDivisionFilter','toggleRosterSort','toggleScheduleSelect','transferPrimaryClubAdmin','updateCourtResult','updateScheduleDraft',
     'toggleTheme','toggleNavigation','logoutUser','exploreLanding'
