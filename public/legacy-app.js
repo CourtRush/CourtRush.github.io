@@ -354,6 +354,11 @@ function friendStatus(playerId){
   if(request.status==='pending') return request.toPlayerId===state.myPlayerId?'incoming':'outgoing';
   return 'none';
 }
+function upsertFriendRequestLocal(record){
+  if(!record||!record.id) return;
+  state.friendRequests=[...state.friendRequests.filter(request=>request.id!==record.id),record]
+    .sort((a,b)=>String(b.updatedAt||b.createdAt||'').localeCompare(String(a.updatedAt||a.createdAt||'')));
+}
 function markChatRead(clubId){
   if(!clubId||!state.currentUser||!unreadMentionCount(clubId)) return;
   const reads=chatReadState();
@@ -2836,10 +2841,27 @@ async function sendFriendRequest(playerId){
   if(!playerId||playerId===state.myPlayerId) return;
   const target=state.players.find(player=>player.id===playerId);
   if(!target||!target.ownerUid){ toast('This player needs a signed-in account before they can receive friend requests'); return; }
-  const existing=friendRequestWith(playerId);
-  if(existing&&existing.status==='accepted'){ toast(`${playerName(playerId)} is already in your Social friends`); return; }
-  if(existing&&existing.status==='pending'){ toast('Friend request already pending'); return; }
   const id=friendRequestPairId(state.myPlayerId,playerId);
+  let existing=friendRequestWith(playerId);
+  if(!existing){
+    try{
+      const snap=await FRIEND_REQUESTS_COL.doc(id).get();
+      if(snap.exists){
+        existing={id:snap.id,...snap.data()};
+        upsertFriendRequestLocal(existing);
+      }
+    }catch(e){ console.warn('Could not precheck friend request',e); }
+  }
+  if(existing&&existing.status==='accepted'){ toast(`${playerName(playerId)} is already in your Social friends`); return; }
+  if(existing&&existing.status==='pending'){
+    if(existing.toPlayerId===state.myPlayerId){
+      await respondFriendRequest(existing.id,true);
+      return;
+    }
+    toast('Friend request already pending');
+    render();
+    return;
+  }
   const now=new Date().toISOString();
   const record={id,fromPlayerId:state.myPlayerId,toPlayerId:playerId,fromUid:state.currentUser.uid,toUid:target.ownerUid,status:'pending',createdAt:now,updatedAt:now};
   state.friendRequestBusyId=playerId;
@@ -2850,7 +2872,7 @@ async function sendFriendRequest(playerId){
     }else{
       await FRIEND_REQUESTS_COL.doc(id).set(record);
     }
-    state.friendRequests=[...state.friendRequests.filter(request=>request.id!==id),record];
+    upsertFriendRequestLocal(record);
     await createPlayerNotifications({
       type:'friend_request',
       sourceId:id,
