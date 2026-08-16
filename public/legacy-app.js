@@ -2866,6 +2866,23 @@ async function sendFriendRequest(playerId){
   state.friendRequestBusyId=null;
   render();
 }
+async function cancelFriendRequest(playerId){
+  if(!state.currentUser||!state.myPlayerId||!playerId) return;
+  const request=friendRequestWith(playerId);
+  if(!request||request.status!=='pending'||request.fromPlayerId!==state.myPlayerId) return;
+  state.friendRequestBusyId=playerId;
+  render();
+  try{
+    await FRIEND_REQUESTS_COL.doc(request.id).delete();
+    state.friendRequests=state.friendRequests.filter(item=>item.id!==request.id);
+    toast('Friend request canceled');
+  }catch(e){
+    console.error(e);
+    toast(`Could not cancel the friend request${e&&e.code?` (${e.code})`:''}`);
+  }
+  state.friendRequestBusyId=null;
+  render();
+}
 async function respondFriendRequest(requestId,accept){
   const request=state.friendRequests.find(item=>item.id===requestId);
   if(!request||request.toPlayerId!==state.myPlayerId||request.status!=='pending') return;
@@ -2889,6 +2906,25 @@ async function respondFriendRequest(requestId,accept){
     }
     toast(accept?`${playerName(request.fromPlayerId)} is now in Social`:'Friend request declined');
   }catch(e){ console.error(e); toast('Could not update this friend request'); }
+  state.friendRequestBusyId=null;
+  render();
+}
+async function removeFriend(playerId){
+  if(!state.currentUser||!state.myPlayerId||!playerId) return;
+  const request=friendRequestWith(playerId);
+  if(!request||request.status!=='accepted') return;
+  const friend=state.players.find(player=>player.id===playerId);
+  if(!confirm(`Remove ${playerDisplayName(friend)||'this player'} from My Friends?`)) return;
+  state.friendRequestBusyId=playerId;
+  render();
+  try{
+    await FRIEND_REQUESTS_COL.doc(request.id).delete();
+    state.friendRequests=state.friendRequests.filter(item=>item.id!==request.id);
+    toast(`${playerDisplayName(friend)||'Player'} removed from My Friends`);
+  }catch(e){
+    console.error(e);
+    toast(`Could not remove this friend${e&&e.code?` (${e.code})`:''}`);
+  }
   state.friendRequestBusyId=null;
   render();
 }
@@ -4855,13 +4891,13 @@ function renderClubMemberRow(player,club,options={}){
   const statsBlock=isSignedIn()?`<span class="club-member-row-stats"><span><b>${stats.gamesPlayed}</b> games</span><span><b>${stats.wins}-${stats.losses}</b> W/L</span><span><b>${mvp}</b> MVP</span></span>`:'';
   return `<div class="club-member-row ${showAdminMeta?'admin-view':'compact-view'}"><button type="button" class="club-member-profile" onclick="openPlayerProfile(${jsArg(player.id)},{source:'clubHub',clubId:${jsArg(club.id)}})">${avatarHTML(player,38)}<span class="club-member-row-copy"><strong class="club-member-name-line"><span>${esc(showAdminMeta?player.name:playerFirstName(player))}</span></strong>${statsBlock}</span><span class="my-profile-badge club-member-division">${esc(playerDivisionLabel(player))}</span></button>${role!=='member'?`<span class="club-chip ${role==='staff'?'staff':'admin'}">${esc(clubRoleLabel(role))}</span>`:''}${canManage&&player.id!==state.myPlayerId&&role!=='club_admin'?`<button class="btn btn-danger btn-sm" type="button" onclick="removeClubMember(${jsArg(club.id)},${jsArg(player.id)})">Remove</button>`:''}${player.id===state.myPlayerId&&role==='club_admin'?'<span class="club-chip admin">You - Admin</span>':''}</div>`;
 }
-function renderFriendAction(player){
+function renderFriendAction(player,options={}){
   if(!isSignedIn()||!state.myPlayerId||!player||player.id===state.myPlayerId) return '';
   const status=friendStatus(player.id);
   const request=friendRequestWith(player.id);
   const busy=state.friendRequestBusyId===player.id;
-  if(status==='friends') return `<span class="club-chip admin">Friend</span>`;
-  if(status==='outgoing') return `<span class="club-chip">Request sent</span>`;
+  if(status==='friends') return options.removable?`<button class="btn btn-danger btn-sm" type="button" onclick="event.stopPropagation();removeFriend(${jsArg(player.id)})" ${busy?'disabled':''}>${busy?'Removing...':'Remove'}</button>`:`<span class="club-chip admin">Friend</span>`;
+  if(status==='outgoing') return `<button class="btn btn-ghost btn-sm" type="button" onclick="event.stopPropagation();cancelFriendRequest(${jsArg(player.id)})" ${busy?'disabled':''}>${busy?'Canceling...':'Cancel Request'}</button>`;
   if(status==='incoming'&&request) return `<span class="friend-action-group"><button class="btn btn-primary btn-sm" type="button" onclick="event.stopPropagation();respondFriendRequest(${jsArg(request.id)},true)" ${busy?'disabled':''}>Accept friend</button><button class="btn btn-ghost btn-sm" type="button" onclick="event.stopPropagation();respondFriendRequest(${jsArg(request.id)},false)" ${busy?'disabled':''}>Decline</button></span>`;
   if(!player.ownerUid) return `<span class="club-chip">Account needed</span>`;
   return `<button class="btn btn-ghost btn-sm" type="button" onclick="event.stopPropagation();sendFriendRequest(${jsArg(player.id)})" ${busy?'disabled':''}>${busy?'Sending...':'Add friend'}</button>`;
@@ -5041,6 +5077,35 @@ function renderRosterMemberTile(row){
     <div class="roster-member-clubs">${primaryClub}</div>
     ${friendAction||isSuperAdmin()?`<div class="roster-member-actions" onclick="event.stopPropagation();">${friendAction}${isSuperAdmin()?(p.guest?`<button class="btn btn-primary btn-sm" onclick="migrateGuestToRegisteredPlayer(${jsArg(p.id)})">Migrate</button>`:`<button class="btn btn-danger btn-sm" onclick="deletePlayer(${jsArg(p.id)})">Delete</button>`):''}</div>`:''}
   </article>`;
+}
+function renderMyFriendTile(player){
+  const primaryClub=renderPlayerTopClubChip(player);
+  const division=playerDivisionValue(player);
+  const email=playerEmail(player);
+  const nickname=playerNickname(player);
+  const realName=playerRealName(player)||'Unnamed player';
+  const displayName=playerDisplayName(player);
+  return `<article class="roster-member-tile my-friend-tile" onclick="openPlayerProfile(${jsArg(player.id)})">
+    <div class="roster-member-identity">
+      ${avatarHTML(player,36)}
+      <div class="roster-member-name-wrap">
+        <div class="roster-member-name"><span class="roster-member-name-text">${esc(displayName)}</span><span class="division-tag">${esc(divisionMeta(division).abbr)}</span></div>
+        <div class="roster-member-admin-line">${nickname?`Real name: ${esc(realName)}`:esc(realName)}${email?` &middot; ${esc(email)}`:''}</div>
+      </div>
+    </div>
+    <div class="roster-member-clubs">${primaryClub}</div>
+    <div class="roster-member-actions" onclick="event.stopPropagation();">${renderFriendAction(player,{removable:true})}</div>
+  </article>`;
+}
+function renderMyFriendsPanel(){
+  const friends=acceptedFriendIds().map(id=>state.players.find(player=>player.id===id)).filter(Boolean).sort((a,b)=>playerDisplayName(a).localeCompare(playerDisplayName(b),undefined,{sensitivity:'base'}));
+  const incoming=friendRequestsForMe().filter(request=>request.status==='pending'&&request.toPlayerId===state.myPlayerId).map(request=>state.players.find(player=>player.id===request.fromPlayerId)).filter(Boolean);
+  const outgoing=friendRequestsForMe().filter(request=>request.status==='pending'&&request.fromPlayerId===state.myPlayerId).map(request=>state.players.find(player=>player.id===request.toPlayerId)).filter(Boolean);
+  return `<section class="panel profile-friends-panel">
+    <div class="section-title"><div><div class="eyebrow">Social</div><h2>My Friends</h2></div><button class="btn btn-ghost btn-sm" type="button" onclick="setTab('roster')">Find Members</button></div>
+    ${friends.length?`<div class="roster-member-list my-friends-list">${friends.map(renderMyFriendTile).join('')}</div>`:`<div class="empty" style="padding:18px 10px;"><h3>No friends yet</h3><p>Add members as friends so they appear in Social.</p><button class="btn btn-ball" type="button" onclick="setTab('roster')">Find Members</button></div>`}
+    ${(incoming.length||outgoing.length)?`<div class="friend-request-summary"><span>${incoming.length} incoming request${incoming.length===1?'':'s'}</span><span>${outgoing.length} sent request${outgoing.length===1?'':'s'}</span></div>`:''}
+  </section>`;
 }
 function renderRoster(){
   const mvpCounts=computeMvpCounts();
@@ -5345,6 +5410,7 @@ function renderMyProfile(){
         ${renderDivisionTips(p)}
       </div>
     </section>
+    ${renderMyFriendsPanel()}
     <section class="panel">
       <div class="section-title"><h2>Performance snapshot</h2><span class="small muted">Based on ${activeDateRangeLabel().toLowerCase()} results</span></div>
       <div class="profile-insight-grid">
@@ -6216,12 +6282,12 @@ function exposeLegacyHandlers(){
     'addDuprMatchToPlan','addExistingClubMember','addExtraRound','addGuestForSchedule','addLatePlayerToSchedule','addRegisteredPlayerToSchedule',
     'applyCustomDateRange','applyRosterClubSearch','applyRosterSearchQuery','applyScheduleRegisteredSearch','autoPairTeams','backToHistoryPlans','backToPlayerProfilePlans',
     'backToScheduleList','beginEditCourtResult','beginLateCourtResult','beginProfileNameEdit','cancelEditCourtResult','cancelLateCourtResult',
-    'applyClubSearchQuery','applySocialSearchQuery','cancelProfileNameEdit','clearClubChatForAll','clearClubChatForMe','clearClubSearch','clearCustomDateRange','clearRosterClubFilters','clearRosterDivisionFilters','clearSchedulePlayers','closeAuthModal',
+    'applyClubSearchQuery','applySocialSearchQuery','cancelFriendRequest','cancelProfileNameEdit','clearClubChatForAll','clearClubChatForMe','clearClubSearch','clearCustomDateRange','clearRosterClubFilters','clearRosterDivisionFilters','clearSchedulePlayers','closeAuthModal',
     'closeClubHubProfile','closeScheduleLeaderboard','closeSupportPanel','completeLegacyClubRegistration','confirmMatchResult','createClubMember',
     'deleteChatMessageForMe','deleteGamePlan','deleteGamePlanHistory','deleteMatch','deletePlayer','disputeMatchResult','editGamePlan','endGamePlan','goToClubHubFromProfile',
     'handleChatMentionKeydown','handleChatMessageInput','invitePlayerToClub','migrateGuestToRegisteredPlayer','openAuthModal','openCreateGamePlan',
     'openGamePlan','openHistoryGroup','openPlayerProfile','openPlayerProfilePlan','openProfileClubDetail','openScheduleLeaderboard','openSupportPanel',
-    'recordCourtResult','removeClubFromHub','removeClubMember','removeExtraRound','removePlayerFromScheduleQueue','render','replySupportRequest',
+    'recordCourtResult','removeClubFromHub','removeClubMember','removeExtraRound','removeFriend','removePlayerFromScheduleQueue','render','replySupportRequest',
     'requestClubJoin','respondFriendRequest','respondToClubInvite','reviewClubJoinRequest','saveClubDetails','saveGamePlan','saveMyProfileName','saveMyProfilePassword',
     'resetRosterFilters','saveProfileDivision','saveProfileVisibility','selectAllRosterClubFilters','selectAllRosterDivisionFilters','selectAllSchedulePlayers','selectChatClub','selectClubHub',
     'sendClubChat','sendFriendRequest','sendPasswordResetFromModal','sendSupportRequest','setActiveCourtFilter','setClubMemberRole','setClubProfileRoleFilter','setClubSearchQuery',

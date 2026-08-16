@@ -457,6 +457,8 @@
   .roster-member-tile[hidden],.club-card[hidden],.chat-club-button[hidden]{display:none!important;}
   .friend-action-group{display:inline-flex;align-items:center;gap:7px;flex-wrap:wrap;}
   .player-friend-action{margin-top:9px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .friend-request-summary{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;}
+  .friend-request-summary span{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:6px 9px;background:var(--bg);}
   .roster-member-actions .btn{border-radius:999px;}
   .roster-pagination,.roster-pagination-count{display:flex;align-items:center;justify-content:center;gap:10px;margin:14px 0 0;color:var(--muted);font-size:12px;font-weight:800;}
   .roster-results-bar .roster-pagination{margin:0;}

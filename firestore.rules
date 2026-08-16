@@ -320,6 +320,7 @@ service cloud.firestore {
           resource.data.fromUid == request.auth.uid &&
           request.resource.data.status == 'pending'));
 
+      // Lets either side cancel a pending request or remove an accepted friend.
       allow delete: if isSuperAdmin() ||
         (isSignedIn() && (resource.data.fromUid == request.auth.uid ||
          resource.data.toUid == request.auth.uid));
