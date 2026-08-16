@@ -1042,6 +1042,9 @@
   .chat-message.system .chat-meta{color:var(--court-deep);}
   .chat-mention-label{display:inline-flex;align-items:center;gap:4px;margin-bottom:6px;padding:3px 7px;border-radius:999px;background:color-mix(in srgb,var(--coral) 15%,transparent);color:var(--coral);font:800 8px/1 'IBM Plex Mono',monospace;letter-spacing:.06em;text-transform:uppercase;}
   .chat-meta{font-size:9px;color:var(--muted);font-weight:800;margin-bottom:4px;}
+  .chat-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .chat-delete-me{border:0;background:transparent;color:inherit;opacity:.62;font:inherit;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;padding:0;cursor:pointer;white-space:nowrap;}
+  .chat-delete-me:hover{opacity:1;text-decoration:underline;text-underline-offset:2px;}
   .chat-message.mine .chat-meta{color:var(--action-on);opacity:.7;}
   .chat-text{font-size:13.5px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere;}
   .chat-text .mention{display:inline;padding:1px 4px;border-radius:5px;background:color-mix(in srgb,var(--ball) 26%,transparent);color:inherit;font-weight:800;white-space:normal;}

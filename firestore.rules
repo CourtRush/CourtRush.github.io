@@ -64,6 +64,11 @@ service cloud.firestore {
     function validFriendStatus(value) {
       return value == 'pending' || value == 'accepted' || value == 'declined';
     }
+    function validNotificationType(value) {
+      return value == 'club_invite' || value == 'schedule_created' ||
+        value == 'schedule_updated' || value == 'friend_request' ||
+        value == 'friend_accepted';
+    }
     function validClubStatus(value) {
       return value == 'active' || value == 'removed';
     }
@@ -484,14 +489,28 @@ service cloud.firestore {
         request.resource.data.recipientPlayerId is string &&
         request.resource.data.title is string &&
         request.resource.data.body is string &&
-        request.resource.data.type in ['club_invite', 'schedule_created', 'schedule_updated'] &&
+        validNotificationType(request.resource.data.type) &&
         request.resource.data.get('clubId', 'independent') is string &&
         (
           (request.resource.data.type == 'club_invite' &&
            currentUserBelongsToClub(request.resource.data.clubId)) ||
           (request.resource.data.type in ['schedule_created', 'schedule_updated'] &&
            exists(/databases/$(database)/documents/schedules/$(request.resource.data.sourceId)) &&
-           get(/databases/$(database)/documents/schedules/$(request.resource.data.sourceId)).data.createdBy == request.auth.uid)
+           get(/databases/$(database)/documents/schedules/$(request.resource.data.sourceId)).data.createdBy == request.auth.uid) ||
+          (request.resource.data.type in ['friend_request', 'friend_accepted'] &&
+           request.resource.data.createdByUid == request.auth.uid &&
+           request.resource.data.recipientPlayerId != currentPlayerId() &&
+           request.resource.data.get('fromPlayerId', '') is string &&
+           request.resource.data.get('toPlayerId', '') is string &&
+           exists(/databases/$(database)/documents/friendRequests/$(request.resource.data.sourceId)) &&
+           request.resource.data.get('fromPlayerId', '') in [
+             get(/databases/$(database)/documents/friendRequests/$(request.resource.data.sourceId)).data.fromPlayerId,
+             get(/databases/$(database)/documents/friendRequests/$(request.resource.data.sourceId)).data.toPlayerId
+           ] &&
+           request.resource.data.get('toPlayerId', '') in [
+             get(/databases/$(database)/documents/friendRequests/$(request.resource.data.sourceId)).data.fromPlayerId,
+             get(/databases/$(database)/documents/friendRequests/$(request.resource.data.sourceId)).data.toPlayerId
+           ])
         );
 
       allow delete: if isSuperAdmin();
