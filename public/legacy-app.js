@@ -600,7 +600,7 @@ function stopFriendRequestSync(){
 }
 function refreshFriendRequestSync(force){
   if(!state.currentUser||!state.myPlayerId||typeof FRIEND_REQUESTS_COL.where!=='function'){ stopFriendRequestSync(); return; }
-  const key=`player:${state.myPlayerId}`;
+  const key=`user:${state.currentUser.uid}`;
   if(!force&&friendRequestUnsubs.length&&friendRequestSyncKey===key) return;
   stopFriendRequestSync();
   friendRequestSyncKey=key;
@@ -634,8 +634,8 @@ function refreshFriendRequestSync(force){
     mergeSources();
   },2500);
   friendRequestUnsubs.push(()=>{ if(readyFallback){ clearTimeout(readyFallback); readyFallback=null; } });
-  friendRequestUnsubs.push(FRIEND_REQUESTS_COL.where('fromPlayerId','==',state.myPlayerId).onSnapshot(mergeSnap(0),markFailed(0)));
-  friendRequestUnsubs.push(FRIEND_REQUESTS_COL.where('toPlayerId','==',state.myPlayerId).onSnapshot(mergeSnap(1),markFailed(1)));
+  friendRequestUnsubs.push(FRIEND_REQUESTS_COL.where('fromUid','==',state.currentUser.uid).onSnapshot(mergeSnap(0),markFailed(0)));
+  friendRequestUnsubs.push(FRIEND_REQUESTS_COL.where('toUid','==',state.currentUser.uid).onSnapshot(mergeSnap(1),markFailed(1)));
 }
 
 let supportUnsub=null;
